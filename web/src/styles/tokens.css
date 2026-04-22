@@ -1,0 +1,51 @@
+:root {
+  --color-bg:           #0D0F14;
+  --color-surface:      #161923;
+  --color-card:         #1E2332;
+  --color-accent:       #6C63FF;
+  --color-accent-light: #8B85FF;
+  --color-accent-soft:  #A09BFF;
+  --color-accent-glow:  rgba(108, 99, 255, 0.3);
+  --color-text:         #F0F2FF;
+  --color-muted:        #8890A4;
+  --color-border:       #2A2F45;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-card:   0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-button: 0 4px 16px rgba(108, 99, 255, 0.35);
+  --shadow-glow:   0 0 30px rgba(108, 99, 255, 0.2);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  --max-content: 900px;
+  --max-wide:    1200px;
+  --max-narrow:  640px;
+
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.35s ease;
+
+  --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-theme="light"] {
+  --color-bg:      #F0F2FF;
+  --color-surface: #FFFFFF;
+  --color-card:    #F7F8FF;
+  --color-text:    #1A1A2E;
+  --color-muted:   #6870A0;
+  --color-border:  #DDE0F0;
+}
