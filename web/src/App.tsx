@@ -10,7 +10,7 @@ function App() {
         <nav className="app-nav__links">
           <a href="#features">Features</a>
           <a href="#roadmap">Roadmap</a>
-          <button className="btn-ghost">Login</button>
+          <button className="btn-ghost">Log in</button>
         </nav>
       </header>
 
@@ -21,23 +21,22 @@ function App() {
             AI-powered flashcards
           </span>
           <h1 className="text-display">
-            Mach deine Notizen wie immer.
+            Take notes like you always do.
             <br />
             <span style={{ color: "var(--color-accent)" }}>
-              Wir bauen die Karteikarten.
+              We'll build the flashcards.
             </span>
           </h1>
           <p className="text-body hero__sub">
-            Lad dein PDF, deine GoodNotes- oder Notability-Datei hoch —
-            flashr generiert daraus automatisch Karteikarten, die du
-            überprüfen und lernen kannst.
+            Upload your PDF, GoodNotes, or Notability file — flashr turns it
+            into flashcards you can review and study.
           </p>
           <div className="hero__cta">
             <button className="btn-primary">
-              Jetzt starten
+              Get started
               <ArrowRight size={16} strokeWidth={2} />
             </button>
-            <button className="btn-ghost">Demo ansehen</button>
+            <button className="btn-ghost">Watch demo</button>
           </div>
         </section>
 
@@ -45,19 +44,19 @@ function App() {
           <article className="card hover-lift">
             <Upload size={20} color="var(--color-accent)" strokeWidth={1.5} />
             <h3 className="text-h2" style={{ marginTop: 12 }}>
-              PDF-Upload
+              PDF upload
             </h3>
             <p className="text-body">
-              Notiz hochladen, Text wird extrahiert, Karten werden generiert.
+              Drop in a note, we extract the text and generate cards for you.
             </p>
           </article>
           <article className="card hover-lift">
             <Sparkles size={20} color="var(--color-accent)" strokeWidth={1.5} />
             <h3 className="text-h2" style={{ marginTop: 12 }}>
-              KI-Generierung
+              AI generation
             </h3>
             <p className="text-body">
-              Self-hosted Ollama erstellt Frage-Antwort-Paare aus deinen Texten.
+              Self-hosted Ollama turns your text into question-and-answer pairs.
             </p>
           </article>
           <article className="card hover-lift">
@@ -66,7 +65,7 @@ function App() {
               Collections
             </h3>
             <p className="text-body">
-              Organisiere Karteikarten in Ordnern und lerne im Basis-Lernmodus.
+              Organize cards into folders and study them in the built-in learn mode.
             </p>
           </article>
         </section>
