@@ -1,0 +1,319 @@
+.cdet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.cdet__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  width: fit-content;
+  transition: color var(--transition-fast);
+}
+.cdet__back:hover {
+  color: var(--color-text);
+}
+
+.cdet__head {
+  padding: var(--space-6);
+  background:
+    radial-gradient(500px 200px at 0% 0%, rgba(108, 99, 255, 0.1), transparent 70%),
+    var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+.cdet__head-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.cdet__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.cdet__emoji {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: 28px;
+}
+
+.cdet__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.cdet__stats {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px dashed var(--color-border);
+  flex-wrap: wrap;
+}
+
+.cdet__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+.cdet__stat svg {
+  color: var(--color-muted);
+}
+
+.cdet__progress {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cdet__progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+}
+.cdet__progress-label span:last-child {
+  color: var(--color-text);
+}
+.cdet__progress-bar {
+  display: flex;
+  height: 6px;
+  background: var(--color-card);
+  border-radius: 100px;
+  overflow: hidden;
+  gap: 2px;
+}
+.cdet__progress-seg {
+  height: 100%;
+}
+.cdet__progress-seg--known {
+  background: #6bd88c;
+  box-shadow: 0 0 6px rgba(107, 216, 140, 0.4);
+}
+.cdet__progress-seg--learning {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+}
+.cdet__progress-seg--new {
+  background: var(--color-border);
+}
+.cdet__progress-legend {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+}
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.legend-dot--known { background: #6bd88c; }
+.legend-dot--learning { background: var(--color-accent); }
+.legend-dot--new { background: var(--color-border); }
+
+/* ── Card list ── */
+
+.cdet__cards-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cdet__cards-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.cdet__cards-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.cdet__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cdet__card {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+}
+.cdet__card:hover {
+  border-color: rgba(108, 99, 255, 0.25);
+}
+
+.cdet__card-index {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.cdet__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.cdet__dot--known {
+  background: #6bd88c;
+  box-shadow: 0 0 6px rgba(107, 216, 140, 0.5);
+}
+.cdet__dot--learning {
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+}
+.cdet__dot--new {
+  background: var(--color-border);
+}
+
+.cdet__card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.cdet__card-q,
+.cdet__card-a {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cdet__card-q p,
+.cdet__card-a p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+.cdet__card-a p {
+  color: var(--color-muted);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-border);
+}
+
+.cdet__card-side {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cdet__ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  background: rgba(108, 99, 255, 0.12);
+  color: var(--color-accent-light);
+  border: 1px solid rgba(108, 99, 255, 0.2);
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+.cdet__card-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.cdet__card-icon:hover {
+  color: var(--color-text);
+  border-color: var(--color-accent-soft);
+}
+.cdet__card-icon--danger:hover {
+  color: #ff6b7a;
+  border-color: rgba(255, 107, 122, 0.4);
+  background: rgba(255, 107, 122, 0.06);
+}
+
+.cdet__add-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: var(--space-4);
+  background: transparent;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.cdet__add-card:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent-light);
+  background: rgba(108, 99, 255, 0.04);
+}
+
+@media (max-width: 820px) {
+  .cdet__card {
+    grid-template-columns: 1fr;
+  }
+  .cdet__card-index {
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .cdet__card-body {
+    grid-template-columns: 1fr;
+  }
+  .cdet__card-a p {
+    border-left: 2px solid var(--color-accent-soft);
+  }
+  .cdet__card-side {
+    justify-content: flex-end;
+  }
+}
