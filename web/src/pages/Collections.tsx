@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter } from "lucide-react";
 import { collections, folders } from "../data/mock";
 import { CollectionCard } from "../components/CollectionCard";
@@ -7,7 +7,23 @@ import "./Collections.css";
 
 export function Collections() {
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [filter, setFilter] = useState<string>("All");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const folderParam = searchParams.get("folder");
+  const [filter, setFilter] = useState<string>(folderParam ?? "All");
+
+  useEffect(() => {
+    setFilter(folderParam ?? "All");
+  }, [folderParam]);
+
+  function selectFilter(value: string) {
+    setFilter(value);
+    if (value === "All") {
+      searchParams.delete("folder");
+    } else {
+      searchParams.set("folder", value);
+    }
+    setSearchParams(searchParams, { replace: true });
+  }
 
   const filtered =
     filter === "All" ? collections : collections.filter((c) => c.folder === filter);
@@ -38,7 +54,7 @@ export function Collections() {
         <div className="cols__filters">
           <button
             className={`cols__chip ${filter === "All" ? "cols__chip--active" : ""}`}
-            onClick={() => setFilter("All")}
+            onClick={() => selectFilter("All")}
           >
             All <span className="cols__chip-count">{collections.length}</span>
           </button>
@@ -46,7 +62,7 @@ export function Collections() {
             <button
               key={f.name}
               className={`cols__chip ${filter === f.name ? "cols__chip--active" : ""}`}
-              onClick={() => setFilter(f.name)}
+              onClick={() => selectFilter(f.name)}
             >
               <span>{f.emoji}</span>
               {f.name}

@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import {
   LayoutGrid,
   Library,
@@ -15,6 +15,8 @@ import "./AppShell.css";
 
 export function AppShell() {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const activeFolder = searchParams.get("folder");
   const isStudy = location.pathname.includes("/study");
 
   if (isStudy) {
@@ -35,11 +37,16 @@ export function AppShell() {
             <LayoutGrid size={16} strokeWidth={1.8} />
             Dashboard
           </NavLink>
-          <NavLink to="/collections" className="shell__nav-link">
+          <Link
+            to="/collections"
+            className={`shell__nav-link${
+              location.pathname === "/collections" && !activeFolder ? " active" : ""
+            }`}
+          >
             <Library size={16} strokeWidth={1.8} />
             Collections
             <span className="shell__nav-count">{stats.totalCollections}</span>
-          </NavLink>
+          </Link>
           <NavLink to="/upload" className="shell__nav-link shell__nav-link--accent">
             <Sparkles size={16} strokeWidth={1.8} />
             Create with AI
@@ -48,13 +55,23 @@ export function AppShell() {
 
         <nav className="shell__nav">
           <span className="shell__nav-label">Folders</span>
-          {folders.map((f) => (
-            <a key={f.name} className="shell__nav-link shell__nav-link--folder" href="#">
-              <span className="shell__folder-emoji">{f.emoji}</span>
-              {f.name}
-              <span className="shell__nav-count">{f.count}</span>
-            </a>
-          ))}
+          {folders.map((f) => {
+            const isActive =
+              location.pathname === "/collections" && activeFolder === f.name;
+            return (
+              <Link
+                key={f.name}
+                to={`/collections?folder=${encodeURIComponent(f.name)}`}
+                className={`shell__nav-link shell__nav-link--folder${
+                  isActive ? " active" : ""
+                }`}
+              >
+                <span className="shell__folder-emoji">{f.emoji}</span>
+                {f.name}
+                <span className="shell__nav-count">{f.count}</span>
+              </Link>
+            );
+          })}
           <button className="shell__nav-new">
             <Plus size={14} strokeWidth={2} />
             New folder
