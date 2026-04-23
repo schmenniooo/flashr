@@ -5,6 +5,7 @@ import { Collections } from "./pages/Collections";
 import { CollectionDetail } from "./pages/CollectionDetail";
 import { Study } from "./pages/Study";
 import { Upload } from "./pages/Upload";
+import { Profile } from "./pages/Profile";
 
 const router = createBrowserRouter([
   {
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
       { path: "/c/:id", element: <CollectionDetail /> },
       { path: "/c/:id/study", element: <Study /> },
       { path: "/upload", element: <Upload /> },
+      { path: "/profile", element: <Profile /> },
     ],
   },
 ]);

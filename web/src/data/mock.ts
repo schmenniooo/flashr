@@ -1,3 +1,37 @@
+export type User = {
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+  oauthProvider: "google" | "apple" | "github";
+  plan: "free" | "pro" | "teams";
+  memberSince: string;
+  avatarUrl: string | null;
+  bio: string;
+  timezone: string;
+  language: string;
+  dailyGoal: number;
+  emailReminders: boolean;
+  weeklyDigest: boolean;
+};
+
+export const user: User = {
+  firstName: "Ennio",
+  lastName: "Smith",
+  username: "ennio",
+  email: "ennio.nick@gmail.com",
+  oauthProvider: "google",
+  plan: "pro",
+  memberSince: "November 2025",
+  avatarUrl: null,
+  bio: "Med student, note-taker, quietly obsessed with flashcards.",
+  timezone: "Europe/Berlin",
+  language: "English",
+  dailyGoal: 30,
+  emailReminders: true,
+  weeklyDigest: false,
+};
+
 export type Card = {
   id: string;
   question: string;

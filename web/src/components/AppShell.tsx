@@ -11,7 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
-import { folders, stats } from "../data/mock";
+import { folders, stats, user } from "../data/mock";
 import "./AppShell.css";
 
 export function AppShell() {
@@ -91,14 +91,16 @@ export function AppShell() {
               <div className="shell__streak-lbl">Learning streak</div>
             </div>
           </div>
-          <div className="shell__userbar">
+          <Link to="/profile" className="shell__userbar">
             <CircleUser size={22} strokeWidth={1.5} />
             <div className="shell__userbar-text">
-              <span className="shell__userbar-name">Ennio</span>
-              <span className="shell__userbar-plan">Pro · SmithLabs</span>
+              <span className="shell__userbar-name">{user.firstName}</span>
+              <span className="shell__userbar-plan">
+                {user.plan === "pro" ? "Pro" : user.plan === "teams" ? "Teams" : "Free"} · SmithLabs
+              </span>
             </div>
             <Settings size={14} strokeWidth={1.8} className="shell__userbar-settings" />
-          </div>
+          </Link>
         </div>
       </aside>
 
