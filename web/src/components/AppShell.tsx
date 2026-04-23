@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import {
   LayoutGrid,
@@ -18,6 +19,10 @@ export function AppShell() {
   const [searchParams] = useSearchParams();
   const activeFolder = searchParams.get("folder");
   const isStudy = location.pathname.includes("/study");
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.pathname]);
 
   if (isStudy) {
     return <Outlet />;
