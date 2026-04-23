@@ -1,5 +1,7 @@
 # flashr
 
+> **Main language: English.** All UI copy, documentation, code, commits, and communication are in English. flashr is built for global usage.
+
 AI-powered Flashcard SaaS. Users create flashcards, organize them into collections, and auto-generate them from existing notes (GoodNotes, Notability, PDFs) via AI.
 
 **Stack:** React · Go (Monolith) · PostgreSQL · Railway · Ollama (self-hosted on Railway)
@@ -16,6 +18,7 @@ Before making changes, consult these canonical documents:
 
 - Treat ROADMAP.md as authoritative for scope and architecture. If requirements change, update the roadmap rather than diverging silently.
 - All UI/visual work must use the tokens and components defined in GUIDELINES.md — no ad-hoc colors, fonts, or radii.
-- Product language is German (`du`-form); English is reserved for technical labels and metadata.
+- Everything is in English — UI copy, product language, dev communication, commits, comments, PRs, docs.
+- Address the user informally (second person, "you") — friendly and direct, not corporate.
 - Write the product name as `flashr` (always lowercase).
 - These rules (including the roadmap and brand guidelines) can be broken if the user explicitly instructs you to do so — user instructions override the documents.

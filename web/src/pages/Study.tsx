@@ -83,18 +83,18 @@ export function Study() {
           <div className="study__done-icon">
             <CheckCircle2 size={56} strokeWidth={1.5} />
           </div>
-          <span className="text-meta">Session abgeschlossen</span>
+          <span className="text-meta">Session complete</span>
           <h1 className="text-display" style={{ maxWidth: 560 }}>
-            Stark, Ennio. Du hast {total} Karten durchgearbeitet.
+            Nice work, Ennio. You made it through {total} cards.
           </h1>
           <div className="study__done-stats">
-            <div><strong>{known}</strong><span>sicher gekonnt</span></div>
-            <div><strong>{total - known}</strong><span>kommen wieder</span></div>
-            <div><strong>+1</strong><span>Streak-Tag</span></div>
+            <div><strong>{known}</strong><span>got it</span></div>
+            <div><strong>{total - known}</strong><span>coming back</span></div>
+            <div><strong>+1</strong><span>streak day</span></div>
           </div>
           <div className="study__done-cta">
             <Link to={`/c/${collection.id}`} className="btn-ghost">
-              Zurück zur Collection
+              Back to collection
             </Link>
             <button
               className="btn-primary"
@@ -106,7 +106,7 @@ export function Study() {
               }}
             >
               <RotateCcw size={14} strokeWidth={2} />
-              Nochmal durchgehen
+              Run it again
             </button>
           </div>
         </div>
@@ -122,7 +122,7 @@ export function Study() {
 
       <div className="study__content">
         <div className="study__rail study__rail--left">
-          <button className="study__nav-arrow" onClick={prev} disabled={index === 0} title="Zurück">
+          <button className="study__nav-arrow" onClick={prev} disabled={index === 0} title="Previous">
             <ArrowLeft size={18} strokeWidth={1.8} />
           </button>
         </div>
@@ -134,28 +134,28 @@ export function Study() {
           >
             <div className="study__card-face study__card-face--front">
               <div className="study__card-top">
-                <span className="text-meta">Frage</span>
+                <span className="text-meta">Question</span>
                 {card.aiGenerated && (
                   <span className="badge">
                     <Sparkles size={10} strokeWidth={2} style={{ marginRight: 4 }} />
-                    KI-generiert
+                    AI-generated
                   </span>
                 )}
               </div>
               <p className="study__card-text">{card.question}</p>
               <div className="study__card-foot">
                 <Keyboard size={12} strokeWidth={1.8} />
-                <span>Leertaste zum Aufdecken</span>
+                <span>Press space to reveal</span>
               </div>
             </div>
             <div className="study__card-face study__card-face--back">
               <div className="study__card-top">
-                <span className="text-meta">Antwort</span>
+                <span className="text-meta">Answer</span>
               </div>
               <p className="study__card-text">{card.answer}</p>
               <div className="study__card-foot">
                 <Keyboard size={12} strokeWidth={1.8} />
-                <span>1 — Wieder · 2 — Schwer · 3 — Gut · 4 — Einfach</span>
+                <span>1 — Again · 2 — Hard · 3 — Good · 4 — Easy</span>
               </div>
             </div>
           </div>
@@ -163,29 +163,29 @@ export function Study() {
           <div className={`study__ratings ${revealed ? "study__ratings--visible" : ""}`}>
             <button className="study__rate study__rate--again" onClick={() => rate("again")}>
               <span className="study__rate-kbd">1</span>
-              <span className="study__rate-label">Wieder</span>
+              <span className="study__rate-label">Again</span>
               <span className="study__rate-meta">&lt; 1m</span>
             </button>
             <button className="study__rate study__rate--hard" onClick={() => rate("hard")}>
               <span className="study__rate-kbd">2</span>
-              <span className="study__rate-label">Schwer</span>
+              <span className="study__rate-label">Hard</span>
               <span className="study__rate-meta">6m</span>
             </button>
             <button className="study__rate study__rate--good" onClick={() => rate("good")}>
               <span className="study__rate-kbd">3</span>
-              <span className="study__rate-label">Gut</span>
+              <span className="study__rate-label">Good</span>
               <span className="study__rate-meta">1d</span>
             </button>
             <button className="study__rate study__rate--easy" onClick={() => rate("easy")}>
               <span className="study__rate-kbd">4</span>
-              <span className="study__rate-label">Einfach</span>
+              <span className="study__rate-label">Easy</span>
               <span className="study__rate-meta">4d</span>
             </button>
           </div>
         </div>
 
         <div className="study__rail study__rail--right">
-          <button className="study__nav-arrow" onClick={next} title="Weiter">
+          <button className="study__nav-arrow" onClick={next} title="Next">
             <ArrowRight size={18} strokeWidth={1.8} />
           </button>
         </div>
@@ -227,7 +227,7 @@ function StudyTopBar({
         <span className="study__streak">
           <Flame size={14} strokeWidth={2} /> 12
         </span>
-        <Link to={`/c/${collection.id}`} className="study__close" title="Beenden">
+        <Link to={`/c/${collection.id}`} className="study__close" title="Exit">
           <X size={18} strokeWidth={1.8} />
         </Link>
       </div>

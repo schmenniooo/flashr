@@ -1,4 +1,6 @@
-(Dieses Dokument kann verändert werden wenn sich die Anforderungen während dem Projekt ändern)
+(This document may be updated as requirements change during the project.)
+
+> **Main language: English.** flashr is built for global usage. All UI copy, docs, and code are in English. (Legacy German sections below will be translated incrementally.)
 
 # flashr — Product Roadmap
 

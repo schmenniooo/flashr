@@ -21,57 +21,57 @@ export function Dashboard() {
     <div className="dash">
       <header className="dash__head">
         <div>
-          <span className="text-meta">Dashboard · Mittwoch, 23. April</span>
+          <span className="text-meta">Dashboard · Wednesday, April 23</span>
           <h1 className="text-h1 dash__greeting">
-            Moin Ennio 👋 <span className="dash__greeting-sub">Zeit für ein paar Karten?</span>
+            Hey Ennio 👋 <span className="dash__greeting-sub">Ready for a few cards?</span>
           </h1>
         </div>
         <div className="dash__head-cta">
           <Link to="/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
-            Karten aus PDF erstellen
+            Create cards from PDF
           </Link>
         </div>
       </header>
 
-      {/* ── Hero: Today’s session + Streak ── */}
+      {/* ── Hero: Today's session + Streak ── */}
       <section className="dash__hero">
         <article className="dash__session">
           <div className="dash__session-left">
             <span className="badge">
               <Zap size={11} strokeWidth={2} style={{ marginRight: 5 }} />
-              Heutige Session
+              Today's session
             </span>
             <h2 className="text-h1 dash__session-title">
-              {stats.cardsDueToday} Karten warten auf dich.
+              {stats.cardsDueToday} cards are waiting for you.
             </h2>
             <p className="text-body dash__session-sub">
-              Starte mit <strong style={{ color: "var(--color-text)" }}>{dueCollection.name}</strong> — du
-              warst zuletzt {dueCollection.lastStudied} dran. Nur ~7&nbsp;Minuten bei 30&nbsp;Sek pro Karte.
+              Start with <strong style={{ color: "var(--color-text)" }}>{dueCollection.name}</strong> — you
+              last studied it {dueCollection.lastStudied}. Only ~7&nbsp;minutes at 30&nbsp;sec per card.
             </p>
             <div className="dash__session-ctas">
               <Link to={`/c/${dueCollection.id}/study`} className="btn-primary">
-                Jetzt lernen
+                Start studying
                 <ArrowRight size={14} strokeWidth={2} />
               </Link>
               <Link to={`/c/${dueCollection.id}`} className="btn-ghost">
-                Collection öffnen
+                Open collection
               </Link>
             </div>
           </div>
 
           <div className="dash__session-visual" aria-hidden>
             <div className="dash__session-card dash__session-card--back">
-              <span className="text-meta">Frage</span>
+              <span className="text-meta">Question</span>
             </div>
             <div className="dash__session-card dash__session-card--mid">
-              <span className="text-meta">Frage</span>
-              <p>Wie wirkt ein kompetitiver Inhibitor auf Kₘ?</p>
+              <span className="text-meta">Question</span>
+              <p>How does a competitive inhibitor affect Kₘ?</p>
             </div>
             <div className="dash__session-card dash__session-card--front">
-              <span className="text-meta">Frage · 1 / {dueCollection.cards.length}</span>
-              <p>Was beschreibt die Michaelis-Konstante (Kₘ)?</p>
-              <span className="dash__session-hint">Leertaste zum Aufdecken</span>
+              <span className="text-meta">Question · 1 / {dueCollection.cards.length}</span>
+              <p>What does the Michaelis constant (Kₘ) describe?</p>
+              <span className="dash__session-hint">Press space to reveal</span>
             </div>
           </div>
         </article>
@@ -81,10 +81,10 @@ export function Dashboard() {
             <Flame size={18} strokeWidth={2} color="#ff9b4a" />
             <div>
               <div className="dash__stat-val">{stats.streak}</div>
-              <div className="dash__stat-lbl">Tage Streak</div>
+              <div className="dash__stat-lbl">Day streak</div>
             </div>
             <div className="dash__stat-trend">
-              <TrendingUp size={12} strokeWidth={2} /> persönl. Best
+              <TrendingUp size={12} strokeWidth={2} /> personal best
             </div>
           </article>
 
@@ -92,10 +92,10 @@ export function Dashboard() {
             <BookOpen size={18} strokeWidth={2} color="var(--color-accent-light)" />
             <div>
               <div className="dash__stat-val">{stats.cardsLearnedThisWeek}</div>
-              <div className="dash__stat-lbl">Karten diese Woche</div>
+              <div className="dash__stat-lbl">Cards this week</div>
             </div>
             <div className="dash__stat-trend dash__stat-trend--up">
-              <TrendingUp size={12} strokeWidth={2} /> +34 %
+              <TrendingUp size={12} strokeWidth={2} /> +34%
             </div>
           </article>
 
@@ -103,10 +103,10 @@ export function Dashboard() {
             <Sparkles size={18} strokeWidth={2} color="var(--color-accent)" />
             <div>
               <div className="dash__stat-val">{stats.totalCards}</div>
-              <div className="dash__stat-lbl">Karten insgesamt</div>
+              <div className="dash__stat-lbl">Total cards</div>
             </div>
             <div className="dash__stat-trend">
-              <Clock size={12} strokeWidth={2} /> in {stats.totalCollections} Collections
+              <Clock size={12} strokeWidth={2} /> across {stats.totalCollections} collections
             </div>
           </article>
         </div>
@@ -116,11 +116,11 @@ export function Dashboard() {
       <section className="dash__section">
         <div className="dash__section-head">
           <div>
-            <h2 className="text-h2">Weiter wo du warst</h2>
-            <p className="text-body">Deine zuletzt angefassten Collections.</p>
+            <h2 className="text-h2">Pick up where you left off</h2>
+            <p className="text-body">Your most recently touched collections.</p>
           </div>
           <Link to="/collections" className="dash__section-link">
-            Alle anzeigen
+            View all
             <ArrowRight size={14} strokeWidth={2} />
           </Link>
         </div>
@@ -141,10 +141,9 @@ export function Dashboard() {
               <Upload size={20} strokeWidth={1.8} />
             </div>
             <div>
-              <h3 className="text-h2">Hast du eine Vorlesung als PDF?</h3>
+              <h3 className="text-h2">Got a lecture as a PDF?</h3>
               <p className="text-body">
-                Lad sie hoch — flashr liest sie durch und baut dir die Karten. Du reviewst, wir erledigen
-                den Rest.
+                Drop it in — flashr reads it and builds the cards for you. You review, we do the rest.
               </p>
             </div>
             <div className="dash__upload-cta-arrow">
@@ -155,8 +154,8 @@ export function Dashboard() {
 
         <article className="dash__activity card">
           <div className="dash__activity-head">
-            <h3 className="text-h2">Aktivität</h3>
-            <span className="text-meta">Letzte 2 Wochen</span>
+            <h3 className="text-h2">Activity</h3>
+            <span className="text-meta">Last 2 weeks</span>
           </div>
           <ul className="dash__activity-list">
             {recentActivity.map((a, i) => (

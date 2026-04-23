@@ -29,42 +29,42 @@ type DraftCard = {
 const DRAFTS: DraftCard[] = [
   {
     id: "d1",
-    question: "Was versteht man unter der Michaelis-Menten-Gleichung?",
+    question: "What is the Michaelis-Menten equation?",
     answer:
-      "Sie beschreibt die Reaktionsgeschwindigkeit enzymkatalysierter Reaktionen: v = (Vₘₐₓ · [S]) / (Kₘ + [S]).",
+      "It describes the rate of enzyme-catalyzed reactions: v = (Vₘₐₓ · [S]) / (Kₘ + [S]).",
     keep: true,
   },
   {
     id: "d2",
-    question: "Wie unterscheidet sich kompetitive von nicht-kompetitiver Inhibition?",
+    question: "How does competitive inhibition differ from non-competitive?",
     answer:
-      "Kompetitiv: Inhibitor bindet am aktiven Zentrum, Kₘ steigt, Vₘₐₓ bleibt. Nicht-kompetitiv: Inhibitor bindet allosterisch, Vₘₐₓ sinkt, Kₘ bleibt.",
+      "Competitive: inhibitor binds the active site, Kₘ increases, Vₘₐₓ unchanged. Non-competitive: inhibitor binds allosterically, Vₘₐₓ decreases, Kₘ unchanged.",
     keep: true,
   },
   {
     id: "d3",
-    question: "Was ist eine Wechselzahl (kcat)?",
-    answer: "Die Anzahl umgesetzter Substratmoleküle pro Enzym pro Zeiteinheit (s⁻¹).",
+    question: "What is the turnover number (kcat)?",
+    answer: "The number of substrate molecules converted per enzyme per unit time (s⁻¹).",
     keep: true,
   },
   {
     id: "d4",
-    question: "Warum wird die Lineweaver-Burk-Darstellung verwendet?",
+    question: "Why is the Lineweaver-Burk plot used?",
     answer:
-      "Um die nichtlineare Michaelis-Menten-Kurve zu linearisieren. Aus dem Achsenabschnitt lassen sich Vₘₐₓ und Kₘ direkt ablesen.",
+      "To linearize the non-linear Michaelis-Menten curve. Vₘₐₓ and Kₘ can be read directly from the intercepts.",
     keep: true,
   },
   {
     id: "d5",
-    question: "Was passiert bei Substratüberschuss?",
-    answer: "Das Enzym ist gesättigt, die Reaktion erreicht Vₘₐₓ — weitere Substratzugabe ändert v nicht mehr.",
+    question: "What happens at substrate saturation?",
+    answer: "The enzyme is saturated, the reaction reaches Vₘₐₓ — adding more substrate no longer changes v.",
     keep: false,
   },
   {
     id: "d6",
-    question: "Nenne ein Beispiel für einen irreversiblen Inhibitor.",
+    question: "Give an example of an irreversible inhibitor.",
     answer:
-      "Acetylsalicylsäure (Aspirin) acetyliert irreversibel die Cyclooxygenase (COX). Ein weiteres Beispiel ist Penicillin auf die Transpeptidase.",
+      "Acetylsalicylic acid (aspirin) irreversibly acetylates cyclooxygenase (COX). Another example is penicillin on transpeptidase.",
     keep: true,
   },
 ];
@@ -76,7 +76,7 @@ export function Upload() {
   const [target, setTarget] = useState<string>(collections[0].id);
 
   function startFake() {
-    setFileName("Biochemie_Vorlesung_07_Enzymkinetik.pdf");
+    setFileName("Biochemistry_Lecture_07_EnzymeKinetics.pdf");
     setStep("processing");
     setTimeout(() => setStep("review"), 2600);
   }
@@ -91,17 +91,17 @@ export function Upload() {
     <div className="up">
       <Link to="/" className="up__back">
         <ArrowLeft size={14} strokeWidth={2} />
-        Zurück zum Dashboard
+        Back to dashboard
       </Link>
 
       <header className="up__head">
-        <span className="text-meta">Mit KI erstellen · ~30 Sek</span>
+        <span className="text-meta">Create with AI · ~30 sec</span>
         <h1 className="text-h1" style={{ marginTop: 8 }}>
-          Aus deiner Notiz werden Karten.
+          Your notes, turned into cards.
         </h1>
         <p className="text-body" style={{ marginTop: 4, maxWidth: 560 }}>
-          Lade ein PDF, eine GoodNotes- oder Notability-Datei hoch. flashr liest den Inhalt und schlägt dir
-          Frage-Antwort-Paare vor — du entscheidest, was bleibt.
+          Upload a PDF, GoodNotes, or Notability file. flashr reads it and suggests question-and-answer
+          pairs — you decide what stays.
         </p>
       </header>
 
@@ -110,10 +110,10 @@ export function Upload() {
           <span className="up__step-n">1</span> Upload
         </li>
         <li className={`up__step ${step === "processing" ? "up__step--active" : ""} ${step === "review" ? "up__step--done" : ""}`}>
-          <span className="up__step-n">2</span> KI-Verarbeitung
+          <span className="up__step-n">2</span> AI processing
         </li>
         <li className={`up__step ${step === "review" ? "up__step--active" : ""}`}>
-          <span className="up__step-n">3</span> Review & Speichern
+          <span className="up__step-n">3</span> Review & save
         </li>
       </ol>
 
@@ -142,22 +142,22 @@ function DropStep({ onPick }: { onPick: () => void }) {
           <UploadCloud size={28} strokeWidth={1.5} />
         </div>
         <div className="up__drop-text">
-          <h2 className="text-h2">Datei hierher ziehen oder klicken</h2>
-          <p className="text-body">PDF · DOCX · GoodNotes · Notability — bis zu 20 MB</p>
+          <h2 className="text-h2">Drop a file here or click to upload</h2>
+          <p className="text-body">PDF · DOCX · GoodNotes · Notability — up to 20 MB</p>
         </div>
         <div className="up__drop-badges">
-          <span className="badge"><ShieldCheck size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Privat · wird nach Verarbeitung gelöscht</span>
+          <span className="badge"><ShieldCheck size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Private · deleted after processing</span>
           <span className="badge"><Wand2 size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Self-hosted Ollama</span>
         </div>
       </button>
 
       <div className="up__hint">
-        <p className="text-meta">Oder Beispiel-Datei</p>
+        <p className="text-meta">Or try the sample</p>
         <button className="up__sample" onClick={onPick}>
           <FileText size={16} strokeWidth={1.8} />
           <div>
-            <div className="up__sample-title">Biochemie_Vorlesung_07.pdf</div>
-            <div className="up__sample-meta">Demo · 12 Seiten · Enzymkinetik</div>
+            <div className="up__sample-title">Biochemistry_Lecture_07.pdf</div>
+            <div className="up__sample-meta">Demo · 12 pages · Enzyme kinetics</div>
           </div>
           <ArrowRight size={14} strokeWidth={2} />
         </button>
@@ -173,40 +173,40 @@ function ProcessingStep({ fileName }: { fileName: string }) {
         <FileText size={18} strokeWidth={1.8} />
         <div>
           <div className="up__proc-filename">{fileName}</div>
-          <div className="up__proc-meta">12 Seiten · 218 KB</div>
+          <div className="up__proc-meta">12 pages · 218 KB</div>
         </div>
         <span className="badge">
           <Loader2 size={10} className="up__spin" strokeWidth={2} style={{ marginRight: 4 }} />
-          Wird verarbeitet
+          Processing
         </span>
       </div>
 
       <ul className="up__proc-list">
         <li className="up__proc-item up__proc-item--done">
-          <CheckCircle2 size={14} strokeWidth={2} /> PDF hochgeladen
-          <span className="text-meta">0,3s</span>
+          <CheckCircle2 size={14} strokeWidth={2} /> PDF uploaded
+          <span className="text-meta">0.3s</span>
         </li>
         <li className="up__proc-item up__proc-item--done">
-          <CheckCircle2 size={14} strokeWidth={2} /> Text extrahiert — 2 845 Wörter
-          <span className="text-meta">0,9s</span>
+          <CheckCircle2 size={14} strokeWidth={2} /> Text extracted — 2,845 words
+          <span className="text-meta">0.9s</span>
         </li>
         <li className="up__proc-item up__proc-item--active">
-          <Loader2 size={14} className="up__spin" strokeWidth={2} /> Ollama generiert Karten …
+          <Loader2 size={14} className="up__spin" strokeWidth={2} /> Ollama generating cards…
           <span className="text-meta">~ 8s</span>
         </li>
         <li className="up__proc-item">
-          <span className="up__proc-dot" /> Qualitätscheck
+          <span className="up__proc-dot" /> Quality check
           <span className="text-meta">—</span>
         </li>
         <li className="up__proc-item">
-          <span className="up__proc-dot" /> Duplikat-Erkennung
+          <span className="up__proc-dot" /> Duplicate detection
           <span className="text-meta">—</span>
         </li>
       </ul>
 
       <p className="up__proc-tip text-body">
-        💡 Gib uns einen Moment — bei großen Vorlesungen kann das bis zu einer Minute dauern. Du kannst die
-        Seite offen lassen, wir benachrichtigen dich.
+        💡 Hang tight — large lectures can take up to a minute. You can leave this tab open, we'll ping you
+        when it's ready.
       </p>
     </div>
   );
@@ -233,23 +233,22 @@ function ReviewStep({
         <div>
           <h2 className="text-h2">
             <Sparkles size={16} strokeWidth={2} color="var(--color-accent)" style={{ verticalAlign: -2, marginRight: 6 }} />
-            {drafts.length} Karten generiert
+            {drafts.length} cards generated
           </h2>
           <p className="text-body">
-            Check kurz durch — du kannst jede Karte behalten, verwerfen oder bearbeiten. Nur ausgewählte
-            werden gespeichert.
+            Quick review — keep, skip, or edit each one. Only the cards you select get saved.
           </p>
         </div>
 
         <div className="up__review-target">
-          <label className="text-meta">Speichern in</label>
+          <label className="text-meta">Save to</label>
           <select className="up__select" value={target} onChange={(e) => onTarget(e.target.value)}>
             {collections.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.emoji} · {c.name}
               </option>
             ))}
-            <option value="__new">+ Neue Collection erstellen</option>
+            <option value="__new">+ Create new collection</option>
           </select>
         </div>
       </div>
@@ -261,26 +260,26 @@ function ReviewStep({
               <span className="text-meta">#{String(i + 1).padStart(2, "0")}</span>
               <span className="up__ai-pill">
                 <Sparkles size={10} strokeWidth={2} />
-                KI
+                AI
               </span>
             </div>
             <div className="up__draft-body">
               <div>
-                <span className="text-meta">Frage</span>
+                <span className="text-meta">Question</span>
                 <p>{d.question}</p>
               </div>
               <div>
-                <span className="text-meta">Antwort</span>
+                <span className="text-meta">Answer</span>
                 <p className="up__draft-answer">{d.answer}</p>
               </div>
             </div>
             <div className="up__draft-side">
-              <button className="up__draft-icon" title="Bearbeiten">
+              <button className="up__draft-icon" title="Edit">
                 <Pencil size={13} strokeWidth={1.8} />
               </button>
               <button
                 className="up__draft-icon up__draft-icon--danger"
-                title="Verwerfen"
+                title="Skip"
                 onClick={() => onToggle(d.id)}
               >
                 <Trash2 size={13} strokeWidth={1.8} />
@@ -301,15 +300,15 @@ function ReviewStep({
       <div className="up__save-bar">
         <div className="up__save-summary">
           <Layers size={14} strokeWidth={2} />
-          <strong>{keepCount}</strong> von {drafts.length} Karten werden gespeichert
+          <strong>{keepCount}</strong> of {drafts.length} cards will be saved
         </div>
         <div className="up__save-actions">
           <button className="btn-ghost" onClick={onBack}>
-            Verwerfen
+            Discard
           </button>
           <button className="btn-primary" disabled={keepCount === 0}>
             <CheckCircle2 size={14} strokeWidth={2} />
-            In Collection speichern
+            Save to collection
           </button>
         </div>
       </div>

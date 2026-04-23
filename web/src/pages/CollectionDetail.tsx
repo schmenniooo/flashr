@@ -30,7 +30,7 @@ export function CollectionDetail() {
     <div className="cdet">
       <Link to="/collections" className="cdet__back">
         <ArrowLeft size={14} strokeWidth={2} />
-        Zurück zu Collections
+        Back to collections
       </Link>
 
       <header className="cdet__head">
@@ -49,15 +49,15 @@ export function CollectionDetail() {
           </div>
 
           <div className="cdet__actions">
-            <button className="btn-ghost" title="Teilen">
+            <button className="btn-ghost" title="Share">
               <Share2 size={14} strokeWidth={2} />
             </button>
-            <button className="btn-ghost" title="Mehr">
+            <button className="btn-ghost" title="More">
               <MoreHorizontal size={14} strokeWidth={2} />
             </button>
             <Link to={`/c/${collection.id}/study`} className="btn-primary">
               <BookOpen size={14} strokeWidth={2} />
-              Lernen starten
+              Start studying
             </Link>
           </div>
         </div>
@@ -65,15 +65,15 @@ export function CollectionDetail() {
         <div className="cdet__stats">
           <div className="cdet__stat">
             <Layers size={14} strokeWidth={1.8} />
-            <span>{collection.cards.length} Karten</span>
+            <span>{collection.cards.length} cards</span>
           </div>
           <div className="cdet__stat">
             <Sparkles size={14} strokeWidth={1.8} color="var(--color-accent-light)" />
-            <span>{aiCount} KI-generiert</span>
+            <span>{aiCount} AI-generated</span>
           </div>
           <div className="cdet__progress">
             <div className="cdet__progress-label">
-              <span>Fortschritt</span>
+              <span>Progress</span>
               <span>{collection.progress}%</span>
             </div>
             <div className="cdet__progress-bar">
@@ -82,9 +82,9 @@ export function CollectionDetail() {
               <div className="cdet__progress-seg cdet__progress-seg--new" style={{ flex: masteryCounts.new }} />
             </div>
             <div className="cdet__progress-legend">
-              <span><span className="legend-dot legend-dot--known" /> {masteryCounts.known} gekonnt</span>
-              <span><span className="legend-dot legend-dot--learning" /> {masteryCounts.learning} am lernen</span>
-              <span><span className="legend-dot legend-dot--new" /> {masteryCounts.new} neu</span>
+              <span><span className="legend-dot legend-dot--known" /> {masteryCounts.known} known</span>
+              <span><span className="legend-dot legend-dot--learning" /> {masteryCounts.learning} learning</span>
+              <span><span className="legend-dot legend-dot--new" /> {masteryCounts.new} new</span>
             </div>
           </div>
         </div>
@@ -92,15 +92,15 @@ export function CollectionDetail() {
 
       <section className="cdet__cards-section">
         <div className="cdet__cards-head">
-          <h2 className="text-h2">Karten</h2>
+          <h2 className="text-h2">Cards</h2>
           <div className="cdet__cards-actions">
             <button className="btn-ghost">
               <Plus size={14} strokeWidth={2} />
-              Karte hinzufügen
+              Add card
             </button>
             <Link to="/upload" className="btn-ghost">
               <Sparkles size={14} strokeWidth={2} />
-              Mit KI erweitern
+              Extend with AI
             </Link>
           </div>
         </div>
@@ -114,11 +114,11 @@ export function CollectionDetail() {
               </div>
               <div className="cdet__card-body">
                 <div className="cdet__card-q">
-                  <span className="text-meta">Frage</span>
+                  <span className="text-meta">Question</span>
                   <p>{card.question}</p>
                 </div>
                 <div className="cdet__card-a">
-                  <span className="text-meta">Antwort</span>
+                  <span className="text-meta">Answer</span>
                   <p>{card.answer}</p>
                 </div>
               </div>
@@ -126,13 +126,13 @@ export function CollectionDetail() {
                 {card.aiGenerated && (
                   <span className="cdet__ai-pill">
                     <Sparkles size={10} strokeWidth={2} />
-                    KI
+                    AI
                   </span>
                 )}
-                <button className="cdet__card-icon" title="Bearbeiten">
+                <button className="cdet__card-icon" title="Edit">
                   <Pencil size={13} strokeWidth={1.8} />
                 </button>
-                <button className="cdet__card-icon cdet__card-icon--danger" title="Löschen">
+                <button className="cdet__card-icon cdet__card-icon--danger" title="Delete">
                   <Trash2 size={13} strokeWidth={1.8} />
                 </button>
               </div>
@@ -141,7 +141,7 @@ export function CollectionDetail() {
 
           <button className="cdet__add-card">
             <Plus size={16} strokeWidth={2} />
-            Neue Karte erstellen
+            Create new card
           </button>
         </div>
       </section>

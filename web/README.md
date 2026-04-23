@@ -1,5 +1,7 @@
 # React + TypeScript + Vite
 
+> **Main language: English.** The flashr web app ships in English — all UI copy, docs, and code are in English.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

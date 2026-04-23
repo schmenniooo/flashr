@@ -7,29 +7,29 @@ import "./Collections.css";
 
 export function Collections() {
   const [view, setView] = useState<"grid" | "list">("grid");
-  const [filter, setFilter] = useState<string>("Alle");
+  const [filter, setFilter] = useState<string>("All");
 
   const filtered =
-    filter === "Alle" ? collections : collections.filter((c) => c.folder === filter);
+    filter === "All" ? collections : collections.filter((c) => c.folder === filter);
 
   return (
     <div className="cols">
       <header className="cols__head">
         <div>
-          <span className="text-meta">{collections.length} Collections · {folders.length} Ordner</span>
-          <h1 className="text-h1" style={{ marginTop: 8 }}>Alle Collections</h1>
+          <span className="text-meta">{collections.length} collections · {folders.length} folders</span>
+          <h1 className="text-h1" style={{ marginTop: 8 }}>All collections</h1>
           <p className="text-body" style={{ marginTop: 4 }}>
-            Hier lebt dein gesamtes Wissen. Klicke eine Collection an, um sie zu öffnen oder zu lernen.
+            This is where all your knowledge lives. Click a collection to open it or start studying.
           </p>
         </div>
         <div className="cols__head-cta">
           <button className="btn-ghost">
             <Plus size={14} strokeWidth={2} />
-            Neue Collection
+            New collection
           </button>
           <Link to="/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
-            Mit KI erstellen
+            Create with AI
           </Link>
         </div>
       </header>
@@ -37,10 +37,10 @@ export function Collections() {
       <div className="cols__toolbar">
         <div className="cols__filters">
           <button
-            className={`cols__chip ${filter === "Alle" ? "cols__chip--active" : ""}`}
-            onClick={() => setFilter("Alle")}
+            className={`cols__chip ${filter === "All" ? "cols__chip--active" : ""}`}
+            onClick={() => setFilter("All")}
           >
-            Alle <span className="cols__chip-count">{collections.length}</span>
+            All <span className="cols__chip-count">{collections.length}</span>
           </button>
           {folders.map((f) => (
             <button
@@ -58,7 +58,7 @@ export function Collections() {
           <button className="cols__icon-btn" title="Filter">
             <Filter size={14} strokeWidth={1.8} />
           </button>
-          <button className="cols__icon-btn" title="Sortieren">
+          <button className="cols__icon-btn" title="Sort">
             <ArrowUpDown size={14} strokeWidth={1.8} />
           </button>
           <div className="cols__view-toggle">
@@ -72,7 +72,7 @@ export function Collections() {
             <button
               className={`cols__icon-btn ${view === "list" ? "cols__icon-btn--active" : ""}`}
               onClick={() => setView("list")}
-              title="Liste"
+              title="List"
             >
               <List size={14} strokeWidth={1.8} />
             </button>
@@ -94,7 +94,7 @@ export function Collections() {
               <div className="cols__row-main">
                 <div className="cols__row-title">{c.name}</div>
                 <div className="cols__row-meta">
-                  {c.folder} · {c.cards.length} Karten · {c.lastStudied}
+                  {c.folder} · {c.cards.length} cards · {c.lastStudied}
                 </div>
               </div>
               <div className="cols__row-progress">

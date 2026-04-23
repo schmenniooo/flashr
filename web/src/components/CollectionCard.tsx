@@ -36,12 +36,12 @@ export function CollectionCard({ collection }: { collection: Collection }) {
       <div className="colcard__foot">
         <span className="colcard__meta">
           <Layers size={12} strokeWidth={2} />
-          {cards.length} Karten
+          {cards.length} cards
         </span>
         {aiCount > 0 && (
           <span className="colcard__meta colcard__meta--ai">
             <span className="colcard__ai-dot" />
-            {aiCount} KI
+            {aiCount} AI
           </span>
         )}
         <span className="colcard__meta colcard__meta--muted">

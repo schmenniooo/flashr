@@ -42,12 +42,12 @@ export function AppShell() {
           </NavLink>
           <NavLink to="/upload" className="shell__nav-link shell__nav-link--accent">
             <Sparkles size={16} strokeWidth={1.8} />
-            Mit KI erstellen
+            Create with AI
           </NavLink>
         </nav>
 
         <nav className="shell__nav">
-          <span className="shell__nav-label">Ordner</span>
+          <span className="shell__nav-label">Folders</span>
           {folders.map((f) => (
             <a key={f.name} className="shell__nav-link shell__nav-link--folder" href="#">
               <span className="shell__folder-emoji">{f.emoji}</span>
@@ -57,7 +57,7 @@ export function AppShell() {
           ))}
           <button className="shell__nav-new">
             <Plus size={14} strokeWidth={2} />
-            Neuer Ordner
+            New folder
           </button>
         </nav>
 
@@ -65,8 +65,8 @@ export function AppShell() {
           <div className="shell__streak">
             <Flame size={16} strokeWidth={2} className="shell__streak-icon" />
             <div>
-              <div className="shell__streak-val">{stats.streak} Tage</div>
-              <div className="shell__streak-lbl">Lern-Streak</div>
+              <div className="shell__streak-val">{stats.streak} days</div>
+              <div className="shell__streak-lbl">Learning streak</div>
             </div>
           </div>
           <div className="shell__userbar">
@@ -86,14 +86,14 @@ export function AppShell() {
             <Search size={14} strokeWidth={1.8} />
             <input
               className="shell__search-input"
-              placeholder="Collections, Karten oder Ordner durchsuchen …"
+              placeholder="Search collections, cards, or folders…"
             />
             <span className="shell__search-kbd">⌘ K</span>
           </div>
           <div className="shell__topbar-right">
             <span className="shell__topbar-stat">
               <span className="shell__topbar-stat-dot" />
-              {stats.cardsDueToday} Karten fällig heute
+              {stats.cardsDueToday} cards due today
             </span>
           </div>
         </header>

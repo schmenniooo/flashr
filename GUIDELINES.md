@@ -2,6 +2,8 @@
 # flashr — Brand Guidelines
 
 > Version 1.0 · Midnight Focus Theme · flashr.io
+>
+> **Main language: English.** All product copy, UI strings, and voice examples are in English. (Legacy German sections below will be translated incrementally.)
 
 ---
 
@@ -378,15 +380,15 @@ r      →  Farbe: #6C63FF (Accent Violet) + Glow-Effekt
 
 ## 10. Voice & Tone
 
-|Kontext|Ton|Beispiel|
+|Context|Tone|Example|
 |---|---|---|
-|Marketing|Direkt, selbstbewusst|_"Deine Notizen. Automatisch Karteikarten."_|
-|Onboarding|Freundlich, knapp|_"PDF hochladen, fertig."_|
-|Fehlermeldungen|Ehrlich, lösungsorientiert|_"Upload fehlgeschlagen — versuch's nochmal."_|
-|Empty States|Motivierend|_"Noch keine Karten. Lad eine Notiz hoch."_|
+|Marketing|Direct, confident|_"Your notes. Flashcards, automatically."_|
+|Onboarding|Friendly, concise|_"Drop a PDF — we'll do the rest."_|
+|Error messages|Honest, solution-oriented|_"Upload failed — give it another shot."_|
+|Empty states|Motivating|_"No cards yet. Upload a note to get started."_|
 
-**Sprache:** Deutsch als Default, Englisch für technische Labels & Metadaten  
-**Ansprache:** `du` (kein `Sie`)
+**Language:** English (global default)
+**Address:** Second person, informal — "you", never stiff or corporate
 
 ---
 
