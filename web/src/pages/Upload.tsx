@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   UploadCloud,
   FileText,
@@ -14,7 +14,12 @@ import {
   Layers,
   ArrowLeft,
 } from "lucide-react";
-import { collections } from "../data/mock";
+import {
+  cardsApi,
+  collectionsApi,
+  selectCollections,
+  useDb,
+} from "../lib/store";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -70,10 +75,12 @@ const DRAFTS: DraftCard[] = [
 ];
 
 export function Upload() {
+  const navigate = useNavigate();
+  const collections = useDb(selectCollections);
   const [step, setStep] = useState<Step>("drop");
   const [fileName, setFileName] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<DraftCard[]>(DRAFTS);
-  const [target, setTarget] = useState<string>(collections[0].id);
+  const [target, setTarget] = useState<string>(collections[0]?.id ?? "__new");
 
   function startFake() {
     setFileName("Biochemistry_Lecture_07_EnzymeKinetics.pdf");
@@ -83,6 +90,29 @@ export function Upload() {
 
   function toggleKeep(id: string) {
     setDrafts((d) => d.map((c) => (c.id === id ? { ...c, keep: !c.keep } : c)));
+  }
+
+  function handleSave() {
+    const kept = drafts.filter((d) => d.keep);
+    if (kept.length === 0) return;
+    let collectionId = target;
+    if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
+      const created = collectionsApi.create({
+        name: "Biochemistry — Enzyme Kinetics (imported)",
+        folder: "Uncategorized",
+        emoji: "🧬",
+        description: "Generated from your uploaded notes.",
+      });
+      collectionId = created.id;
+    }
+    kept.forEach((d) =>
+      cardsApi.add(collectionId, {
+        question: d.question,
+        answer: d.answer,
+        aiGenerated: true,
+      }),
+    );
+    navigate(`/app/c/${collectionId}`);
   }
 
   const keepCount = drafts.filter((d) => d.keep).length;
@@ -127,6 +157,8 @@ export function Upload() {
           onTarget={setTarget}
           keepCount={keepCount}
           onBack={() => setStep("drop")}
+          onSave={handleSave}
+          collections={collections}
         />
       )}
     </div>
@@ -219,6 +251,8 @@ function ReviewStep({
   onTarget,
   keepCount,
   onBack,
+  onSave,
+  collections,
 }: {
   drafts: DraftCard[];
   onToggle: (id: string) => void;
@@ -226,6 +260,8 @@ function ReviewStep({
   onTarget: (id: string) => void;
   keepCount: number;
   onBack: () => void;
+  onSave: () => void;
+  collections: { id: string; emoji: string; name: string }[];
 }) {
   return (
     <div className="up__review fade-in">
@@ -306,7 +342,11 @@ function ReviewStep({
           <button className="btn-ghost" onClick={onBack}>
             Discard
           </button>
-          <button className="btn-primary" disabled={keepCount === 0}>
+          <button
+            className="btn-primary"
+            disabled={keepCount === 0}
+            onClick={onSave}
+          >
             <CheckCircle2 size={14} strokeWidth={2} />
             Save to collection
           </button>

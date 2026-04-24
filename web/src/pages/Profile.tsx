@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Camera,
@@ -15,32 +15,57 @@ import {
   AlertTriangle,
   Crown,
 } from "lucide-react";
-import { user as initialUser, stats } from "../data/mock";
+import { auth, selectCollections, selectCurrentUser, useDb } from "../lib/store";
 import "./Profile.css";
 
 export function Profile() {
-  const [form, setForm] = useState(initialUser);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(initialUser.avatarUrl);
+  const navigate = useNavigate();
+  const currentUser = useDb(selectCurrentUser);
+  const collections = useDb(selectCollections);
+
+  const [form, setForm] = useState(currentUser);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(
+    currentUser?.avatarUrl ?? null,
+  );
   const fileRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (currentUser) {
+      setForm(currentUser);
+      setAvatarPreview(currentUser.avatarUrl);
+    }
+  }, [currentUser?.id]);
+
   const dirty = useMemo(() => {
+    if (!currentUser || !form) return false;
     return (
-      form.firstName !== initialUser.firstName ||
-      form.lastName !== initialUser.lastName ||
-      form.username !== initialUser.username ||
-      form.bio !== initialUser.bio ||
-      form.timezone !== initialUser.timezone ||
-      form.dailyGoal !== initialUser.dailyGoal ||
-      form.emailReminders !== initialUser.emailReminders ||
-      form.weeklyDigest !== initialUser.weeklyDigest ||
-      avatarPreview !== initialUser.avatarUrl
+      form.firstName !== currentUser.firstName ||
+      form.lastName !== currentUser.lastName ||
+      form.username !== currentUser.username ||
+      form.bio !== currentUser.bio ||
+      form.timezone !== currentUser.timezone ||
+      form.dailyGoal !== currentUser.dailyGoal ||
+      form.emailReminders !== currentUser.emailReminders ||
+      form.weeklyDigest !== currentUser.weeklyDigest ||
+      avatarPreview !== currentUser.avatarUrl
     );
-  }, [form, avatarPreview]);
+  }, [form, avatarPreview, currentUser]);
+
+  if (!currentUser || !form) return <Navigate to="/login" replace />;
+
+  const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
+  const knownCards = collections.reduce(
+    (s, c) => s + c.cards.filter((k) => k.mastery === "known").length,
+    0,
+  );
 
   const initials = `${form.firstName[0] ?? ""}${form.lastName[0] ?? ""}`.toUpperCase();
 
-  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
+  function update<K extends keyof NonNullable<typeof form>>(
+    key: K,
+    value: NonNullable<typeof form>[K],
+  ) {
+    setForm((f) => (f ? { ...f, [key]: value } : f));
   }
 
   function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -52,9 +77,30 @@ export function Profile() {
   }
 
   function handleDiscard() {
-    setForm(initialUser);
-    setAvatarPreview(initialUser.avatarUrl);
+    if (!currentUser) return;
+    setForm(currentUser);
+    setAvatarPreview(currentUser.avatarUrl);
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function handleSave() {
+    if (!form) return;
+    auth.updateProfile({
+      firstName: form.firstName,
+      lastName: form.lastName,
+      username: form.username,
+      bio: form.bio,
+      timezone: form.timezone,
+      dailyGoal: form.dailyGoal,
+      emailReminders: form.emailReminders,
+      weeklyDigest: form.weeklyDigest,
+      avatarUrl: avatarPreview,
+    });
+  }
+
+  function handleSignOut() {
+    auth.signOut();
+    navigate("/login");
   }
 
   return (
@@ -307,21 +353,21 @@ export function Profile() {
         <div className="prof__glance-card">
           <Sparkles size={14} strokeWidth={2} color="var(--color-accent-light)" />
           <div>
-            <div className="prof__glance-val">{stats.totalCards}</div>
-            <div className="prof__glance-lbl">cards studied lifetime</div>
+            <div className="prof__glance-val">{totalCards}</div>
+            <div className="prof__glance-lbl">cards total</div>
           </div>
         </div>
         <div className="prof__glance-card">
           <Flame size={14} strokeWidth={2} color="#ff9b4a" />
           <div>
-            <div className="prof__glance-val">{stats.streak}</div>
-            <div className="prof__glance-lbl">day streak</div>
+            <div className="prof__glance-val">{knownCards}</div>
+            <div className="prof__glance-lbl">cards mastered</div>
           </div>
         </div>
         <div className="prof__glance-card">
           <Crown size={14} strokeWidth={2} color="var(--color-accent)" />
           <div>
-            <div className="prof__glance-val">{stats.totalCollections}</div>
+            <div className="prof__glance-val">{collections.length}</div>
             <div className="prof__glance-lbl">collections</div>
           </div>
         </div>
@@ -340,7 +386,7 @@ export function Profile() {
               <div className="prof__danger-title">Sign out</div>
               <div className="prof__danger-hint">You'll need to sign back in with {form.oauthProvider}.</div>
             </div>
-            <button className="btn-ghost">
+            <button className="btn-ghost" onClick={handleSignOut}>
               <LogOut size={13} strokeWidth={2} />
               Sign out
             </button>
@@ -371,7 +417,7 @@ export function Profile() {
             <button className="btn-ghost" onClick={handleDiscard}>
               Discard
             </button>
-            <button className="btn-primary">
+            <button className="btn-primary" onClick={handleSave}>
               <CheckCircle2 size={14} strokeWidth={2} />
               Save changes
             </button>

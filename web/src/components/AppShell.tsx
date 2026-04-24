@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import {
   LayoutGrid,
@@ -11,7 +11,13 @@ import {
   Plus,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
-import { folders, stats, user } from "../data/mock";
+import {
+  useDb,
+  selectCollections,
+  selectFolders,
+  selectCurrentUser,
+} from "../lib/store";
+import { NewFolderModal } from "./NewFolderModal";
 import "./AppShell.css";
 
 export function AppShell() {
@@ -22,6 +28,16 @@ export function AppShell() {
   const isCollections =
     location.pathname === "/app/collections" ||
     location.pathname.startsWith("/app/collections/");
+
+  const collections = useDb(selectCollections);
+  const folders = useDb(selectFolders);
+  const user = useDb(selectCurrentUser);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
+  const cardsDueToday = collections.reduce(
+    (s, c) => s + c.cards.filter((k) => k.mastery !== "known").length,
+    0,
+  );
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -53,7 +69,7 @@ export function AppShell() {
           >
             <Library size={16} strokeWidth={1.8} />
             Collections
-            <span className="shell__nav-count">{stats.totalCollections}</span>
+            <span className="shell__nav-count">{collections.length}</span>
           </Link>
           <NavLink to="/app/upload" className="shell__nav-link shell__nav-link--accent">
             <Sparkles size={16} strokeWidth={1.8} />
@@ -79,7 +95,10 @@ export function AppShell() {
               </Link>
             );
           })}
-          <button className="shell__nav-new">
+          <button
+            className="shell__nav-new"
+            onClick={() => setNewFolderOpen(true)}
+          >
             <Plus size={14} strokeWidth={2} />
             New folder
           </button>
@@ -89,16 +108,16 @@ export function AppShell() {
           <div className="shell__streak">
             <Flame size={16} strokeWidth={2} className="shell__streak-icon" />
             <div>
-              <div className="shell__streak-val">{stats.streak} days</div>
-              <div className="shell__streak-lbl">Learning streak</div>
+              <div className="shell__streak-val">{totalCards} cards</div>
+              <div className="shell__streak-lbl">Across all collections</div>
             </div>
           </div>
           <Link to="/app/profile" className="shell__userbar">
             <CircleUser size={22} strokeWidth={1.5} />
             <div className="shell__userbar-text">
-              <span className="shell__userbar-name">{user.firstName}</span>
+              <span className="shell__userbar-name">{user?.firstName ?? "You"}</span>
               <span className="shell__userbar-plan">
-                {user.plan === "pro" ? "Pro" : user.plan === "teams" ? "Teams" : "Free"} · SmithLabs
+                {user?.plan === "pro" ? "Pro" : user?.plan === "teams" ? "Teams" : "Free"} · flashr
               </span>
             </div>
             <Settings size={14} strokeWidth={1.8} className="shell__userbar-settings" />
@@ -119,7 +138,7 @@ export function AppShell() {
           <div className="shell__topbar-right">
             <span className="shell__topbar-stat">
               <span className="shell__topbar-stat-dot" />
-              {stats.cardsDueToday} cards due today
+              {cardsDueToday} cards due today
             </span>
           </div>
         </header>
@@ -128,6 +147,11 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      <NewFolderModal
+        open={newFolderOpen}
+        onClose={() => setNewFolderOpen(false)}
+      />
     </div>
   );
 }

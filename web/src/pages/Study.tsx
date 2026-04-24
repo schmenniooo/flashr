@@ -10,7 +10,8 @@ import {
   ArrowRight,
   RotateCcw,
 } from "lucide-react";
-import { collections } from "../data/mock";
+import type { Collection } from "../data/mock";
+import { cardsApi, collectionsApi, selectCollection, useDb } from "../lib/store";
 import { Wordmark } from "../lib/logo";
 import "./Study.css";
 
@@ -18,7 +19,7 @@ type Rating = "again" | "hard" | "good" | "easy";
 
 export function Study() {
   const { id } = useParams();
-  const collection = collections.find((c) => c.id === id);
+  const collection = useDb(selectCollection(id ?? ""));
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -50,6 +51,8 @@ export function Study() {
   }, [revealed, index, card, finished]);
 
   if (!collection) return <Navigate to="/app/collections" replace />;
+  if (collection.cards.length === 0)
+    return <Navigate to={`/app/c/${collection.id}`} replace />;
 
   function next() {
     if (!collection) return;
@@ -69,8 +72,12 @@ export function Study() {
   }
 
   function rate(r: Rating) {
-    if (!card) return;
+    if (!card || !collection) return;
     setRatings((old) => ({ ...old, [card.id]: r }));
+    const mastery =
+      r === "again" ? "new" : r === "hard" || r === "good" ? "learning" : "known";
+    cardsApi.setMastery(collection.id, card.id, mastery);
+    collectionsApi.touch(collection.id);
     setTimeout(() => next(), 180);
   }
 
@@ -199,7 +206,7 @@ function StudyTopBar({
   total,
   index,
 }: {
-  collection: (typeof collections)[number];
+  collection: Collection;
   total: number;
   index: number;
 }) {

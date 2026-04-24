@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -9,8 +9,10 @@ import {
   ArrowRight,
   Sparkles,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
+import { auth } from "../lib/store";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -19,6 +21,7 @@ export function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("signin");
   const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -27,10 +30,34 @@ export function Login() {
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    if (error) setError(null);
+  }
+
+  function switchMode(m: Mode) {
+    setMode(m);
+    setError(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const res =
+      mode === "signin"
+        ? auth.signIn(form.email, form.password)
+        : auth.signUp({
+            email: form.email,
+            password: form.password,
+            firstName: form.name.split(" ")[0] ?? "",
+            lastName: form.name.split(" ").slice(1).join(" "),
+          });
+    if (res.ok) {
+      navigate("/app");
+    } else {
+      setError(res.error);
+    }
+  }
+
+  function handleDemo() {
+    auth.signInAsDemo();
     navigate("/app");
   }
 
@@ -86,7 +113,7 @@ export function Login() {
               role="tab"
               aria-selected={mode === "signin"}
               className={`auth__switch-btn${mode === "signin" ? " active" : ""}`}
-              onClick={() => setMode("signin")}
+              onClick={() => switchMode("signin")}
             >
               Sign in
             </button>
@@ -94,7 +121,7 @@ export function Login() {
               role="tab"
               aria-selected={mode === "signup"}
               className={`auth__switch-btn${mode === "signup" ? " active" : ""}`}
-              onClick={() => setMode("signup")}
+              onClick={() => switchMode("signup")}
             >
               Create account
             </button>
@@ -112,15 +139,15 @@ export function Login() {
           </header>
 
           <div className="auth__oauth">
-            <button className="auth__oauth-btn" onClick={() => navigate("/app")}>
+            <button className="auth__oauth-btn" onClick={handleDemo}>
               <GoogleIcon />
               Continue with Google
             </button>
-            <button className="auth__oauth-btn" onClick={() => navigate("/app")}>
+            <button className="auth__oauth-btn" onClick={handleDemo}>
               <GithubIcon />
               Continue with GitHub
             </button>
-            <button className="auth__oauth-btn" onClick={() => navigate("/app")}>
+            <button className="auth__oauth-btn" onClick={handleDemo}>
               <AppleIcon />
               Continue with Apple
             </button>
@@ -129,6 +156,13 @@ export function Login() {
           <div className="auth__divider">
             <span>or with email</span>
           </div>
+
+          {error && (
+            <div className="auth__error" role="alert">
+              <AlertCircle size={14} strokeWidth={2} />
+              {error}
+            </div>
+          )}
 
           <form className="auth__form" onSubmit={handleSubmit}>
             {mode === "signup" && (
@@ -234,23 +268,23 @@ export function Login() {
             {mode === "signin" ? (
               <>
                 New to flashr?{" "}
-                <button className="auth__link" onClick={() => setMode("signup")}>
+                <button className="auth__link" onClick={() => switchMode("signup")}>
                   Create an account
                 </button>
               </>
             ) : (
               <>
                 Already have an account?{" "}
-                <button className="auth__link" onClick={() => setMode("signin")}>
+                <button className="auth__link" onClick={() => switchMode("signin")}>
                   Sign in
                 </button>
               </>
             )}
           </div>
 
-          <Link to="/app" className="auth__skip">
-            Skip for local testing →
-          </Link>
+          <button onClick={handleDemo} className="auth__skip">
+            Use demo account → ennio.nick@gmail.com / demo1234
+          </button>
         </div>
       </main>
     </div>

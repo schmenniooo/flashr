@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import { RequireAuth } from "./components/RequireAuth";
 import { Dashboard } from "./pages/Dashboard";
 import { Collections } from "./pages/Collections";
 import { CollectionDetail } from "./pages/CollectionDetail";
@@ -14,7 +15,11 @@ const router = createBrowserRouter([
   { path: "/signup", element: <Login /> },
   {
     path: "/app",
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Dashboard /> },
       { path: "collections", element: <Collections /> },

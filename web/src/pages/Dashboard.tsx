@@ -9,13 +9,28 @@ import {
   Clock,
   Zap,
 } from "lucide-react";
-import { collections, stats, recentActivity } from "../data/mock";
+import { recentActivity } from "../data/mock";
+import { selectCollections, selectCurrentUser, useDb } from "../lib/store";
 import { CollectionCard } from "../components/CollectionCard";
 import "./Dashboard.css";
 
 export function Dashboard() {
-  const dueCollection = collections.find((c) => c.id === "biochem-7")!;
+  const collections = useDb(selectCollections);
+  const currentUser = useDb(selectCurrentUser);
+
+  const dueCollection =
+    collections.find((c) => c.cards.some((k) => k.mastery !== "known")) ??
+    collections[0];
   const recentCollections = collections.slice(0, 6);
+  const cardsDue = collections.reduce(
+    (s, c) => s + c.cards.filter((k) => k.mastery !== "known").length,
+    0,
+  );
+  const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
+  const cardsLearned = collections.reduce(
+    (s, c) => s + c.cards.filter((k) => k.mastery === "known").length,
+    0,
+  );
 
   return (
     <div className="dash">
@@ -23,7 +38,8 @@ export function Dashboard() {
         <div>
           <span className="text-meta">Dashboard · Wednesday, April 23</span>
           <h1 className="text-h1 dash__greeting">
-            Hey Ennio 👋 <span className="dash__greeting-sub">Ready for a few cards?</span>
+            Hey {currentUser?.firstName ?? "there"} 👋{" "}
+            <span className="dash__greeting-sub">Ready for a few cards?</span>
           </h1>
         </div>
         <div className="dash__head-cta">
@@ -43,20 +59,32 @@ export function Dashboard() {
               Today's session
             </span>
             <h2 className="text-h1 dash__session-title">
-              {stats.cardsDueToday} cards are waiting for you.
+              {cardsDue > 0
+                ? `${cardsDue} cards are waiting for you.`
+                : "You're all caught up."}
             </h2>
             <p className="text-body dash__session-sub">
-              Start with <strong style={{ color: "var(--color-text)" }}>{dueCollection.name}</strong> — you
-              last studied it {dueCollection.lastStudied}. Only ~7&nbsp;minutes at 30&nbsp;sec per card.
+              {dueCollection
+                ? <>Start with <strong style={{ color: "var(--color-text)" }}>{dueCollection.name}</strong> — you last studied it {dueCollection.lastStudied}.</>
+                : <>Create your first collection to get started.</>}
             </p>
             <div className="dash__session-ctas">
-              <Link to={`/app/c/${dueCollection.id}/study`} className="btn-primary">
-                Start studying
-                <ArrowRight size={14} strokeWidth={2} />
-              </Link>
-              <Link to={`/app/c/${dueCollection.id}`} className="btn-ghost">
-                Open collection
-              </Link>
+              {dueCollection && dueCollection.cards.length > 0 && (
+                <Link to={`/app/c/${dueCollection.id}/study`} className="btn-primary">
+                  Start studying
+                  <ArrowRight size={14} strokeWidth={2} />
+                </Link>
+              )}
+              {dueCollection ? (
+                <Link to={`/app/c/${dueCollection.id}`} className="btn-ghost">
+                  Open collection
+                </Link>
+              ) : (
+                <Link to="/app/collections" className="btn-primary">
+                  Create a collection
+                  <ArrowRight size={14} strokeWidth={2} />
+                </Link>
+              )}
             </div>
           </div>
 
@@ -66,11 +94,13 @@ export function Dashboard() {
             </div>
             <div className="dash__session-card dash__session-card--mid">
               <span className="text-meta">Question</span>
-              <p>How does a competitive inhibitor affect Kₘ?</p>
+              <p>{dueCollection?.cards[1]?.question ?? "Flip through your deck…"}</p>
             </div>
             <div className="dash__session-card dash__session-card--front">
-              <span className="text-meta">Question · 1 / {dueCollection.cards.length}</span>
-              <p>What does the Michaelis constant (Kₘ) describe?</p>
+              <span className="text-meta">
+                Question · 1 / {dueCollection?.cards.length ?? 0}
+              </span>
+              <p>{dueCollection?.cards[0]?.question ?? "No cards yet — add some!"}</p>
               <span className="dash__session-hint">Press space to reveal</span>
             </div>
           </div>
@@ -80,33 +110,33 @@ export function Dashboard() {
           <article className="dash__stat-card">
             <Flame size={18} strokeWidth={2} color="#ff9b4a" />
             <div>
-              <div className="dash__stat-val">{stats.streak}</div>
-              <div className="dash__stat-lbl">Day streak</div>
+              <div className="dash__stat-val">{cardsLearned}</div>
+              <div className="dash__stat-lbl">Mastered</div>
             </div>
             <div className="dash__stat-trend">
-              <TrendingUp size={12} strokeWidth={2} /> personal best
+              <TrendingUp size={12} strokeWidth={2} /> keep going
             </div>
           </article>
 
           <article className="dash__stat-card">
             <BookOpen size={18} strokeWidth={2} color="var(--color-accent-light)" />
             <div>
-              <div className="dash__stat-val">{stats.cardsLearnedThisWeek}</div>
-              <div className="dash__stat-lbl">Cards this week</div>
+              <div className="dash__stat-val">{cardsDue}</div>
+              <div className="dash__stat-lbl">Cards to review</div>
             </div>
             <div className="dash__stat-trend dash__stat-trend--up">
-              <TrendingUp size={12} strokeWidth={2} /> +34%
+              <TrendingUp size={12} strokeWidth={2} /> ready now
             </div>
           </article>
 
           <article className="dash__stat-card">
             <Sparkles size={18} strokeWidth={2} color="var(--color-accent)" />
             <div>
-              <div className="dash__stat-val">{stats.totalCards}</div>
+              <div className="dash__stat-val">{totalCards}</div>
               <div className="dash__stat-lbl">Total cards</div>
             </div>
             <div className="dash__stat-trend">
-              <Clock size={12} strokeWidth={2} /> across {stats.totalCollections} collections
+              <Clock size={12} strokeWidth={2} /> across {collections.length} collections
             </div>
           </article>
         </div>
