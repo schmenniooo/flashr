@@ -6,8 +6,11 @@ import { CollectionDetail } from "./pages/CollectionDetail";
 import { Study } from "./pages/Study";
 import { Upload } from "./pages/Upload";
 import { Profile } from "./pages/Profile";
+import { Login } from "./pages/Login";
 
 const router = createBrowserRouter([
+  { path: "/login", element: <Login /> },
+  { path: "/signup", element: <Login /> },
   {
     element: <AppShell />,
     children: [
