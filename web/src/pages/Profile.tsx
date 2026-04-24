@@ -59,7 +59,7 @@ export function Profile() {
 
   return (
     <div className="prof">
-      <Link to="/" className="prof__back">
+      <Link to="/app" className="prof__back">
         <ArrowLeft size={14} strokeWidth={2} />
         Back to dashboard
       </Link>

@@ -31,7 +31,7 @@ export function Login() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    navigate("/");
+    navigate("/app");
   }
 
   return (
@@ -112,15 +112,15 @@ export function Login() {
           </header>
 
           <div className="auth__oauth">
-            <button className="auth__oauth-btn" onClick={() => navigate("/")}>
+            <button className="auth__oauth-btn" onClick={() => navigate("/app")}>
               <GoogleIcon />
               Continue with Google
             </button>
-            <button className="auth__oauth-btn" onClick={() => navigate("/")}>
+            <button className="auth__oauth-btn" onClick={() => navigate("/app")}>
               <GithubIcon />
               Continue with GitHub
             </button>
-            <button className="auth__oauth-btn" onClick={() => navigate("/")}>
+            <button className="auth__oauth-btn" onClick={() => navigate("/app")}>
               <AppleIcon />
               Continue with Apple
             </button>
@@ -172,7 +172,7 @@ export function Login() {
                   <button
                     type="button"
                     className="auth__forgot"
-                    onClick={() => navigate("/")}
+                    onClick={() => navigate("/app")}
                   >
                     Forgot?
                   </button>
@@ -248,7 +248,7 @@ export function Login() {
             )}
           </div>
 
-          <Link to="/" className="auth__skip">
+          <Link to="/app" className="auth__skip">
             Skip for local testing →
           </Link>
         </div>

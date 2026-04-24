@@ -89,7 +89,7 @@ export function Upload() {
 
   return (
     <div className="up">
-      <Link to="/" className="up__back">
+      <Link to="/app" className="up__back">
         <ArrowLeft size={14} strokeWidth={2} />
         Back to dashboard
       </Link>

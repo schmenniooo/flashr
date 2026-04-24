@@ -17,7 +17,7 @@ export function CollectionDetail() {
   const { id } = useParams();
   const collection = collections.find((c) => c.id === id);
 
-  if (!collection) return <Navigate to="/collections" replace />;
+  if (!collection) return <Navigate to="/app/collections" replace />;
 
   const aiCount = collection.cards.filter((c) => c.aiGenerated).length;
   const masteryCounts = {
@@ -28,7 +28,7 @@ export function CollectionDetail() {
 
   return (
     <div className="cdet">
-      <Link to="/collections" className="cdet__back">
+      <Link to="/app/collections" className="cdet__back">
         <ArrowLeft size={14} strokeWidth={2} />
         Back to collections
       </Link>
@@ -55,7 +55,7 @@ export function CollectionDetail() {
             <button className="btn-ghost" title="More">
               <MoreHorizontal size={14} strokeWidth={2} />
             </button>
-            <Link to={`/c/${collection.id}/study`} className="btn-primary">
+            <Link to={`/app/c/${collection.id}/study`} className="btn-primary">
               <BookOpen size={14} strokeWidth={2} />
               Start studying
             </Link>
@@ -98,7 +98,7 @@ export function CollectionDetail() {
               <Plus size={14} strokeWidth={2} />
               Add card
             </button>
-            <Link to="/upload" className="btn-ghost">
+            <Link to="/app/upload" className="btn-ghost">
               <Sparkles size={14} strokeWidth={2} />
               Extend with AI
             </Link>

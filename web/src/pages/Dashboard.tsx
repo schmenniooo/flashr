@@ -27,7 +27,7 @@ export function Dashboard() {
           </h1>
         </div>
         <div className="dash__head-cta">
-          <Link to="/upload" className="btn-primary">
+          <Link to="/app/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
             Create cards from PDF
           </Link>
@@ -50,11 +50,11 @@ export function Dashboard() {
               last studied it {dueCollection.lastStudied}. Only ~7&nbsp;minutes at 30&nbsp;sec per card.
             </p>
             <div className="dash__session-ctas">
-              <Link to={`/c/${dueCollection.id}/study`} className="btn-primary">
+              <Link to={`/app/c/${dueCollection.id}/study`} className="btn-primary">
                 Start studying
                 <ArrowRight size={14} strokeWidth={2} />
               </Link>
-              <Link to={`/c/${dueCollection.id}`} className="btn-ghost">
+              <Link to={`/app/c/${dueCollection.id}`} className="btn-ghost">
                 Open collection
               </Link>
             </div>
@@ -119,7 +119,7 @@ export function Dashboard() {
             <h2 className="text-h2">Pick up where you left off</h2>
             <p className="text-body">Your most recently touched collections.</p>
           </div>
-          <Link to="/collections" className="dash__section-link">
+          <Link to="/app/collections" className="dash__section-link">
             View all
             <ArrowRight size={14} strokeWidth={2} />
           </Link>
@@ -134,7 +134,7 @@ export function Dashboard() {
 
       {/* ── Bottom row: Upload CTA + Activity ── */}
       <section className="dash__bottom">
-        <Link to="/upload" className="dash__upload-cta">
+        <Link to="/app/upload" className="dash__upload-cta">
           <div className="dash__upload-cta-bg" aria-hidden />
           <div className="dash__upload-cta-inner">
             <div className="dash__upload-cta-icon">

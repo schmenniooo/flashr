@@ -8,7 +8,7 @@ export function CollectionCard({ collection }: { collection: Collection }) {
   const aiCount = cards.filter((c) => c.aiGenerated).length;
 
   return (
-    <Link to={`/c/${id}`} className="colcard hover-lift">
+    <Link to={`/app/c/${id}`} className="colcard hover-lift">
       <div className="colcard__top">
         <span className="colcard__emoji" aria-hidden>
           {emoji}

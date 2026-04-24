@@ -49,7 +49,7 @@ export function Study() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealed, index, card, finished]);
 
-  if (!collection) return <Navigate to="/collections" replace />;
+  if (!collection) return <Navigate to="/app/collections" replace />;
 
   function next() {
     if (!collection) return;
@@ -93,7 +93,7 @@ export function Study() {
             <div><strong>+1</strong><span>streak day</span></div>
           </div>
           <div className="study__done-cta">
-            <Link to={`/c/${collection.id}`} className="btn-ghost">
+            <Link to={`/app/c/${collection.id}`} className="btn-ghost">
               Back to collection
             </Link>
             <button
@@ -227,7 +227,7 @@ function StudyTopBar({
         <span className="study__streak">
           <Flame size={14} strokeWidth={2} /> 12
         </span>
-        <Link to={`/c/${collection.id}`} className="study__close" title="Exit">
+        <Link to={`/app/c/${collection.id}`} className="study__close" title="Exit">
           <X size={18} strokeWidth={1.8} />
         </Link>
       </div>

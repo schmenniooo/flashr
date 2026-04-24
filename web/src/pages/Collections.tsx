@@ -43,7 +43,7 @@ export function Collections() {
             <Plus size={14} strokeWidth={2} />
             New collection
           </button>
-          <Link to="/upload" className="btn-primary">
+          <Link to="/app/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
             Create with AI
           </Link>
@@ -105,7 +105,7 @@ export function Collections() {
       ) : (
         <div className="cols__list">
           {filtered.map((c) => (
-            <Link key={c.id} to={`/c/${c.id}`} className="cols__row">
+            <Link key={c.id} to={`/app/c/${c.id}`} className="cols__row">
               <span className="cols__row-emoji">{c.emoji}</span>
               <div className="cols__row-main">
                 <div className="cols__row-title">{c.name}</div>

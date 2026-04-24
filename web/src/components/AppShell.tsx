@@ -19,6 +19,9 @@ export function AppShell() {
   const [searchParams] = useSearchParams();
   const activeFolder = searchParams.get("folder");
   const isStudy = location.pathname.includes("/study");
+  const isCollections =
+    location.pathname === "/app/collections" ||
+    location.pathname.startsWith("/app/collections/");
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -38,21 +41,21 @@ export function AppShell() {
 
         <nav className="shell__nav">
           <span className="shell__nav-label">Navigation</span>
-          <NavLink to="/" end className="shell__nav-link">
+          <NavLink to="/app" end className="shell__nav-link">
             <LayoutGrid size={16} strokeWidth={1.8} />
             Dashboard
           </NavLink>
           <Link
-            to="/collections"
+            to="/app/collections"
             className={`shell__nav-link${
-              location.pathname === "/collections" && !activeFolder ? " active" : ""
+              isCollections && !activeFolder ? " active" : ""
             }`}
           >
             <Library size={16} strokeWidth={1.8} />
             Collections
             <span className="shell__nav-count">{stats.totalCollections}</span>
           </Link>
-          <NavLink to="/upload" className="shell__nav-link shell__nav-link--accent">
+          <NavLink to="/app/upload" className="shell__nav-link shell__nav-link--accent">
             <Sparkles size={16} strokeWidth={1.8} />
             Create with AI
           </NavLink>
@@ -61,12 +64,11 @@ export function AppShell() {
         <nav className="shell__nav">
           <span className="shell__nav-label">Folders</span>
           {folders.map((f) => {
-            const isActive =
-              location.pathname === "/collections" && activeFolder === f.name;
+            const isActive = isCollections && activeFolder === f.name;
             return (
               <Link
                 key={f.name}
-                to={`/collections?folder=${encodeURIComponent(f.name)}`}
+                to={`/app/collections?folder=${encodeURIComponent(f.name)}`}
                 className={`shell__nav-link shell__nav-link--folder${
                   isActive ? " active" : ""
                 }`}
@@ -91,7 +93,7 @@ export function AppShell() {
               <div className="shell__streak-lbl">Learning streak</div>
             </div>
           </div>
-          <Link to="/profile" className="shell__userbar">
+          <Link to="/app/profile" className="shell__userbar">
             <CircleUser size={22} strokeWidth={1.5} />
             <div className="shell__userbar-text">
               <span className="shell__userbar-name">{user.firstName}</span>
