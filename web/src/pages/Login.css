@@ -375,6 +375,15 @@
   color: var(--color-accent-light);
 }
 
+.auth__skip--alt {
+  border-top: none;
+  padding-top: var(--space-2);
+  color: var(--color-accent-light);
+}
+.auth__skip--alt:hover {
+  color: var(--color-accent);
+}
+
 .auth__error {
   display: flex;
   align-items: center;

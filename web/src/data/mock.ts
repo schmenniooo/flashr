@@ -1,3 +1,11 @@
+export type LearnerType =
+  | "university"
+  | "certifications"
+  | "school"
+  | "self-study"
+  | "professional"
+  | "other";
+
 export type User = {
   firstName: string;
   lastName: string;
@@ -13,6 +21,9 @@ export type User = {
   dailyGoal: number;
   emailReminders: boolean;
   weeklyDigest: boolean;
+  age: number | null;
+  learnerTypes: LearnerType[];
+  onboardingCompleted: boolean;
 };
 
 export const user: User = {
@@ -30,6 +41,9 @@ export const user: User = {
   dailyGoal: 30,
   emailReminders: true,
   weeklyDigest: false,
+  age: 24,
+  learnerTypes: ["university"],
+  onboardingCompleted: true,
 };
 
 export type Card = {

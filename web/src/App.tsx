@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
-import { RequireAuth } from "./components/RequireAuth";
+import { RequireAuth, RequireOnboarded } from "./components/RequireAuth";
 import { Dashboard } from "./pages/Dashboard";
 import { Collections } from "./pages/Collections";
 import { CollectionDetail } from "./pages/CollectionDetail";
@@ -8,16 +8,27 @@ import { Study } from "./pages/Study";
 import { Upload } from "./pages/Upload";
 import { Profile } from "./pages/Profile";
 import { Login } from "./pages/Login";
+import { Onboarding } from "./pages/Onboarding";
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/app" replace /> },
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Login /> },
   {
+    path: "/onboarding",
+    element: (
+      <RequireAuth>
+        <Onboarding />
+      </RequireAuth>
+    ),
+  },
+  {
     path: "/app",
     element: (
       <RequireAuth>
-        <AppShell />
+        <RequireOnboarded>
+          <AppShell />
+        </RequireOnboarded>
       </RequireAuth>
     ),
     children: [

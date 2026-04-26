@@ -6,6 +6,7 @@ import {
   type Card,
   type Collection,
   type Folder,
+  type LearnerType,
   type User,
 } from "../data/mock";
 
@@ -51,6 +52,23 @@ function freshDb(): Db {
   };
 }
 
+function migrateUser(u: StoredUser): StoredUser {
+  const legacy = u as StoredUser & { learnerType?: LearnerType | null };
+  const learnerTypes = Array.isArray(u.learnerTypes)
+    ? u.learnerTypes
+    : legacy.learnerType
+      ? [legacy.learnerType]
+      : [];
+  return {
+    ...u,
+    age: u.age ?? null,
+    learnerTypes,
+    // Pre-existing accounts predate onboarding, so treat them as completed
+    // unless we explicitly know they need it.
+    onboardingCompleted: u.onboardingCompleted ?? true,
+  };
+}
+
 function readDb(): Db {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -59,7 +77,8 @@ function readDb(): Db {
       writeDb(fresh);
       return fresh;
     }
-    return JSON.parse(raw) as Db;
+    const parsed = JSON.parse(raw) as Db;
+    return { ...parsed, users: parsed.users.map(migrateUser) };
   } catch {
     const fresh = freshDb();
     writeDb(fresh);
@@ -194,6 +213,9 @@ export const auth = {
       dailyGoal: 20,
       emailReminders: true,
       weeklyDigest: false,
+      age: null,
+      learnerTypes: [],
+      onboardingCompleted: false,
     };
     setState((db) => ({
       ...db,
@@ -221,6 +243,68 @@ export const auth = {
     const demo = state.users.find((u) => u.id === "demo-user");
     if (!demo) return;
     setState((db) => ({ ...db, session: { userId: demo.id } }));
+  },
+
+  /**
+   * Dev-only: signs in as a fresh test user that still needs to complete
+   * onboarding. Resets the test user every call so the flow can be re-tried.
+   */
+  signInAsOnboardingTest() {
+    const id = "onboarding-test-user";
+    const testUser: StoredUser = {
+      id,
+      email: "onboarding-test@flashr.io",
+      password: "onboarding",
+      firstName: "",
+      lastName: "",
+      username: "onboarding-test",
+      oauthProvider: "google",
+      plan: "free",
+      memberSince: new Date().toLocaleString("en-US", {
+        month: "long",
+        year: "numeric",
+      }),
+      avatarUrl: null,
+      bio: "",
+      timezone: "Europe/Berlin",
+      language: "English",
+      dailyGoal: 20,
+      emailReminders: true,
+      weeklyDigest: false,
+      age: null,
+      learnerTypes: [],
+      onboardingCompleted: false,
+    };
+    setState((db) => ({
+      ...db,
+      users: [...db.users.filter((u) => u.id !== id), testUser],
+      session: { userId: id },
+    }));
+  },
+
+  completeOnboarding(input: {
+    firstName: string;
+    lastName?: string;
+    age: number;
+    learnerTypes: LearnerType[];
+  }) {
+    const session = state.session;
+    if (!session) return;
+    setState((db) => ({
+      ...db,
+      users: db.users.map((u) =>
+        u.id === session.userId
+          ? {
+              ...u,
+              firstName: input.firstName,
+              lastName: input.lastName ?? u.lastName,
+              age: input.age,
+              learnerTypes: input.learnerTypes,
+              onboardingCompleted: true,
+            }
+          : u,
+      ),
+    }));
   },
 
   signOut() {

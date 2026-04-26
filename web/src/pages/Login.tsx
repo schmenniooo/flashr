@@ -50,7 +50,7 @@ export function Login() {
             lastName: form.name.split(" ").slice(1).join(" "),
           });
     if (res.ok) {
-      navigate("/app");
+      navigate(mode === "signup" ? "/onboarding" : "/app");
     } else {
       setError(res.error);
     }
@@ -59,6 +59,11 @@ export function Login() {
   function handleDemo() {
     auth.signInAsDemo();
     navigate("/app");
+  }
+
+  function handleOnboardingTest() {
+    auth.signInAsOnboardingTest();
+    navigate("/onboarding");
   }
 
   return (
@@ -284,6 +289,10 @@ export function Login() {
 
           <button onClick={handleDemo} className="auth__skip">
             Use demo account → ennio.nick@gmail.com / demo1234
+          </button>
+
+          <button onClick={handleOnboardingTest} className="auth__skip auth__skip--alt">
+            Test onboarding flow → fresh user, no profile
           </button>
         </div>
       </main>
