@@ -9,6 +9,8 @@ import {
   Settings,
   CircleUser,
   Plus,
+  Menu,
+  X,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import {
@@ -33,6 +35,7 @@ export function AppShell() {
   const folders = useDb(selectFolders);
   const user = useDb(selectCurrentUser);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
   const cardsDueToday = collections.reduce(
     (s, c) => s + c.cards.filter((k) => k.mastery !== "known").length,
@@ -41,14 +44,30 @@ export function AppShell() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-  }, [location.pathname]);
+    setSidebarOpen(false);
+  }, [location.pathname, searchParams]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
 
   if (isStudy) {
     return <Outlet />;
   }
 
   return (
-    <div className="shell">
+    <div className={`shell${sidebarOpen ? " shell--sidebar-open" : ""}`}>
+      <button
+        type="button"
+        className="shell__backdrop"
+        aria-label="Close navigation"
+        onClick={() => setSidebarOpen(false)}
+      />
       <aside className="shell__sidebar">
         <div className="shell__brand">
           <Wordmark size={22} />
@@ -127,6 +146,19 @@ export function AppShell() {
 
       <div className="shell__content">
         <header className="shell__topbar">
+          <button
+            type="button"
+            className="shell__nav-toggle"
+            aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={sidebarOpen}
+            onClick={() => setSidebarOpen((v) => !v)}
+          >
+            {sidebarOpen ? (
+              <X size={18} strokeWidth={1.8} />
+            ) : (
+              <Menu size={18} strokeWidth={1.8} />
+            )}
+          </button>
           <div className="shell__search">
             <Search size={14} strokeWidth={1.8} />
             <input
