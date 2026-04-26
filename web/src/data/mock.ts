@@ -24,6 +24,7 @@ export type User = {
   age: number | null;
   learnerTypes: LearnerType[];
   onboardingCompleted: boolean;
+  dismissedSuggestions: string[];
 };
 
 export const user: User = {
@@ -44,6 +45,7 @@ export const user: User = {
   age: 24,
   learnerTypes: ["university"],
   onboardingCompleted: true,
+  dismissedSuggestions: [],
 };
 
 export type Card = {
@@ -338,4 +340,195 @@ export const recentActivity = [
   { label: "Generated 8 cards", collection: "Philosophy · Kant", time: "this morning" },
   { label: "PDF uploaded", collection: "Biochemistry — Enzyme Kinetics", time: "yesterday" },
   { label: "Collection created", collection: "French · Subjunctive", time: "2 weeks ago" },
+];
+
+// ─────────────────────────────────────────────────────────────
+// Suggested collections — hand-curated catalog keyed by learner type.
+// Replace with backend recommendations once the Go API lands.
+// ─────────────────────────────────────────────────────────────
+
+export type Suggestion = {
+  id: string;
+  learnerTypes: LearnerType[];
+  emoji: string;
+  title: string;
+  description: string;
+  folder: string;
+  folderEmoji: string;
+};
+
+export const suggestions: Suggestion[] = [
+  // ── Certifications ──────────────────────────────────────────
+  {
+    id: "cert-aws-cp",
+    learnerTypes: ["certifications"],
+    emoji: "☁️",
+    title: "AWS Cloud Practitioner",
+    description: "Foundational concepts for the CLF-C02 exam — services, pricing, security.",
+    folder: "Certifications",
+    folderEmoji: "📜",
+  },
+  {
+    id: "cert-cfa-1-ethics",
+    learnerTypes: ["certifications"],
+    emoji: "📈",
+    title: "CFA Level I — Ethics",
+    description: "Code of Ethics and Standards of Professional Conduct.",
+    folder: "Certifications",
+    folderEmoji: "📜",
+  },
+  {
+    id: "cert-pmp",
+    learnerTypes: ["certifications"],
+    emoji: "📋",
+    title: "PMP Process Groups",
+    description: "Initiating, planning, executing, monitoring, and closing.",
+    folder: "Certifications",
+    folderEmoji: "📜",
+  },
+  {
+    id: "cert-ielts",
+    learnerTypes: ["certifications"],
+    emoji: "🗣️",
+    title: "IELTS — Academic Vocabulary",
+    description: "Band 7+ words for academic writing and speaking.",
+    folder: "Certifications",
+    folderEmoji: "📜",
+  },
+
+  // ── University ──────────────────────────────────────────────
+  {
+    id: "uni-linear-algebra",
+    learnerTypes: ["university"],
+    emoji: "🧮",
+    title: "Linear Algebra Essentials",
+    description: "Vectors, matrices, eigenvalues — the must-knows.",
+    folder: "University",
+    folderEmoji: "🎓",
+  },
+  {
+    id: "uni-orgchem-mechanisms",
+    learnerTypes: ["university"],
+    emoji: "⚗️",
+    title: "Organic Chemistry — Mechanisms",
+    description: "SN1, SN2, E1, E2 with worked examples.",
+    folder: "University",
+    folderEmoji: "🎓",
+  },
+  {
+    id: "uni-macroecon",
+    learnerTypes: ["university"],
+    emoji: "📊",
+    title: "Macroeconomics 101",
+    description: "GDP, inflation, monetary vs fiscal policy.",
+    folder: "University",
+    folderEmoji: "🎓",
+  },
+  {
+    id: "uni-data-structures",
+    learnerTypes: ["university"],
+    emoji: "🌳",
+    title: "Data Structures Crash Course",
+    description: "Arrays, hashmaps, trees, graphs — interview-ready.",
+    folder: "University",
+    folderEmoji: "🎓",
+  },
+
+  // ── School ──────────────────────────────────────────────────
+  {
+    id: "school-us-history",
+    learnerTypes: ["school"],
+    emoji: "🇺🇸",
+    title: "US History — Key Dates",
+    description: "From 1776 to today, the dates teachers love to ask about.",
+    folder: "School",
+    folderEmoji: "🏫",
+  },
+  {
+    id: "school-spanish-100",
+    learnerTypes: ["school"],
+    emoji: "🇪🇸",
+    title: "Spanish — First 100 Words",
+    description: "The vocabulary that unlocks half of everyday Spanish.",
+    folder: "School",
+    folderEmoji: "🏫",
+  },
+  {
+    id: "school-biology-cell",
+    learnerTypes: ["school"],
+    emoji: "🔬",
+    title: "Biology — The Cell",
+    description: "Organelles, membranes, mitosis vs meiosis.",
+    folder: "School",
+    folderEmoji: "🏫",
+  },
+
+  // ── Professional ────────────────────────────────────────────
+  {
+    id: "pro-design-patterns",
+    learnerTypes: ["professional"],
+    emoji: "🧩",
+    title: "Software Design Patterns",
+    description: "Singleton to Observer — when and why to reach for each.",
+    folder: "Professional",
+    folderEmoji: "💼",
+  },
+  {
+    id: "pro-negotiation",
+    learnerTypes: ["professional"],
+    emoji: "🤝",
+    title: "Negotiation Tactics",
+    description: "BATNA, anchoring, and how to ask for the raise.",
+    folder: "Professional",
+    folderEmoji: "💼",
+  },
+  {
+    id: "pro-sql-recipes",
+    learnerTypes: ["professional"],
+    emoji: "🗄️",
+    title: "SQL Recipes",
+    description: "Joins, window functions, CTEs that actually show up at work.",
+    folder: "Professional",
+    folderEmoji: "💼",
+  },
+
+  // ── Self-study ──────────────────────────────────────────────
+  {
+    id: "self-stoicism",
+    learnerTypes: ["self-study"],
+    emoji: "🏛️",
+    title: "Stoic Philosophy",
+    description: "Marcus Aurelius, Seneca, and the dichotomy of control.",
+    folder: "Self-study",
+    folderEmoji: "🌱",
+  },
+  {
+    id: "self-japanese-hiragana",
+    learnerTypes: ["self-study"],
+    emoji: "🇯🇵",
+    title: "Japanese — Hiragana",
+    description: "All 46 characters in two weeks.",
+    folder: "Self-study",
+    folderEmoji: "🌱",
+  },
+  {
+    id: "self-pottery-glaze",
+    learnerTypes: ["self-study"],
+    emoji: "🏺",
+    title: "Pottery Glaze Chemistry",
+    description: "Cone temperatures, oxide colorants, food-safe finishes.",
+    folder: "Self-study",
+    folderEmoji: "🌱",
+  },
+
+  // ── Other ───────────────────────────────────────────────────
+  {
+    id: "other-memory-palace",
+    learnerTypes: ["other"],
+    emoji: "🧠",
+    title: "Memory Palace Method",
+    description: "Build your first method-of-loci system.",
+    folder: "Uncategorized",
+    folderEmoji: "📁",
+  },
 ];

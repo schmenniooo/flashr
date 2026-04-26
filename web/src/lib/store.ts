@@ -2,11 +2,13 @@ import { useSyncExternalStore } from "react";
 import {
   collections as seedCollections,
   folders as seedFolders,
+  suggestions as suggestionCatalog,
   user as seedUser,
   type Card,
   type Collection,
   type Folder,
   type LearnerType,
+  type Suggestion,
   type User,
 } from "../data/mock";
 
@@ -66,6 +68,9 @@ function migrateUser(u: StoredUser): StoredUser {
     // Pre-existing accounts predate onboarding, so treat them as completed
     // unless we explicitly know they need it.
     onboardingCompleted: u.onboardingCompleted ?? true,
+    dismissedSuggestions: Array.isArray(u.dismissedSuggestions)
+      ? u.dismissedSuggestions
+      : [],
   };
 }
 
@@ -216,6 +221,7 @@ export const auth = {
       age: null,
       learnerTypes: [],
       onboardingCompleted: false,
+      dismissedSuggestions: [],
     };
     setState((db) => ({
       ...db,
@@ -274,6 +280,7 @@ export const auth = {
       age: null,
       learnerTypes: [],
       onboardingCompleted: false,
+      dismissedSuggestions: [],
     };
     setState((db) => ({
       ...db,
@@ -480,6 +487,126 @@ export const foldersApi = {
         c.folder === name ? { ...c, folder: "Uncategorized" } : c,
       ),
     }));
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Suggestions
+// ─────────────────────────────────────────────────────────────
+
+const MAX_SUGGESTIONS = 4;
+const EMPTY_SUGGESTIONS: Suggestion[] = [];
+
+let suggestionsCache: {
+  users: Db["users"];
+  collections: Db["collections"];
+  session: Db["session"];
+  result: Suggestion[];
+} | null = null;
+
+export const selectSuggestionsForUser = (db: Db): Suggestion[] => {
+  if (
+    suggestionsCache &&
+    suggestionsCache.users === db.users &&
+    suggestionsCache.collections === db.collections &&
+    suggestionsCache.session === db.session
+  ) {
+    return suggestionsCache.result;
+  }
+
+  const user = db.session
+    ? db.users.find((u) => u.id === db.session!.userId)
+    : null;
+
+  let result: Suggestion[];
+  if (!user || user.learnerTypes.length === 0) {
+    result = EMPTY_SUGGESTIONS;
+  } else {
+    const types = new Set(user.learnerTypes);
+    const dismissed = new Set(user.dismissedSuggestions);
+    const existingNames = new Set(
+      db.collections.map((c) => c.name.toLowerCase()),
+    );
+    const filtered = suggestionCatalog
+      .filter((s) => s.learnerTypes.some((t) => types.has(t)))
+      .filter((s) => !dismissed.has(s.id))
+      .filter((s) => !existingNames.has(s.title.toLowerCase()))
+      .slice(0, MAX_SUGGESTIONS);
+    result = filtered.length === 0 ? EMPTY_SUGGESTIONS : filtered;
+  }
+
+  suggestionsCache = {
+    users: db.users,
+    collections: db.collections,
+    session: db.session,
+    result,
+  };
+  return result;
+};
+
+export const suggestionsApi = {
+  dismiss(id: string) {
+    const session = state.session;
+    if (!session) return;
+    setState((db) => ({
+      ...db,
+      users: db.users.map((u) =>
+        u.id === session.userId
+          ? {
+              ...u,
+              dismissedSuggestions: u.dismissedSuggestions.includes(id)
+                ? u.dismissedSuggestions
+                : [...u.dismissedSuggestions, id],
+            }
+          : u,
+      ),
+    }));
+  },
+
+  accept(id: string): Collection | null {
+    const session = state.session;
+    if (!session) return null;
+    const suggestion = suggestionCatalog.find((s) => s.id === id);
+    if (!suggestion) return null;
+
+    const col: Collection = {
+      id: uid("col_"),
+      name: suggestion.title,
+      folder: suggestion.folder,
+      emoji: suggestion.emoji,
+      description: suggestion.description,
+      cards: [],
+      lastStudied: "just now",
+      progress: 0,
+      isPublic: false,
+    };
+
+    setState((db) => {
+      const folderExists = db.folders.some((f) => f.name === suggestion.folder);
+      const folders = folderExists
+        ? db.folders
+        : [
+            ...db.folders,
+            { name: suggestion.folder, emoji: suggestion.folderEmoji, count: 0 },
+          ];
+      const collections = [col, ...db.collections];
+      return {
+        ...db,
+        collections,
+        folders: recountFolders(folders, collections),
+        users: db.users.map((u) =>
+          u.id === session.userId
+            ? {
+                ...u,
+                dismissedSuggestions: u.dismissedSuggestions.includes(id)
+                  ? u.dismissedSuggestions
+                  : [...u.dismissedSuggestions, id],
+              }
+            : u,
+        ),
+      };
+    });
+    return col;
   },
 };
 

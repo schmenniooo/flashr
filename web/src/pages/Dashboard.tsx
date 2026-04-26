@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
   Flame,
@@ -8,15 +8,31 @@ import {
   ArrowRight,
   Clock,
   Zap,
+  Plus,
+  X,
+  Lightbulb,
 } from "lucide-react";
 import { recentActivity } from "../data/mock";
-import { selectCollections, selectCurrentUser, useDb } from "../lib/store";
+import {
+  selectCollections,
+  selectCurrentUser,
+  selectSuggestionsForUser,
+  suggestionsApi,
+  useDb,
+} from "../lib/store";
 import { CollectionCard } from "../components/CollectionCard";
 import "./Dashboard.css";
 
 export function Dashboard() {
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
+  const suggestions = useDb(selectSuggestionsForUser);
+  const navigate = useNavigate();
+
+  function handleAcceptSuggestion(id: string) {
+    const created = suggestionsApi.accept(id);
+    if (created) navigate(`/app/c/${created.id}`);
+  }
 
   const dueCollection =
     collections.find((c) => c.cards.some((k) => k.mastery !== "known")) ??
@@ -141,6 +157,68 @@ export function Dashboard() {
           </article>
         </div>
       </section>
+
+      {/* ── Suggestions tailored to learner type ── */}
+      {suggestions.length > 0 && (
+        <section className="dash__section">
+          <div className="dash__section-head">
+            <div>
+              <h2 className="text-h2">
+                <Lightbulb
+                  size={16}
+                  strokeWidth={2}
+                  style={{
+                    color: "var(--color-accent)",
+                    marginRight: 6,
+                    verticalAlign: -2,
+                  }}
+                />
+                Suggested for you
+              </h2>
+              <p className="text-body">
+                Starter decks picked for{" "}
+                {currentUser?.learnerTypes
+                  .map((t) => t.replace("-", " "))
+                  .join(" · ") || "your goals"}
+                .
+              </p>
+            </div>
+          </div>
+
+          <div className="dash__suggest-grid">
+            {suggestions.map((s) => (
+              <article key={s.id} className="dash__suggest-card">
+                <button
+                  type="button"
+                  className="dash__suggest-dismiss"
+                  aria-label={`Dismiss ${s.title}`}
+                  onClick={() => suggestionsApi.dismiss(s.id)}
+                >
+                  <X size={12} strokeWidth={2} />
+                </button>
+                <span className="dash__suggest-emoji" aria-hidden>
+                  {s.emoji}
+                </span>
+                <div className="dash__suggest-body">
+                  <h3 className="dash__suggest-title">{s.title}</h3>
+                  <p className="dash__suggest-desc">{s.description}</p>
+                  <span className="text-meta dash__suggest-folder">
+                    {s.folder}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="dash__suggest-cta"
+                  onClick={() => handleAcceptSuggestion(s.id)}
+                >
+                  <Plus size={13} strokeWidth={2} />
+                  Add to my collections
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ── Continue / Recent collections ── */}
       <section className="dash__section">
