@@ -224,6 +224,14 @@
 .shell__userbar svg:first-child {
   color: var(--color-accent-light);
 }
+.shell__userbar-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
 .shell__userbar-text {
   display: flex;
   flex-direction: column;

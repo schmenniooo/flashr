@@ -132,7 +132,15 @@ export function AppShell() {
             </div>
           </div>
           <Link to="/app/profile" className="shell__userbar">
-            <CircleUser size={22} strokeWidth={1.5} />
+            {user?.avatarUrl ? (
+              <img
+                className="shell__userbar-avatar"
+                src={user.avatarUrl}
+                alt={`${user.firstName ?? "You"}'s avatar`}
+              />
+            ) : (
+              <CircleUser size={22} strokeWidth={1.5} />
+            )}
             <div className="shell__userbar-text">
               <span className="shell__userbar-name">{user?.firstName ?? "You"}</span>
               <span className="shell__userbar-plan">
