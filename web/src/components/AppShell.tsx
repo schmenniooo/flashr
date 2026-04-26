@@ -57,11 +57,17 @@ export function AppShell() {
     0,
   );
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  const routeKey = `${location.pathname}?${searchParams.toString()}`;
+  const [prevRouteKey, setPrevRouteKey] = useState(routeKey);
+  if (prevRouteKey !== routeKey) {
+    setPrevRouteKey(routeKey);
     setSidebarOpen(false);
     setSearchOpen(false);
     setSearchQuery("");
+  }
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname, searchParams]);
 
   useEffect(() => {
@@ -145,9 +151,11 @@ export function AppShell() {
     return hits.slice(0, 12);
   }, [searchQuery, collections, folders]);
 
-  useEffect(() => {
+  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
+  if (prevSearchQuery !== searchQuery) {
+    setPrevSearchQuery(searchQuery);
     setSearchIndex(0);
-  }, [searchQuery]);
+  }
 
   function goToHit(hit: SearchHit) {
     setSearchOpen(false);

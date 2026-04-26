@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { foldersApi, selectFolders, useDb } from "../lib/store";
 import { Modal } from "./Modal";
@@ -17,13 +17,15 @@ export function NewFolderModal({
   const [emoji, setEmoji] = useState("📁");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       setName("");
       setEmoji("📁");
       setError(null);
     }
-  }, [open]);
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -29,12 +29,14 @@ export function Profile() {
   );
   const fileRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const [prevUserId, setPrevUserId] = useState(currentUser?.id);
+  if (prevUserId !== currentUser?.id) {
+    setPrevUserId(currentUser?.id);
     if (currentUser) {
       setForm(currentUser);
       setAvatarPreview(currentUser.avatarUrl);
     }
-  }, [currentUser?.id]);
+  }
 
   const dirty = useMemo(() => {
     if (!currentUser || !form) return false;

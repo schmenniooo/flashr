@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter, Trash2, X } from "lucide-react";
 import {
@@ -26,9 +26,11 @@ export function Collections() {
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
 
-  useEffect(() => {
+  const [prevFolderParam, setPrevFolderParam] = useState(folderParam);
+  if (prevFolderParam !== folderParam) {
+    setPrevFolderParam(folderParam);
     setFilter(folderParam ?? "All");
-  }, [folderParam]);
+  }
 
   function selectFilter(value: string) {
     setFilter(value);
@@ -264,14 +266,16 @@ function CreateCollectionModal({
   const [folder, setFolder] = useState(defaultFolder);
   const [description, setDescription] = useState("");
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
     if (open) {
       setName("");
       setEmoji("📚");
       setFolder(defaultFolder);
       setDescription("");
     }
-  }, [open, defaultFolder]);
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
