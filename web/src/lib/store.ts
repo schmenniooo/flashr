@@ -11,6 +11,7 @@ import {
   type Suggestion,
   type User,
 } from "../data/mock";
+import { api, ApiError, setToken } from "./api";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -186,63 +187,141 @@ export const selectCollection = (id: string) => (db: Db) =>
 // Auth actions
 // ─────────────────────────────────────────────────────────────
 
+// Backend identity payload returned by /api/auth/{signup,login,me}.
+type BackendUser = {
+  id: string;
+  email: string;
+  name?: string;
+  created_at: string;
+};
+
+type AuthResponse = {
+  token: string;
+  expires_at: number;
+  user: BackendUser;
+};
+
+// Build a local profile shadow for a backend user. The backend owns identity
+// (id, email, name, password). Everything else (preferences, onboarding state,
+// daily goal, etc.) is local-only profile data until those endpoints exist.
+function shadowFromBackend(
+  bu: BackendUser,
+  hint?: { firstName?: string; lastName?: string },
+): StoredUser {
+  const fallbackName = (bu.name ?? "").trim();
+  const [first, ...rest] = fallbackName ? fallbackName.split(/\s+/) : [];
+  return {
+    id: bu.id,
+    email: bu.email,
+    password: "",
+    firstName: hint?.firstName?.trim() || first || bu.email.split("@")[0],
+    lastName: hint?.lastName?.trim() || rest.join(" "),
+    username: bu.email.split("@")[0],
+    oauthProvider: "google",
+    plan: "free",
+    memberSince: new Date(bu.created_at).toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+    }),
+    avatarUrl: null,
+    bio: "",
+    timezone: "Europe/Berlin",
+    language: "English",
+    dailyGoal: 20,
+    emailReminders: true,
+    weeklyDigest: false,
+    age: null,
+    learnerTypes: [],
+    onboardingCompleted: false,
+    dismissedSuggestions: [],
+  };
+}
+
+function adoptBackendUser(
+  bu: BackendUser,
+  hint?: { firstName?: string; lastName?: string },
+) {
+  setState((db) => {
+    const existing = db.users.find((u) => u.id === bu.id);
+    const user = existing
+      ? { ...existing, email: bu.email }
+      : shadowFromBackend(bu, hint);
+    return {
+      ...db,
+      users: [...db.users.filter((u) => u.id !== bu.id), user],
+      session: { userId: bu.id },
+    };
+  });
+}
+
+type AuthResult = { ok: true } | { ok: false; error: string };
+
+function toAuthResult(err: unknown): AuthResult {
+  if (err instanceof ApiError) return { ok: false, error: err.message };
+  return { ok: false, error: "Network error. Please try again." };
+}
+
 export const auth = {
-  signUp(input: {
+  async signUp(input: {
     email: string;
     password: string;
     firstName: string;
     lastName?: string;
-  }): { ok: true } | { ok: false; error: string } {
-    const email = input.email.trim().toLowerCase();
-    if (state.users.some((u) => u.email.toLowerCase() === email)) {
-      return { ok: false, error: "An account with this email already exists." };
+  }): Promise<AuthResult> {
+    const fullName = [input.firstName, input.lastName ?? ""]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" ");
+    try {
+      const res = await api<AuthResponse>("/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({
+          email: input.email.trim(),
+          password: input.password,
+          name: fullName,
+        }),
+      });
+      setToken(res.token);
+      adoptBackendUser(res.user, {
+        firstName: input.firstName,
+        lastName: input.lastName,
+      });
+      return { ok: true };
+    } catch (err) {
+      return toAuthResult(err);
     }
-    const id = uid("u_");
-    const newUser: StoredUser = {
-      id,
-      email,
-      password: input.password,
-      firstName: input.firstName || email.split("@")[0],
-      lastName: input.lastName || "",
-      username: email.split("@")[0],
-      oauthProvider: "google",
-      plan: "free",
-      memberSince: new Date().toLocaleString("en-US", {
-        month: "long",
-        year: "numeric",
-      }),
-      avatarUrl: null,
-      bio: "",
-      timezone: "Europe/Berlin",
-      language: "English",
-      dailyGoal: 20,
-      emailReminders: true,
-      weeklyDigest: false,
-      age: null,
-      learnerTypes: [],
-      onboardingCompleted: false,
-      dismissedSuggestions: [],
-    };
-    setState((db) => ({
-      ...db,
-      users: [...db.users, newUser],
-      session: { userId: id },
-    }));
-    return { ok: true };
   },
 
-  signIn(
-    email: string,
-    password: string,
-  ): { ok: true } | { ok: false; error: string } {
-    const found = state.users.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-    );
-    if (!found || found.password !== password) {
-      return { ok: false, error: "Email or password is incorrect." };
+  async signIn(email: string, password: string): Promise<AuthResult> {
+    try {
+      const res = await api<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      setToken(res.token);
+      adoptBackendUser(res.user);
+      return { ok: true };
+    } catch (err) {
+      return toAuthResult(err);
     }
-    setState((db) => ({ ...db, session: { userId: found.id } }));
-    return { ok: true };
+  },
+
+  /**
+   * On app boot: if we have a stored token, ask the backend who it belongs to.
+   * If the token is invalid or expired, drop it and the local session.
+   */
+  async bootstrap(): Promise<void> {
+    if (!state.session) return;
+    try {
+      const res = await api<{ user: BackendUser }>("/auth/me");
+      adoptBackendUser(res.user);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setToken(null);
+        setState((db) => ({ ...db, session: null }));
+      }
+      // Network errors: leave local session alone — user can retry.
+    }
   },
 
   signInAsDemo() {
@@ -315,6 +394,7 @@ export const auth = {
   },
 
   signOut() {
+    setToken(null);
     setState((db) => ({ ...db, session: null }));
   },
 

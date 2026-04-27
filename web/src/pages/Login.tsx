@@ -22,6 +22,7 @@ export function Login() {
   const [mode, setMode] = useState<Mode>("signin");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -38,21 +39,27 @@ export function Login() {
     setError(null);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const res =
-      mode === "signin"
-        ? auth.signIn(form.email, form.password)
-        : auth.signUp({
-            email: form.email,
-            password: form.password,
-            firstName: form.name.split(" ")[0] ?? "",
-            lastName: form.name.split(" ").slice(1).join(" "),
-          });
-    if (res.ok) {
-      navigate(mode === "signup" ? "/onboarding" : "/app");
-    } else {
-      setError(res.error);
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res =
+        mode === "signin"
+          ? await auth.signIn(form.email, form.password)
+          : await auth.signUp({
+              email: form.email,
+              password: form.password,
+              firstName: form.name.split(" ")[0] ?? "",
+              lastName: form.name.split(" ").slice(1).join(" "),
+            });
+      if (res.ok) {
+        navigate(mode === "signup" ? "/onboarding" : "/app");
+      } else {
+        setError(res.error);
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -263,8 +270,18 @@ export function Login() {
               </label>
             )}
 
-            <button type="submit" className="btn-primary auth__submit">
-              {mode === "signin" ? "Sign in" : "Create account"}
+            <button
+              type="submit"
+              className="btn-primary auth__submit"
+              disabled={submitting}
+            >
+              {submitting
+                ? mode === "signin"
+                  ? "Signing in…"
+                  : "Creating account…"
+                : mode === "signin"
+                  ? "Sign in"
+                  : "Create account"}
               <ArrowRight size={14} strokeWidth={2} />
             </button>
           </form>
