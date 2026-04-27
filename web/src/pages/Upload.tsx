@@ -92,12 +92,12 @@ export function Upload() {
     setDrafts((d) => d.map((c) => (c.id === id ? { ...c, keep: !c.keep } : c)));
   }
 
-  function handleSave() {
+  async function handleSave() {
     const kept = drafts.filter((d) => d.keep);
     if (kept.length === 0) return;
     let collectionId = target;
     if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-      const created = collectionsApi.create({
+      const created = await collectionsApi.create({
         name: "Biochemistry — Enzyme Kinetics (imported)",
         folder: "Uncategorized",
         emoji: "🧬",
@@ -105,12 +105,8 @@ export function Upload() {
       });
       collectionId = created.id;
     }
-    kept.forEach((d) =>
-      cardsApi.add(collectionId, {
-        question: d.question,
-        answer: d.answer,
-        aiGenerated: true,
-      }),
+    await Promise.all(
+      kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer }))
     );
     navigate(`/app/c/${collectionId}`);
   }

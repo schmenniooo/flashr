@@ -277,10 +277,10 @@ function CreateCollectionModal({
     }
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    const col = collectionsApi.create({
+    const col = await collectionsApi.create({
       name: name.trim(),
       folder,
       emoji: emoji || "📚",

@@ -277,8 +277,7 @@ function CardEditorModal({
       cardsApi.add(collectionId, {
         question: question.trim(),
         answer: answer.trim(),
-        aiGenerated: false,
-      });
+      }).catch(console.error);
     }
     onClose();
   }

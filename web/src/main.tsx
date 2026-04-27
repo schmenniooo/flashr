@@ -2,12 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { auth } from './lib/store'
+import { auth, collectionsApi } from './lib/store'
 
-// Validate any stored JWT against the backend before showing protected routes.
-// Fire-and-forget: if the token is bad, RequireAuth will redirect on the next
-// re-render once bootstrap clears the local session.
-void auth.bootstrap()
+// On boot: validate the stored JWT, then load the user's collections.
+// Both are fire-and-forget — if auth fails, RequireAuth redirects to /login.
+void auth.bootstrap().then(() => collectionsApi.load()).catch(() => {})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

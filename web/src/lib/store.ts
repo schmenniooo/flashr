@@ -33,6 +33,8 @@ type Db = {
   session: Session;
   collections: Collection[];
   folders: Folder[];
+  // card id → mastery, local-only until SRS lands in Phase 2
+  masteryMap: Record<string, Card["mastery"]>;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ function freshDb(): Db {
     session: null,
     collections: JSON.parse(JSON.stringify(seedCollections)),
     folders: JSON.parse(JSON.stringify(seedFolders)),
+    masteryMap: {},
   };
 }
 
@@ -84,7 +87,11 @@ function readDb(): Db {
       return fresh;
     }
     const parsed = JSON.parse(raw) as Db;
-    return { ...parsed, users: parsed.users.map(migrateUser) };
+    return {
+      ...parsed,
+      users: parsed.users.map(migrateUser),
+      masteryMap: parsed.masteryMap ?? {},
+    };
   } catch {
     const fresh = freshDb();
     writeDb(fresh);
@@ -411,62 +418,120 @@ export const auth = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// Backend → frontend mapping helpers
+// ─────────────────────────────────────────────────────────────
+
+type BackendCard = {
+  id: string;
+  question: string;
+  answer: string;
+  ai_generated: boolean;
+  created_at: string;
+};
+
+type BackendCollection = {
+  id: string;
+  name: string;
+  folder: string;
+  emoji: string;
+  description: string;
+  is_public: boolean;
+  created_at: string;
+  cards: BackendCard[];
+};
+
+function mapCard(bc: BackendCard, masteryMap: Record<string, Card["mastery"]>): Card {
+  return {
+    id: bc.id,
+    question: bc.question,
+    answer: bc.answer,
+    aiGenerated: bc.ai_generated,
+    mastery: masteryMap[bc.id] ?? "new",
+  };
+}
+
+function mapCollection(bc: BackendCollection, db: Db): Collection {
+  const cards = bc.cards.map((k) => mapCard(k, db.masteryMap));
+  const progress = cards.length === 0 ? 0 : Math.round(
+    (cards.reduce((s, k) => s + (k.mastery === "known" ? 1 : k.mastery === "learning" ? 0.5 : 0), 0) / cards.length) * 100
+  );
+  const existing = db.collections.find((c) => c.id === bc.id);
+  return {
+    id: bc.id,
+    name: bc.name,
+    folder: bc.folder,
+    emoji: bc.emoji,
+    description: bc.description,
+    isPublic: bc.is_public,
+    cards,
+    lastStudied: existing?.lastStudied ?? "never",
+    progress,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // Collection actions
 // ─────────────────────────────────────────────────────────────
 
 export const collectionsApi = {
-  create(input: {
+  /** Fetch all collections from the backend and replace local state. */
+  async load(): Promise<void> {
+    const res = await api<{ collections: BackendCollection[] }>("/collections");
+    setState((db) => {
+      const collections = res.collections.map((bc) => mapCollection(bc, db));
+      return { ...db, collections, folders: recountFolders(db.folders, collections) };
+    });
+  },
+
+  async create(input: {
     name: string;
     folder: string;
     emoji?: string;
     description?: string;
-  }): Collection {
-    const col: Collection = {
-      id: uid("col_"),
-      name: input.name,
-      folder: input.folder,
-      emoji: input.emoji || "📚",
-      description: input.description || "",
-      cards: [],
-      lastStudied: "just now",
-      progress: 0,
-      isPublic: false,
-    };
+  }): Promise<Collection> {
+    const bc = await api<BackendCollection>("/collections", {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        folder: input.folder,
+        emoji: input.emoji || "📚",
+        description: input.description || "",
+      }),
+    });
+    const col = mapCollection(bc, state);
     setState((db) => {
       const collections = [col, ...db.collections];
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(db.folders, collections),
-      };
+      return { ...db, collections, folders: recountFolders(db.folders, collections) };
     });
     return col;
   },
 
-  update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>) {
+  async update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>): Promise<void> {
+    const bc = await api<BackendCollection>(`/collections/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: patch.name,
+        folder: patch.folder,
+        emoji: patch.emoji,
+        description: patch.description,
+      }),
+    });
     setState((db) => {
-      const collections = db.collections.map((c) =>
-        c.id === id ? { ...c, ...patch } : c,
-      );
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(db.folders, collections),
-      };
+      const updated = { ...mapCollection(bc, db), lastStudied: patch.lastStudied ?? db.collections.find(c => c.id === id)?.lastStudied ?? "never" };
+      const collections = db.collections.map((c) => (c.id === id ? updated : c));
+      return { ...db, collections, folders: recountFolders(db.folders, collections) };
     });
   },
 
-  remove(id: string) {
+  async remove(id: string): Promise<void> {
+    await api(`/collections/${id}`, { method: "DELETE" });
     setState((db) => {
       const collections = db.collections.filter((c) => c.id !== id);
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(db.folders, collections),
-      };
+      return { ...db, collections, folders: recountFolders(db.folders, collections) };
     });
   },
 
+  /** Local-only: record last studied timestamp without a backend call. */
   touch(id: string) {
     setState((db) => ({
       ...db,
@@ -482,14 +547,12 @@ export const collectionsApi = {
 // ─────────────────────────────────────────────────────────────
 
 export const cardsApi = {
-  add(collectionId: string, input: Omit<Card, "id" | "mastery"> & { mastery?: Card["mastery"] }): Card {
-    const card: Card = {
-      id: uid("card_"),
-      question: input.question,
-      answer: input.answer,
-      aiGenerated: input.aiGenerated ?? false,
-      mastery: input.mastery ?? "new",
-    };
+  async add(collectionId: string, input: { question: string; answer: string }): Promise<Card> {
+    const bc = await api<BackendCard>(`/collections/${collectionId}/cards`, {
+      method: "POST",
+      body: JSON.stringify({ question: input.question, answer: input.answer }),
+    });
+    const card = mapCard(bc, state.masteryMap);
     setState((db) => ({
       ...db,
       collections: db.collections.map((c) =>
@@ -501,11 +564,11 @@ export const cardsApi = {
     return card;
   },
 
-  update(
-    collectionId: string,
-    cardId: string,
-    patch: Partial<Omit<Card, "id">>,
-  ) {
+  async update(collectionId: string, cardId: string, patch: { question?: string; answer?: string }): Promise<void> {
+    const bc = await api<BackendCard>(`/cards/${cardId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ question: patch.question, answer: patch.answer }),
+    });
     setState((db) => ({
       ...db,
       collections: db.collections.map((c) =>
@@ -513,7 +576,7 @@ export const cardsApi = {
           ? recalcProgress({
               ...c,
               cards: c.cards.map((k) =>
-                k.id === cardId ? { ...k, ...patch } : k,
+                k.id === cardId ? { ...k, question: bc.question, answer: bc.answer } : k,
               ),
             })
           : c,
@@ -521,26 +584,29 @@ export const cardsApi = {
     }));
   },
 
-  remove(collectionId: string, cardId: string) {
+  async remove(collectionId: string, cardId: string): Promise<void> {
+    await api(`/cards/${cardId}`, { method: "DELETE" });
     setState((db) => ({
       ...db,
       collections: db.collections.map((c) =>
         c.id === collectionId
-          ? recalcProgress({
-              ...c,
-              cards: c.cards.filter((k) => k.id !== cardId),
-            })
+          ? recalcProgress({ ...c, cards: c.cards.filter((k) => k.id !== cardId) })
           : c,
       ),
     }));
   },
 
-  setMastery(
-    collectionId: string,
-    cardId: string,
-    mastery: Card["mastery"],
-  ) {
-    this.update(collectionId, cardId, { mastery });
+  /** Local-only: mastery tracking stays in localStorage until SRS (Phase 2). */
+  setMastery(collectionId: string, cardId: string, mastery: Card["mastery"]) {
+    setState((db) => ({
+      ...db,
+      masteryMap: { ...db.masteryMap, [cardId]: mastery },
+      collections: db.collections.map((c) =>
+        c.id === collectionId
+          ? recalcProgress({ ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, mastery } : k) })
+          : c,
+      ),
+    }));
   },
 };
 

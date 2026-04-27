@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smithlabs/flashr/backend/internal/auth"
+	"github.com/smithlabs/flashr/backend/internal/collections"
 	"github.com/smithlabs/flashr/backend/pkg/db"
 )
 
@@ -86,6 +87,9 @@ func main() {
 	})
 
 	authSvc.RegisterRoutes(api.Group("/auth"))
+
+	collectionsSvc := collections.NewService(pool)
+	collectionsSvc.RegisterRoutes(api, authSvc.RequireUser())
 
 	log.Printf("flashr backend listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {
