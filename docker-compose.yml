@@ -1,0 +1,73 @@
+name: flashr
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: flashr
+      POSTGRES_PASSWORD: flashr
+      POSTGRES_DB: flashr
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flashr -d flashr"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama --version >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      PORT: "8080"
+      DATABASE_URL: "postgres://flashr:flashr@postgres:5432/flashr?sslmode=disable"
+      OLLAMA_URL: "http://ollama:11434"
+      ALLOWED_ORIGINS: "http://localhost:5173"
+      GIN_MODE: "release"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
+  web:
+    build:
+      context: ./web
+    environment:
+      VITE_API_URL: "/api"
+      BACKEND_URL: "http://backend:8080"
+      VITE_HOST: "0.0.0.0"
+      VITE_PORT: "5173"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web/src:/app/src
+      - ./web/public:/app/public
+      - ./web/index.html:/app/index.html
+      - ./web/vite.config.ts:/app/vite.config.ts
+      - ./web/tsconfig.json:/app/tsconfig.json
+      - ./web/tsconfig.app.json:/app/tsconfig.app.json
+      - ./web/tsconfig.node.json:/app/tsconfig.node.json
+    depends_on:
+      - backend
+
+volumes:
+  postgres-data:
+  ollama-data:
