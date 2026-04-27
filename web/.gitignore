@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Vite convention: commit `.env` (non-secret defaults), gitignore per-dev overrides.
+.env*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

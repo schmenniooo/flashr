@@ -52,27 +52,6 @@ services:
       ollama:
         condition: service_started
 
-  web:
-    build:
-      context: ./web
-    environment:
-      VITE_API_URL: "/api"
-      BACKEND_URL: "http://backend:8080"
-      VITE_HOST: "0.0.0.0"
-      VITE_PORT: "5173"
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./web/src:/app/src
-      - ./web/public:/app/public
-      - ./web/index.html:/app/index.html
-      - ./web/vite.config.ts:/app/vite.config.ts
-      - ./web/tsconfig.json:/app/tsconfig.json
-      - ./web/tsconfig.app.json:/app/tsconfig.app.json
-      - ./web/tsconfig.node.json:/app/tsconfig.node.json
-    depends_on:
-      - backend
-
 volumes:
   postgres-data:
   ollama-data:
