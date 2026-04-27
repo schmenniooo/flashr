@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -55,6 +56,7 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(corsMiddleware(parseOrigins(os.Getenv("ALLOWED_ORIGINS"))))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -115,4 +117,46 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// parseOrigins splits a comma-separated list of allowed origins, trimming spaces
+// and dropping empty entries. Returns nil if the input is empty.
+func parseOrigins(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := parts[:0]
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// corsMiddleware reflects the request's Origin only if it is in the allowlist.
+// Handles preflight OPTIONS by short-circuiting with 204. If no origins are
+// configured the middleware is a no-op (used for local dev where the Vite
+// proxy makes everything same-origin).
+func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		allowed[o] = struct{}{}
+	}
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
+		if _, ok := allowed[origin]; ok {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			c.Header("Access-Control-Max-Age", "43200")
+		}
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
+	}
 }
