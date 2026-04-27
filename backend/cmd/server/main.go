@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/smithlabs/flashr/backend/internal/auth"
 	"github.com/smithlabs/flashr/backend/pkg/db"
 )
 
@@ -17,26 +17,33 @@ func main() {
 	port := envOr("PORT", "8080")
 	dbURL := os.Getenv("DATABASE_URL")
 	ollamaURL := os.Getenv("OLLAMA_URL")
+	jwtSecret := os.Getenv("JWT_SECRET")
 
-	var pool *pgxpool.Pool
-	if dbURL != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
+	if dbURL == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET is required")
+	}
 
-		var err error
-		pool, err = db.Connect(ctx, dbURL)
-		if err != nil {
-			log.Fatalf("postgres: %v", err)
-		}
-		defer pool.Close()
-		log.Printf("postgres: connected")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-		if err := db.Migrate(ctx, pool); err != nil {
-			log.Fatalf("postgres: migrate: %v", err)
-		}
-		log.Printf("postgres: migrations up to date")
-	} else {
-		log.Printf("postgres: DATABASE_URL not set, skipping connection")
+	pool, err := db.Connect(ctx, dbURL)
+	if err != nil {
+		log.Fatalf("postgres: %v", err)
+	}
+	defer pool.Close()
+	log.Printf("postgres: connected")
+
+	if err := db.Migrate(ctx, pool); err != nil {
+		log.Fatalf("postgres: migrate: %v", err)
+	}
+	log.Printf("postgres: migrations up to date")
+
+	authSvc, err := auth.NewService(pool, auth.Config{Secret: jwtSecret})
+	if err != nil {
+		log.Fatalf("auth: %v", err)
 	}
 
 	if ollamaURL != "" {
@@ -55,15 +62,9 @@ func main() {
 
 	api := r.Group("/api")
 	api.GET("/health", func(c *gin.Context) {
-		dbStatus := "disabled"
-		if pool != nil {
-			ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
-			defer cancel()
-			if err := pool.Ping(ctx); err != nil {
-				dbStatus = "down: " + err.Error()
-			} else {
-				dbStatus = "up"
-			}
+		dbStatus := "up"
+		if err := pool.Ping(c.Request.Context()); err != nil {
+			dbStatus = "down: " + err.Error()
 		}
 
 		ollamaStatus := "disabled"
@@ -81,6 +82,8 @@ func main() {
 			"ollama":   ollamaStatus,
 		})
 	})
+
+	authSvc.RegisterRoutes(api.Group("/auth"))
 
 	log.Printf("flashr backend listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {
