@@ -12,8 +12,10 @@ dist
 dist-ssr
 *.local
 
-# Vite convention: commit `.env` (non-secret defaults), gitignore per-dev overrides.
-.env*.local
+# Local env files — never commit. .env.example stays tracked as the template.
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
