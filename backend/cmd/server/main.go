@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/smithlabs/flashr/backend/pkg/db"
 )
 
 func main() {
@@ -20,16 +22,19 @@ func main() {
 	if dbURL != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+
 		var err error
-		pool, err = pgxpool.New(ctx, dbURL)
+		pool, err = db.Connect(ctx, dbURL)
 		if err != nil {
-			log.Fatalf("postgres: connect: %v", err)
+			log.Fatalf("postgres: %v", err)
 		}
 		defer pool.Close()
-		if err := pool.Ping(ctx); err != nil {
-			log.Fatalf("postgres: ping: %v", err)
-		}
 		log.Printf("postgres: connected")
+
+		if err := db.Migrate(ctx, pool); err != nil {
+			log.Fatalf("postgres: migrate: %v", err)
+		}
+		log.Printf("postgres: migrations up to date")
 	} else {
 		log.Printf("postgres: DATABASE_URL not set, skipping connection")
 	}
