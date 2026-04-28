@@ -19,7 +19,7 @@ import {
   useDb,
 } from "../lib/store";
 import { Modal } from "../components/Modal";
-import type { Card } from "../data/mock";
+import type { Card } from "../lib/store";
 import "./CollectionDetail.css";
 
 export function CollectionDetail() {

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Layers, Globe2, Lock, Clock } from "lucide-react";
-import type { Collection } from "../data/mock";
+import type { Collection } from "../lib/store";
 import "./CollectionCard.css";
 
 export function CollectionCard({ collection }: { collection: Collection }) {

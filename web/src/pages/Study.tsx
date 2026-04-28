@@ -10,8 +10,8 @@ import {
   ArrowRight,
   RotateCcw,
 } from "lucide-react";
-import type { Collection } from "../data/mock";
-import { cardsApi, collectionsApi, selectCollection, useDb } from "../lib/store";
+import { cardsApi, collectionsApi, selectCollection, selectCurrentUser, useDb } from "../lib/store";
+import type { Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
 import "./Study.css";
 
@@ -20,6 +20,7 @@ type Rating = "again" | "hard" | "good" | "easy";
 export function Study() {
   const { id } = useParams();
   const collection = useDb(selectCollection(id ?? ""));
+  const currentUser = useDb(selectCurrentUser);
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -85,7 +86,7 @@ export function Study() {
     const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
     return (
       <div className="study">
-        <StudyTopBar collection={collection} total={total} index={total} />
+        <StudyTopBar collection={collection} total={total} index={total} streak={currentUser?.streak ?? 0} />
         <div className="study__done fade-in">
           <div className="study__done-icon">
             <CheckCircle2 size={56} strokeWidth={1.5} />
@@ -125,7 +126,7 @@ export function Study() {
 
   return (
     <div className="study">
-      <StudyTopBar collection={collection} total={total} index={index + 1} />
+      <StudyTopBar collection={collection} total={total} index={index + 1} streak={currentUser?.streak ?? 0} />
 
       <div className="study__content">
         <div className="study__rail study__rail--left">
@@ -205,10 +206,12 @@ function StudyTopBar({
   collection,
   total,
   index,
+  streak,
 }: {
   collection: Collection;
   total: number;
   index: number;
+  streak: number;
 }) {
   const pct = Math.round((index / total) * 100);
   return (
@@ -232,7 +235,7 @@ function StudyTopBar({
       </div>
       <div className="study__top-right">
         <span className="study__streak">
-          <Flame size={14} strokeWidth={2} /> 12
+          <Flame size={14} strokeWidth={2} /> {streak}
         </span>
         <Link to={`/app/c/${collection.id}`} className="study__close" title="Exit">
           <X size={18} strokeWidth={1.8} />

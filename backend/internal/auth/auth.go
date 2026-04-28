@@ -31,6 +31,7 @@ type User struct {
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
 	Name      string    `json:"name,omitempty"`
+	Streak    int       `json:"streak"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -85,8 +86,8 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, NULLIF($2, ''), $3)
-		RETURNING id, email, COALESCE(name, ''), created_at
-	`, email, name, string(hash)).Scan(&u.ID, &u.Email, &u.Name, &u.CreatedAt)
+		RETURNING id, email, COALESCE(name, ''), streak, created_at
+	`, email, name, string(hash)).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return User{}, "", time.Time{}, ErrEmailTaken
@@ -112,10 +113,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 		hash *string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), created_at, password_hash
+		SELECT id, email, COALESCE(name, ''), streak, created_at, password_hash
 		FROM users
 		WHERE LOWER(email) = $1
-	`, email).Scan(&u.ID, &u.Email, &u.Name, &u.CreatedAt, &hash)
+	`, email).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Run a dummy bcrypt compare anyway to keep timing roughly constant.
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"), []byte(password))
@@ -141,10 +142,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), created_at
+		SELECT id, email, COALESCE(name, ''), streak, created_at
 		FROM users
 		WHERE id = $1
-	`, id).Scan(&u.ID, &u.Email, &u.Name, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUserNotFound
 	}

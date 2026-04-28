@@ -19,6 +19,7 @@ import { api, ApiError, setToken } from "./api";
 
 export type StoredUser = User & {
   id: string;
+  streak: number;
   // Plain-text password — ONLY acceptable because this is a local prototype.
   // Replace with backend-issued session tokens when the Go API lands.
   password: string;
@@ -47,13 +48,14 @@ function freshDb(): Db {
   const demoUser: StoredUser = {
     ...seedUser,
     id: "demo-user",
+    streak: 12,
     password: "demo1234",
   };
   return {
     users: [demoUser],
     session: null,
-    collections: JSON.parse(JSON.stringify(seedCollections)),
-    folders: JSON.parse(JSON.stringify(seedFolders)),
+    collections: [],
+    folders: [],
     masteryMap: {},
   };
 }
@@ -199,6 +201,7 @@ type BackendUser = {
   id: string;
   email: string;
   name?: string;
+  streak: number;
   created_at: string;
 };
 
@@ -221,6 +224,7 @@ function shadowFromBackend(
     id: bu.id,
     email: bu.email,
     password: "",
+    streak: bu.streak ?? 0,
     firstName: hint?.firstName?.trim() || first || bu.email.split("@")[0],
     lastName: hint?.lastName?.trim() || rest.join(" "),
     username: bu.email.split("@")[0],
@@ -251,7 +255,7 @@ function adoptBackendUser(
   setState((db) => {
     const existing = db.users.find((u) => u.id === bu.id);
     const user = existing
-      ? { ...existing, email: bu.email }
+      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak }
       : shadowFromBackend(bu, hint);
     return {
       ...db,
@@ -336,7 +340,12 @@ export const auth = {
   signInAsDemo() {
     const demo = state.users.find((u) => u.id === "demo-user");
     if (!demo) return;
-    setState((db) => ({ ...db, session: { userId: demo.id } }));
+    setState((db) => ({
+      ...db,
+      session: { userId: demo.id },
+      collections: JSON.parse(JSON.stringify(seedCollections)),
+      folders: JSON.parse(JSON.stringify(seedFolders)),
+    }));
   },
 
   /**
@@ -442,6 +451,9 @@ type BackendCollection = {
   cards: BackendCard[];
 };
 
+// Re-export core domain types so components don't need to import from data/mock.
+export type { Card, Collection, Folder, LearnerType, Suggestion } from "../data/mock";
+
 function mapCard(bc: BackendCard, masteryMap: Record<string, Card["mastery"]>): Card {
   return {
     id: bc.id,
@@ -465,6 +477,7 @@ function mapCollection(bc: BackendCollection, db: Db): Collection {
     emoji: bc.emoji,
     description: bc.description,
     isPublic: bc.is_public,
+    createdAt: bc.created_at,
     cards,
     lastStudied: existing?.lastStudied ?? "never",
     progress,
