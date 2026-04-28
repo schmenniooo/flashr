@@ -536,24 +536,47 @@ export const collectionsApi = {
   },
 
   async update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>): Promise<void> {
-    const bc = await api<BackendCollection>(`/collections/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        name: patch.name,
-        folder: patch.folder === "Uncategorized" ? "" : patch.folder,
-        emoji: patch.emoji,
-        description: patch.description,
-      }),
-    });
+    // Apply optimistically so the UI responds immediately.
     setState((db) => {
-      const updated = { ...mapCollection(bc, db), lastStudied: patch.lastStudied ?? db.collections.find(c => c.id === id)?.lastStudied ?? "never" };
-      const collections = db.collections.map((c) => (c.id === id ? updated : c));
-      const known = new Set(db.folders.map((f) => f.name));
+      const existing = db.collections.find(c => c.id === id);
+      if (!existing) return db;
+      const updated = recalcProgress({ ...existing, ...patch });
+      const collections = db.collections.map(c => c.id === id ? updated : c);
+      const known = new Set(db.folders.map(f => f.name));
       const folders = updated.folder && !known.has(updated.folder)
         ? [...db.folders, { name: updated.folder, emoji: "📁", count: 0 }]
         : db.folders;
       return { ...db, collections, folders: recountFolders(folders, collections) };
     });
+
+    // Persist and reconcile with authoritative backend data.
+    try {
+      const bc = await api<BackendCollection>(`/collections/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: patch.name,
+          folder: patch.folder === "Uncategorized" ? "" : patch.folder,
+          emoji: patch.emoji,
+          description: patch.description,
+        }),
+      });
+      setState((db) => {
+        const existing = db.collections.find(c => c.id === id);
+        const updated = recalcProgress({
+          ...mapCollection(bc, db),
+          cards: existing?.cards ?? [],
+          lastStudied: patch.lastStudied ?? existing?.lastStudied ?? "never",
+        });
+        const collections = db.collections.map(c => c.id === id ? updated : c);
+        const known = new Set(db.folders.map(f => f.name));
+        const folders = updated.folder && !known.has(updated.folder)
+          ? [...db.folders, { name: updated.folder, emoji: "📁", count: 0 }]
+          : db.folders;
+        return { ...db, collections, folders: recountFolders(folders, collections) };
+      });
+    } catch (err) {
+      console.error(err);
+    }
   },
 
   async remove(id: string): Promise<void> {
@@ -629,6 +652,23 @@ export const cardsApi = {
     }));
   },
 
+  async move(fromCollectionId: string, cardId: string, toCollectionId: string): Promise<void> {
+    const card = state.collections.find(c => c.id === fromCollectionId)?.cards.find(k => k.id === cardId);
+    if (!card) return;
+    await api(`/cards/${cardId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ collection_id: toCollectionId }),
+    });
+    setState((db) => ({
+      ...db,
+      collections: db.collections.map((c) => {
+        if (c.id === fromCollectionId) return recalcProgress({ ...c, cards: c.cards.filter(k => k.id !== cardId) });
+        if (c.id === toCollectionId) return recalcProgress({ ...c, cards: [...c.cards, card] });
+        return c;
+      }),
+    }));
+  },
+
   /** Local-only: mastery tracking stays in localStorage until SRS (Phase 2). */
   setMastery(collectionId: string, cardId: string, mastery: Card["mastery"]) {
     setState((db) => ({
@@ -656,6 +696,28 @@ export const foldersApi = {
         folders: [...db.folders, { name, emoji, count: 0 }],
       };
     });
+  },
+
+  rename(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    const affected = state.collections.filter((c) => c.folder === oldName);
+    setState((db) => {
+      if (db.folders.some((f) => f.name.toLowerCase() === trimmed.toLowerCase() && f.name !== oldName)) return db;
+      return {
+        ...db,
+        folders: db.folders.map((f) => f.name === oldName ? { ...f, name: trimmed } : f),
+        collections: db.collections.map((c) => c.folder === oldName ? { ...c, folder: trimmed } : c),
+      };
+    });
+    void Promise.all(
+      affected.map((c) =>
+        api(`/collections/${c.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ folder: trimmed }),
+        }).catch(console.error),
+      ),
+    );
   },
 
   remove(name: string) {

@@ -230,6 +230,7 @@ func (s *Service) update(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update collection"})
 		return
 	}
+	col.Cards = []Card{}
 	c.JSON(http.StatusOK, col)
 }
 
@@ -291,25 +292,41 @@ func (s *Service) createCard(c *gin.Context) {
 
 func (s *Service) updateCard(c *gin.Context) {
 	var body struct {
-		Question *string `json:"question"`
-		Answer   *string `json:"answer"`
+		Question     *string `json:"question"`
+		Answer       *string `json:"answer"`
+		CollectionID *string `json:"collection_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
 
+	userID := auth.UserIDFromContext(c)
+
+	// Validate target collection ownership before moving.
+	if body.CollectionID != nil {
+		var exists bool
+		if err := s.pool.QueryRow(c.Request.Context(),
+			`SELECT EXISTS(SELECT 1 FROM collections WHERE id = $1 AND user_id = $2)`,
+			*body.CollectionID, userID,
+		).Scan(&exists); err != nil || !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": "target collection not found"})
+			return
+		}
+	}
+
 	var card Card
 	err := s.pool.QueryRow(c.Request.Context(), `
 		UPDATE cards SET
-			question = COALESCE($3, question),
-			answer   = COALESCE($4, answer)
+			question      = COALESCE($3, question),
+			answer        = COALESCE($4, answer),
+			collection_id = COALESCE($5::uuid, collection_id)
 		FROM collections
 		WHERE cards.id = $1
 		  AND cards.collection_id = collections.id
 		  AND collections.user_id = $2
 		RETURNING cards.id, cards.question, cards.answer, cards.ai_generated, cards.created_at
-	`, c.Param("id"), auth.UserIDFromContext(c), body.Question, body.Answer).Scan(
+	`, c.Param("id"), userID, body.Question, body.Answer, body.CollectionID).Scan(
 		&card.ID, &card.Question, &card.Answer, &card.AIGenerated, &card.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
