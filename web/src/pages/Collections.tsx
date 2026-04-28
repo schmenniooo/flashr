@@ -96,8 +96,8 @@ export function Collections() {
               </button>
               <button
                 className="cols__chip-action"
-                title={`Rename folder ${f.name}`}
-                aria-label={`Rename folder ${f.name}`}
+                title={`Edit folder: ${f.name}`}
+                aria-label={`Edit folder: ${f.name}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setFolderToRename(f.name);
