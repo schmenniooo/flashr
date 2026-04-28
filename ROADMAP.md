@@ -109,14 +109,14 @@ upload_jobs (
 
 ### 1.3 KI-Generierung (Ollama)
 
-- [ ] PDF-Upload über File-Import
-- [ ] PDF temporär in Railway Buckets speichern
-- [ ] PDF-Text extrahieren & an Ollama senden
-- [ ] Ollama generiert Frage-Antwort-Paare aus dem Text
-- [ ] User reviewt generierte Karten vor dem Speichern
-- [ ] User kann einzelne Karten vor dem Speichern bearbeiten / löschen
-- [ ] Karten nach Bestätigung in gewählte Collection speichern
-- [ ] Temporäre PDF-Datei nach Verarbeitung löschen
+- [x] PDF-Upload über File-Import — drag-and-drop + click-to-pick in `Upload.tsx`; `POST /api/ai/upload` (multipart, auth-gated, 20 MB limit)
+- [x] PDF temporär in Railway Buckets speichern — decision: processed fully in-memory (no disk/bucket write needed); `pkg/storage` stub retained for future use
+- [x] PDF-Text extrahieren & an Ollama senden — `ledongthuc/pdf` extracts text page-by-page; sent to Ollama via `internal/ai`
+- [x] Ollama generiert Frage-Antwort-Paare aus dem Text — `internal/ai/ai.go` prompt-engineered for concise, varied cards; JSON parsed from response
+- [x] User reviewt generierte Karten vor dem Speichern — review step in `Upload.tsx` with keep/skip toggles
+- [x] User kann einzelne Karten vor dem Speichern bearbeiten / löschen — inline textarea edit + trash toggle per card
+- [x] Karten nach Bestätigung in gewählte Collection speichern — saves to chosen or new collection; cards marked `ai_generated = true`
+- [x] Temporäre PDF-Datei nach Verarbeitung löschen — no file is written; in-memory processing means nothing to delete
 
 ### 1.4 AI Chat — Generate Cards from a Topic
 
@@ -141,7 +141,7 @@ upload_jobs (
 - [x] Dashboard: Übersicht aller Collections — hero session card, stats, recent collections, suggestions, activity feed; all real data
 - [x] Collection-Detail-View mit Kartenliste — `CollectionDetail.tsx` with edit/delete per card, collection metadata, progress bar
 - [x] Lern-View (Karte aufdecken, navigieren) — `Study.tsx` with flip animation, keyboard shortcuts, session summary screen
-- [ ] KI-Upload-Flow (Upload → Review → Speichern) — `Upload.tsx` is a placeholder
+- [x] KI-Upload-Flow (Upload → Review → Speichern) — `Upload.tsx` fully wired: real file pick/drag, processing spinner, review with edit/skip, save to collection
 - [x] Responsive Design (Mobile-first, aber Web-App) — sidebar hidden ≥881px; drawer + backdrop + Escape/route auto-close ≤880px
 - [x] Brand Design System aus `flashr-brand-guidelines.md` — `tokens.css`, DM Sans, Lucide icons, spacing scale applied throughout
 
