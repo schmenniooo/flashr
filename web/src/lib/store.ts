@@ -504,7 +504,7 @@ export const collectionsApi = {
       method: "POST",
       body: JSON.stringify({
         name: input.name,
-        folder: input.folder,
+        folder: input.folder === "Uncategorized" ? "" : input.folder,
         emoji: input.emoji || "📚",
         description: input.description || "",
       }),
@@ -512,7 +512,12 @@ export const collectionsApi = {
     const col = mapCollection(bc, state);
     setState((db) => {
       const collections = [col, ...db.collections];
-      return { ...db, collections, folders: recountFolders(db.folders, collections) };
+      // Upsert the folder locally in case it was passed in as a brand-new name.
+      const known = new Set(db.folders.map((f) => f.name));
+      const folders = col.folder && !known.has(col.folder)
+        ? [...db.folders, { name: col.folder, emoji: "📁", count: 0 }]
+        : db.folders;
+      return { ...db, collections, folders: recountFolders(folders, collections) };
     });
     return col;
   },
@@ -522,7 +527,7 @@ export const collectionsApi = {
       method: "PATCH",
       body: JSON.stringify({
         name: patch.name,
-        folder: patch.folder,
+        folder: patch.folder === "Uncategorized" ? "" : patch.folder,
         emoji: patch.emoji,
         description: patch.description,
       }),
@@ -530,7 +535,11 @@ export const collectionsApi = {
     setState((db) => {
       const updated = { ...mapCollection(bc, db), lastStudied: patch.lastStudied ?? db.collections.find(c => c.id === id)?.lastStudied ?? "never" };
       const collections = db.collections.map((c) => (c.id === id ? updated : c));
-      return { ...db, collections, folders: recountFolders(db.folders, collections) };
+      const known = new Set(db.folders.map((f) => f.name));
+      const folders = updated.folder && !known.has(updated.folder)
+        ? [...db.folders, { name: updated.folder, emoji: "📁", count: 0 }]
+        : db.folders;
+      return { ...db, collections, folders: recountFolders(folders, collections) };
     });
   },
 
@@ -637,13 +646,26 @@ export const foldersApi = {
   },
 
   remove(name: string) {
+    const affected = state.collections.filter((c) => c.folder === name);
+
+    // Update local state immediately so the UI responds without waiting.
     setState((db) => ({
       ...db,
       folders: db.folders.filter((f) => f.name !== name),
       collections: db.collections.map((c) =>
-        c.folder === name ? { ...c, folder: "Uncategorized" } : c,
+        c.folder === name ? { ...c, folder: "" } : c,
       ),
     }));
+
+    // Persist each affected collection to the backend in parallel.
+    void Promise.all(
+      affected.map((c) =>
+        api(`/collections/${c.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ folder: "" }),
+        }).catch(console.error),
+      ),
+    );
   },
 };
 
