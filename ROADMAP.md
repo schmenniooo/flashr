@@ -21,13 +21,13 @@
 
 > Infrastruktur & Architektur-Grundlagen. Kein Feature-Code ohne diese Basis.
 
-- [ ] Projekt-Setup: Go Monolith, Railway Deployment, PostgreSQL
-- [ ] Datenbankschema (siehe unten)
-- [ ] Environment Config (dev / staging / prod)
-- [ ] CI/CD Pipeline via Railway
-- [ ] Logging & Error Handling Grundstruktur
-- [ ] Railway Buckets für temporären File-Storage (PDFs)
-- [ ] Ollama auf Railway deployen & Health-Check
+- [x] Projekt-Setup: Go Monolith, Railway Deployment, PostgreSQL
+- [x] Datenbankschema (siehe unten) — extended with `emoji`, `description` on collections and `password_hash` on users
+- [x] Environment Config (dev / staging / prod) — PORT, DATABASE_URL, JWT_SECRET, OLLAMA_URL, ALLOWED_ORIGINS read from env in `main.go`
+- [ ] Deploy to Railway + connect GitHub repo — Railway auto-deploys on every push to `main`, so this is the CI/CD pipeline
+- [x] Logging & Error Handling Grundstruktur — stdlib `log` throughout, `gin.Default()` request logging, structured JSON error responses from all handlers
+- [ ] Railway Buckets für temporären File-Storage (PDFs) — `pkg/storage` is a stub
+- [x] Ollama auf Railway deployen & Health-Check — `pingOllama` on startup + `/api/health` reports Ollama status; deployment itself is infra
 
 ### Datenbankschema (PostgreSQL)
 
@@ -92,19 +92,20 @@ upload_jobs (
 ### 1.1 Auth
 
 - [ ] OAuth 2.0 Login: Google, Apple, GitHub
-- [ ] JWT Session Management
+- [x] Email/password signup + login — not in original spec (OAuth-only was planned) but fully implemented: bcrypt hashing, unique email index, error messages
+- [x] JWT Session Management — backend issues signed HS256 tokens, frontend stores as `flashr:token:v1`, sends as `Authorization: Bearer`, validated on every protected route
 - [ ] Refresh Token Rotation
-- [ ] Logout / Session Invalidation
-- [ ] User-Profil-Seite (Name, Avatar, E-Mail)
+- [x] Logout / Session Invalidation — token removed from localStorage, local session cleared
+- [x] User-Profil-Seite (Name, Avatar, E-Mail) — `Profile.tsx` wired to real user data from store
 
 ### 1.2 Collections & Ordner
 
-- [ ] Collection erstellen, umbenennen, löschen
-- [ ] Ordner-System zur Gruppierung von Collections
-- [ ] Karteikarten manuell erstellen (Frage + Antwort)
-- [ ] Karteikarten bearbeiten & löschen
-- [ ] Karteikarten innerhalb einer Collection anzeigen
-- [ ] Basis-Lernmodus: Karte aufdecken, weiter blättern
+- [x] Collection erstellen, umbenennen, löschen — full CRUD on backend + frontend store
+- [x] Ordner-System zur Gruppierung von Collections — folder label on collections; local folder list derived from backend data; delete folder PATCHes all affected collections
+- [x] Karteikarten manuell erstellen (Frage + Antwort) — `POST /collections/:id/cards`
+- [x] Karteikarten bearbeiten & löschen — `PATCH /cards/:id`, `DELETE /cards/:id`
+- [x] Karteikarten innerhalb einer Collection anzeigen — `CollectionDetail.tsx` with full card list
+- [x] Basis-Lernmodus: Karte aufdecken, weiter blättern — `Study.tsx` with keyboard shortcuts (space, arrows)
 
 ### 1.3 KI-Generierung (Ollama)
 
@@ -137,12 +138,12 @@ upload_jobs (
 
 ### 1.6 UI / UX
 
-- [ ] Dashboard: Übersicht aller Collections
-- [ ] Collection-Detail-View mit Kartenliste
-- [ ] Lern-View (Karte aufdecken, navigieren)
-- [ ] KI-Upload-Flow (Upload → Review → Speichern)
-- [ ] Responsive Design (Mobile-first, aber Web-App)
-- [ ] Brand Design System aus `flashr-brand-guidelines.md`
+- [x] Dashboard: Übersicht aller Collections — hero session card, stats, recent collections, suggestions, activity feed; all real data
+- [x] Collection-Detail-View mit Kartenliste — `CollectionDetail.tsx` with edit/delete per card, collection metadata, progress bar
+- [x] Lern-View (Karte aufdecken, navigieren) — `Study.tsx` with flip animation, keyboard shortcuts, session summary screen
+- [ ] KI-Upload-Flow (Upload → Review → Speichern) — `Upload.tsx` is a placeholder
+- [x] Responsive Design (Mobile-first, aber Web-App) — sidebar hidden ≥881px; drawer + backdrop + Escape/route auto-close ≤880px
+- [x] Brand Design System aus `flashr-brand-guidelines.md` — `tokens.css`, DM Sans, Lucide icons, spacing scale applied throughout
 
 ---
 
@@ -173,7 +174,7 @@ upload_jobs (
 ### 2.4 Spaced Repetition (SRS)
 
 - [ ] SM-2 Algorithmus implementieren (basiert auf `srs_metadata` in DB)
-- [ ] Lernmodus mit "Wieder", "Schwer", "Gut", "Einfach" Buttons
+- [x] Lernmodus mit "Wieder", "Schwer", "Gut", "Einfach" Buttons — UI done in `Study.tsx`; mastery tracked locally in localStorage; SM-2 scoring not yet wired
 - [ ] Due-Date-System: Karten erscheinen wenn sie fällig sind
 - [ ] Lernfortschritt-Dashboard (Karten fällig heute, diese Woche etc.)
 
