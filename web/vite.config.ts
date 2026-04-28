@@ -11,9 +11,10 @@ export default defineConfig(({ command, mode }) => {
 
   const backendUrl = env.BACKEND_URL
 
-  // BACKEND_URL is only needed for the dev-server proxy; the production build
-  // never uses it, so we only enforce it when running `vite serve`.
-  if (command === 'serve' && !backendUrl) {
+  // BACKEND_URL is only needed for the dev-server proxy. `vite preview` also
+  // sets command='serve' but runs in production mode, so we scope the check
+  // to development only.
+  if (command === 'serve' && mode === 'development' && !backendUrl) {
     throw new Error(
       'BACKEND_URL is required (set it in web/.env, e.g. BACKEND_URL=http://localhost:8080)',
     )
