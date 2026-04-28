@@ -272,7 +272,7 @@ function CardEditorModal({
       cardsApi.update(collectionId, card.id, {
         question: question.trim(),
         answer: answer.trim(),
-      });
+      }).catch(console.error);
     } else {
       cardsApi.add(collectionId, {
         question: question.trim(),
@@ -356,7 +356,7 @@ function EditCollectionModal({
       folder,
       emoji: emoji || "📚",
       description: description.trim(),
-    });
+    }).catch(console.error);
     onClose();
   }
 

@@ -293,6 +293,7 @@ export const auth = {
         firstName: input.firstName,
         lastName: input.lastName,
       });
+      void collectionsApi.load().catch(console.error);
       return { ok: true };
     } catch (err) {
       return toAuthResult(err);
@@ -307,6 +308,7 @@ export const auth = {
       });
       setToken(res.token);
       adoptBackendUser(res.user);
+      void collectionsApi.load().catch(console.error);
       return { ok: true };
     } catch (err) {
       return toAuthResult(err);
@@ -479,7 +481,16 @@ export const collectionsApi = {
     const res = await api<{ collections: BackendCollection[] }>("/collections");
     setState((db) => {
       const collections = res.collections.map((bc) => mapCollection(bc, db));
-      return { ...db, collections, folders: recountFolders(db.folders, collections) };
+      // Upsert any folders present in backend data that aren't in local state yet.
+      const known = new Set(db.folders.map((f) => f.name));
+      const merged = [...db.folders];
+      for (const c of collections) {
+        if (c.folder && !known.has(c.folder)) {
+          merged.push({ name: c.folder, emoji: "📁", count: 0 });
+          known.add(c.folder);
+        }
+      }
+      return { ...db, collections, folders: recountFolders(merged, collections) };
     });
   },
 
@@ -709,50 +720,45 @@ export const suggestionsApi = {
     }));
   },
 
-  accept(id: string): Collection | null {
+  async accept(id: string): Promise<Collection | null> {
     const session = state.session;
     if (!session) return null;
     const suggestion = suggestionCatalog.find((s) => s.id === id);
     if (!suggestion) return null;
 
-    const col: Collection = {
-      id: uid("col_"),
+    // Dismiss first so the UI removes it immediately.
+    setState((db) => ({
+      ...db,
+      users: db.users.map((u) =>
+        u.id === session.userId
+          ? {
+              ...u,
+              dismissedSuggestions: u.dismissedSuggestions.includes(id)
+                ? u.dismissedSuggestions
+                : [...u.dismissedSuggestions, id],
+            }
+          : u,
+      ),
+    }));
+
+    // Ensure the folder exists locally.
+    setState((db) => {
+      if (db.folders.some((f) => f.name === suggestion.folder)) return db;
+      return {
+        ...db,
+        folders: [
+          ...db.folders,
+          { name: suggestion.folder, emoji: suggestion.folderEmoji, count: 0 },
+        ],
+      };
+    });
+
+    return collectionsApi.create({
       name: suggestion.title,
       folder: suggestion.folder,
       emoji: suggestion.emoji,
       description: suggestion.description,
-      cards: [],
-      lastStudied: "just now",
-      progress: 0,
-      isPublic: false,
-    };
-
-    setState((db) => {
-      const folderExists = db.folders.some((f) => f.name === suggestion.folder);
-      const folders = folderExists
-        ? db.folders
-        : [
-            ...db.folders,
-            { name: suggestion.folder, emoji: suggestion.folderEmoji, count: 0 },
-          ];
-      const collections = [col, ...db.collections];
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(folders, collections),
-        users: db.users.map((u) =>
-          u.id === session.userId
-            ? {
-                ...u,
-                dismissedSuggestions: u.dismissedSuggestions.includes(id)
-                  ? u.dismissedSuggestions
-                  : [...u.dismissedSuggestions, id],
-              }
-            : u,
-        ),
-      };
     });
-    return col;
   },
 };
 

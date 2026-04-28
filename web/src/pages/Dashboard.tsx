@@ -29,8 +29,8 @@ export function Dashboard() {
   const suggestions = useDb(selectSuggestionsForUser);
   const navigate = useNavigate();
 
-  function handleAcceptSuggestion(id: string) {
-    const created = suggestionsApi.accept(id);
+  async function handleAcceptSuggestion(id: string) {
+    const created = await suggestionsApi.accept(id);
     if (created) navigate(`/app/c/${created.id}`);
   }
 
@@ -52,7 +52,7 @@ export function Dashboard() {
     <div className="dash">
       <header className="dash__head">
         <div>
-          <span className="text-meta">Dashboard · Wednesday, April 23</span>
+          <span className="text-meta">Dashboard · {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
           <h1 className="text-h1 dash__greeting">
             Hey {currentUser?.firstName ?? "there"} 👋{" "}
             <span className="dash__greeting-sub">Ready for a few cards?</span>
