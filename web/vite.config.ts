@@ -2,7 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   // Load .env / .env.local / .env.[mode] files. The empty third arg means
   // "load all vars regardless of prefix" — needed because BACKEND_URL is
   // consumed here in Node, not exposed to client code (which would require
@@ -10,7 +10,10 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   const backendUrl = env.BACKEND_URL
-  if (!backendUrl) {
+
+  // BACKEND_URL is only needed for the dev-server proxy; the production build
+  // never uses it, so we only enforce it when running `vite serve`.
+  if (command === 'serve' && !backendUrl) {
     throw new Error(
       'BACKEND_URL is required (set it in web/.env, e.g. BACKEND_URL=http://localhost:8080)',
     )
@@ -25,12 +28,9 @@ export default defineConfig(({ mode }) => {
       host,
       port,
       strictPort: true,
-      proxy: {
-        '/api': {
-          target: backendUrl,
-          changeOrigin: true,
-        },
-      },
+      proxy: backendUrl
+        ? { '/api': { target: backendUrl, changeOrigin: true } }
+        : undefined,
     },
   }
 })
