@@ -157,9 +157,6 @@ export function useDb<T>(selector: (db: Db) => T): T {
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
-function uid(prefix = "") {
-  return `${prefix}${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
-}
 
 function recalcProgress(c: Collection): Collection {
   if (c.cards.length === 0) return { ...c, progress: 0 };

@@ -17,19 +17,19 @@ import {
   collectionsApi,
   selectCollection,
   selectCollections,
-  selectFolders,
+
   useDb,
 } from "../lib/store";
 import { EditCollectionModal } from "../components/EditCollectionModal";
 import { Modal } from "../components/Modal";
-import type { Card, Collection } from "../lib/store";
+import type { Card } from "../lib/store";
 import "./CollectionDetail.css";
 
 export function CollectionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const collection = useDb(selectCollection(id ?? ""));
-  const folders = useDb(selectFolders);
+
 
   const [editingCollection, setEditingCollection] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);

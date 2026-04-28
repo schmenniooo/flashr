@@ -114,12 +114,12 @@ func scanCollections(rows pgx.Rows) ([]Collection, error) {
 	for rows.Next() {
 		var (
 			cID, cName, cFolder, cEmoji, cDesc string
-			cPublic                             bool
-			cAt                                 time.Time
-			kID                                 *string
-			kQ, kA                              *string
-			kAI                                 *bool
-			kAt                                 *time.Time
+			cPublic                            bool
+			cAt                                time.Time
+			kID                                *string
+			kQ, kA                             *string
+			kAI                                *bool
+			kAt                                *time.Time
 		)
 		if err := rows.Scan(
 			&cID, &cName, &cFolder, &cEmoji, &cDesc, &cPublic, &cAt,

@@ -154,8 +154,8 @@ func TestHTTP_SignUp(t *testing.T) {
 	mustStatus(t, w, http.StatusCreated)
 
 	var resp struct {
-		Token string      `json:"token"`
-		User  auth.User   `json:"user"`
+		Token string    `json:"token"`
+		User  auth.User `json:"user"`
 	}
 	decode(t, w, &resp)
 	assert.Equal(t, "http_alice@example.com", resp.User.Email)
