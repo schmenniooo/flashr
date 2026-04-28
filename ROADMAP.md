@@ -117,13 +117,25 @@ upload_jobs (
 - [ ] Karten nach Bestätigung in gewählte Collection speichern
 - [ ] Temporäre PDF-Datei nach Verarbeitung löschen
 
-### 1.4 App-Integrationen (File Import)
+### 1.4 AI Chat — Generate Cards from a Topic
+
+> For users who don't have a PDF but want to study a topic. The user describes what they want to learn (e.g. "AWS S3 and IAM concepts for the Cloud Practitioner exam") and the AI generates a deck of cards from scratch.
+
+- [ ] Chat-style input on the Upload/Create page: free-text prompt describing the topic, target level, and card count
+- [ ] Backend endpoint `POST /ai/generate` — sends the prompt to Ollama, returns a list of question-answer pairs
+- [ ] Same review flow as PDF-generated cards: user reviews, edits, or deletes individual cards before saving
+- [ ] Cards saved to a new or existing collection with `ai_generated = true`
+- [ ] Ollama prompt engineered for flashcard quality: concise answers, no padding, varied question types
+
+**UX note:** This is the primary entry point for users without notes — position it prominently alongside the PDF upload option.
+
+### 1.5 App-Integrationen (File Import)
 
 - [ ] Import via Share-Sheet (iOS/iPadOS): GoodNotes, Notability, Word, Pages
 - [ ] Import via File-Picker: PDF, .docx
 - [ ] Datei-Validierung (Typ, Größe, Sicherheit)
 
-### 1.5 UI / UX
+### 1.6 UI / UX
 
 - [ ] Dashboard: Übersicht aller Collections
 - [ ] Collection-Detail-View mit Kartenliste
@@ -169,7 +181,8 @@ upload_jobs (
 
 - [ ] Verschiedene Kartentypen: Multiple Choice, Lückentext, Cloze
 - [ ] KI-Qualitätsbewertung der generierten Karten
-- [ ] Karten aus Text-Input (nicht nur PDF)
+- [ ] Karten aus Text-Input (not just PDF — basic version shipped in Phase 1.4; this extends it with richer formatting and multi-turn refinement)
+- [ ] Multi-turn chat: user can ask the AI to add more cards, adjust difficulty, or focus on a subtopic after the initial generation
 - [ ] Karten aus Bild/Screenshot (OCR → KI)
 - [ ] KI-gestützte Karten-Verbesserungsvorschläge
 
