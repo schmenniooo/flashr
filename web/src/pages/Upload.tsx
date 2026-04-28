@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   UploadCloud,
@@ -13,6 +13,7 @@ import {
   Wand2,
   Layers,
   ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 import {
   cardsApi,
@@ -20,6 +21,7 @@ import {
   selectCollections,
   useDb,
 } from "../lib/store";
+import { api } from "../lib/api";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -31,82 +33,86 @@ type DraftCard = {
   keep: boolean;
 };
 
-const DRAFTS: DraftCard[] = [
-  {
-    id: "d1",
-    question: "What is the Michaelis-Menten equation?",
-    answer:
-      "It describes the rate of enzyme-catalyzed reactions: v = (Vₘₐₓ · [S]) / (Kₘ + [S]).",
-    keep: true,
-  },
-  {
-    id: "d2",
-    question: "How does competitive inhibition differ from non-competitive?",
-    answer:
-      "Competitive: inhibitor binds the active site, Kₘ increases, Vₘₐₓ unchanged. Non-competitive: inhibitor binds allosterically, Vₘₐₓ decreases, Kₘ unchanged.",
-    keep: true,
-  },
-  {
-    id: "d3",
-    question: "What is the turnover number (kcat)?",
-    answer: "The number of substrate molecules converted per enzyme per unit time (s⁻¹).",
-    keep: true,
-  },
-  {
-    id: "d4",
-    question: "Why is the Lineweaver-Burk plot used?",
-    answer:
-      "To linearize the non-linear Michaelis-Menten curve. Vₘₐₓ and Kₘ can be read directly from the intercepts.",
-    keep: true,
-  },
-  {
-    id: "d5",
-    question: "What happens at substrate saturation?",
-    answer: "The enzyme is saturated, the reaction reaches Vₘₐₓ — adding more substrate no longer changes v.",
-    keep: false,
-  },
-  {
-    id: "d6",
-    question: "Give an example of an irreversible inhibitor.",
-    answer:
-      "Acetylsalicylic acid (aspirin) irreversibly acetylates cyclooxygenase (COX). Another example is penicillin on transpeptidase.",
-    keep: true,
-  },
-];
-
 export function Upload() {
   const navigate = useNavigate();
   const collections = useDb(selectCollections);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [step, setStep] = useState<Step>("drop");
   const [fileName, setFileName] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<DraftCard[]>(DRAFTS);
+  const [fileSize, setFileSize] = useState<number>(0);
+  const [drafts, setDrafts] = useState<DraftCard[]>([]);
   const [target, setTarget] = useState<string>(collections[0]?.id ?? "__new");
+  const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  function startFake() {
-    setFileName("Biochemistry_Lecture_07_EnzymeKinetics.pdf");
+  async function handleFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setError("Only PDF files are supported right now.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError("File too large — max 20 MB.");
+      return;
+    }
+
+    setError(null);
+    setFileName(file.name);
+    setFileSize(file.size);
     setStep("processing");
-    setTimeout(() => setStep("review"), 2600);
+
+    const form = new FormData();
+    form.append("file", file);
+
+    try {
+      const result = await api<{ cards: { question: string; answer: string }[] }>(
+        "/ai/upload",
+        { method: "POST", body: form }
+      );
+      const generated = result.cards.map((c, i) => ({
+        id: `d${i}`,
+        question: c.question,
+        answer: c.answer,
+        keep: true,
+      }));
+      setDrafts(generated);
+      setStep("review");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      setError(msg);
+      setStep("drop");
+    }
   }
 
   function toggleKeep(id: string) {
     setDrafts((d) => d.map((c) => (c.id === id ? { ...c, keep: !c.keep } : c)));
   }
 
+  function updateDraft(id: string, field: "question" | "answer", value: string) {
+    setDrafts((d) => d.map((c) => (c.id === id ? { ...c, [field]: value } : c)));
+  }
+
   async function handleSave() {
     const kept = drafts.filter((d) => d.keep);
     if (kept.length === 0) return;
+
     let collectionId = target;
     if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
+      const name = fileName
+        ? fileName.replace(/\.pdf$/i, "").replace(/[_-]/g, " ")
+        : "AI Generated Cards";
       const created = await collectionsApi.create({
-        name: "Biochemistry — Enzyme Kinetics (imported)",
+        name,
         folder: "Uncategorized",
-        emoji: "🧬",
+        emoji: "✨",
         description: "Generated from your uploaded notes.",
       });
       collectionId = created.id;
     }
     await Promise.all(
-      kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer }))
+      kept.map((d) =>
+        cardsApi.add(collectionId, { question: d.question, answer: d.answer })
+      )
     );
     navigate(`/app/c/${collectionId}`);
   }
@@ -126,7 +132,7 @@ export function Upload() {
           Your notes, turned into cards.
         </h1>
         <p className="text-body" style={{ marginTop: 4, maxWidth: 560 }}>
-          Upload a PDF, GoodNotes, or Notability file. flashr reads it and suggests question-and-answer
+          Upload a PDF and flashr reads it and suggests question-and-answer
           pairs — you decide what stays.
         </p>
       </header>
@@ -135,7 +141,11 @@ export function Upload() {
         <li className={`up__step ${step !== "drop" ? "up__step--done" : "up__step--active"}`}>
           <span className="up__step-n">1</span> Upload
         </li>
-        <li className={`up__step ${step === "processing" ? "up__step--active" : ""} ${step === "review" ? "up__step--done" : ""}`}>
+        <li
+          className={`up__step ${step === "processing" ? "up__step--active" : ""} ${
+            step === "review" ? "up__step--done" : ""
+          }`}
+        >
           <span className="up__step-n">2</span> AI processing
         </li>
         <li className={`up__step ${step === "review" ? "up__step--active" : ""}`}>
@@ -143,12 +153,42 @@ export function Upload() {
         </li>
       </ol>
 
-      {step === "drop" && <DropStep onPick={startFake} />}
-      {step === "processing" && <ProcessingStep fileName={fileName!} />}
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFile(file);
+          e.target.value = "";
+        }}
+      />
+
+      {error && (
+        <div className="up__error">
+          <AlertCircle size={14} strokeWidth={2} />
+          {error}
+        </div>
+      )}
+
+      {step === "drop" && (
+        <DropStep
+          onPick={() => fileInputRef.current?.click()}
+          onDrop={handleFile}
+        />
+      )}
+      {step === "processing" && (
+        <ProcessingStep fileName={fileName!} fileSize={fileSize} />
+      )}
       {step === "review" && (
         <ReviewStep
           drafts={drafts}
           onToggle={toggleKeep}
+          onEdit={updateDraft}
+          editingId={editingId}
+          onSetEditing={setEditingId}
           target={target}
           onTarget={setTarget}
           keepCount={keepCount}
@@ -161,47 +201,79 @@ export function Upload() {
   );
 }
 
-function DropStep({ onPick }: { onPick: () => void }) {
+function DropStep({
+  onPick,
+  onDrop,
+}: {
+  onPick: () => void;
+  onDrop: (file: File) => void;
+}) {
+  const [dragging, setDragging] = useState(false);
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(true);
+  }
+  function handleDragLeave() {
+    setDragging(false);
+  }
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onDrop(file);
+  }
+
   return (
     <>
-      <button className="up__drop fade-in" onClick={onPick}>
+      <button
+        className={`up__drop fade-in${dragging ? " up__drop--drag" : ""}`}
+        onClick={onPick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <div className="up__drop-glow" aria-hidden />
         <div className="up__drop-icon">
           <UploadCloud size={28} strokeWidth={1.5} />
         </div>
         <div className="up__drop-text">
           <h2 className="text-h2">Drop a file here or click to upload</h2>
-          <p className="text-body">PDF · DOCX · GoodNotes · Notability — up to 20 MB</p>
+          <p className="text-body">PDF — up to 20 MB</p>
         </div>
         <div className="up__drop-badges">
-          <span className="badge"><ShieldCheck size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Private · deleted after processing</span>
-          <span className="badge"><Wand2 size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Self-hosted Ollama</span>
+          <span className="badge">
+            <ShieldCheck size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Private · deleted after
+            processing
+          </span>
+          <span className="badge">
+            <Wand2 size={10} strokeWidth={2} style={{ marginRight: 4 }} /> Self-hosted Ollama
+          </span>
         </div>
       </button>
 
       <div className="up__hint">
-        <p className="text-meta">Or try the sample</p>
-        <button className="up__sample" onClick={onPick}>
-          <FileText size={16} strokeWidth={1.8} />
-          <div>
-            <div className="up__sample-title">Biochemistry_Lecture_07.pdf</div>
-            <div className="up__sample-meta">Demo · 12 pages · Enzyme kinetics</div>
-          </div>
-          <ArrowRight size={14} strokeWidth={2} />
-        </button>
+        <p className="text-meta">Supported formats</p>
+        <div className="up__formats">
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} style={{ marginRight: 4 }} /> PDF
+          </span>
+          <span className="badge up__badge--muted">DOCX · GoodNotes · Notability — coming soon</span>
+        </div>
       </div>
     </>
   );
 }
 
-function ProcessingStep({ fileName }: { fileName: string }) {
+function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: number }) {
+  const kb = Math.round(fileSize / 1024);
   return (
     <div className="up__proc fade-in">
       <div className="up__proc-file">
         <FileText size={18} strokeWidth={1.8} />
         <div>
           <div className="up__proc-filename">{fileName}</div>
-          <div className="up__proc-meta">12 pages · 218 KB</div>
+          <div className="up__proc-meta">{kb > 0 ? `${kb} KB` : "—"}</div>
         </div>
         <span className="badge">
           <Loader2 size={10} className="up__spin" strokeWidth={2} style={{ marginRight: 4 }} />
@@ -212,29 +284,20 @@ function ProcessingStep({ fileName }: { fileName: string }) {
       <ul className="up__proc-list">
         <li className="up__proc-item up__proc-item--done">
           <CheckCircle2 size={14} strokeWidth={2} /> PDF uploaded
-          <span className="text-meta">0.3s</span>
-        </li>
-        <li className="up__proc-item up__proc-item--done">
-          <CheckCircle2 size={14} strokeWidth={2} /> Text extracted — 2,845 words
-          <span className="text-meta">0.9s</span>
         </li>
         <li className="up__proc-item up__proc-item--active">
-          <Loader2 size={14} className="up__spin" strokeWidth={2} /> Ollama generating cards…
-          <span className="text-meta">~ 8s</span>
+          <Loader2 size={14} className="up__spin" strokeWidth={2} /> Extracting text &amp; generating
+          cards…
+          <span className="text-meta">~ 30 s</span>
         </li>
         <li className="up__proc-item">
-          <span className="up__proc-dot" /> Quality check
-          <span className="text-meta">—</span>
-        </li>
-        <li className="up__proc-item">
-          <span className="up__proc-dot" /> Duplicate detection
+          <span className="up__proc-dot" /> Review &amp; save
           <span className="text-meta">—</span>
         </li>
       </ul>
 
       <p className="up__proc-tip text-body">
-        💡 Hang tight — large lectures can take up to a minute. You can leave this tab open, we'll ping you
-        when it's ready.
+        Large PDFs can take up to a minute. Hang tight — we'll show you the cards when they're ready.
       </p>
     </div>
   );
@@ -243,6 +306,9 @@ function ProcessingStep({ fileName }: { fileName: string }) {
 function ReviewStep({
   drafts,
   onToggle,
+  onEdit,
+  editingId,
+  onSetEditing,
   target,
   onTarget,
   keepCount,
@@ -252,6 +318,9 @@ function ReviewStep({
 }: {
   drafts: DraftCard[];
   onToggle: (id: string) => void;
+  onEdit: (id: string, field: "question" | "answer", value: string) => void;
+  editingId: string | null;
+  onSetEditing: (id: string | null) => void;
   target: string;
   onTarget: (id: string) => void;
   keepCount: number;
@@ -264,11 +333,16 @@ function ReviewStep({
       <div className="up__review-bar">
         <div>
           <h2 className="text-h2">
-            <Sparkles size={16} strokeWidth={2} color="var(--color-accent)" style={{ verticalAlign: -2, marginRight: 6 }} />
+            <Sparkles
+              size={16}
+              strokeWidth={2}
+              color="var(--color-accent)"
+              style={{ verticalAlign: -2, marginRight: 6 }}
+            />
             {drafts.length} cards generated
           </h2>
           <p className="text-body">
-            Quick review — keep, skip, or edit each one. Only the cards you select get saved.
+            Keep, skip, or edit each one. Only selected cards get saved.
           </p>
         </div>
 
@@ -295,18 +369,50 @@ function ReviewStep({
                 AI
               </span>
             </div>
-            <div className="up__draft-body">
-              <div>
-                <span className="text-meta">Question</span>
-                <p>{d.question}</p>
+
+            {editingId === d.id ? (
+              <div className="up__draft-edit">
+                <label className="text-meta">Question</label>
+                <textarea
+                  className="up__draft-textarea"
+                  value={d.question}
+                  onChange={(e) => onEdit(d.id, "question", e.target.value)}
+                  rows={2}
+                />
+                <label className="text-meta" style={{ marginTop: 8 }}>Answer</label>
+                <textarea
+                  className="up__draft-textarea"
+                  value={d.answer}
+                  onChange={(e) => onEdit(d.id, "answer", e.target.value)}
+                  rows={3}
+                />
+                <button
+                  className="btn-ghost"
+                  style={{ marginTop: 8, alignSelf: "flex-end" }}
+                  onClick={() => onSetEditing(null)}
+                >
+                  Done
+                </button>
               </div>
-              <div>
-                <span className="text-meta">Answer</span>
-                <p className="up__draft-answer">{d.answer}</p>
+            ) : (
+              <div className="up__draft-body">
+                <div>
+                  <span className="text-meta">Question</span>
+                  <p>{d.question}</p>
+                </div>
+                <div>
+                  <span className="text-meta">Answer</span>
+                  <p className="up__draft-answer">{d.answer}</p>
+                </div>
               </div>
-            </div>
+            )}
+
             <div className="up__draft-side">
-              <button className="up__draft-icon" title="Edit">
+              <button
+                className="up__draft-icon"
+                title="Edit"
+                onClick={() => onSetEditing(editingId === d.id ? null : d.id)}
+              >
                 <Pencil size={13} strokeWidth={1.8} />
               </button>
               <button
@@ -317,11 +423,7 @@ function ReviewStep({
                 <Trash2 size={13} strokeWidth={1.8} />
               </button>
               <label className="up__switch">
-                <input
-                  type="checkbox"
-                  checked={d.keep}
-                  onChange={() => onToggle(d.id)}
-                />
+                <input type="checkbox" checked={d.keep} onChange={() => onToggle(d.id)} />
                 <span />
               </label>
             </div>
@@ -338,11 +440,7 @@ function ReviewStep({
           <button className="btn-ghost" onClick={onBack}>
             Discard
           </button>
-          <button
-            className="btn-primary"
-            disabled={keepCount === 0}
-            onClick={onSave}
-          >
+          <button className="btn-primary" disabled={keepCount === 0} onClick={onSave}>
             <CheckCircle2 size={14} strokeWidth={2} />
             Save to collection
           </button>

@@ -10,8 +10,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smithlabs/flashr/backend/internal/ai"
 	"github.com/smithlabs/flashr/backend/internal/auth"
 	"github.com/smithlabs/flashr/backend/internal/collections"
+	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/db"
 )
 
@@ -19,6 +21,7 @@ func main() {
 	port := envOr("PORT", "8080")
 	dbURL := os.Getenv("DATABASE_URL")
 	ollamaURL := os.Getenv("OLLAMA_URL")
+	ollamaModel := envOr("OLLAMA_MODEL", "llama3.2:3b")
 	jwtSecret := os.Getenv("JWT_SECRET")
 
 	if dbURL == "" {
@@ -90,6 +93,12 @@ func main() {
 
 	collectionsSvc := collections.NewService(pool)
 	collectionsSvc.RegisterRoutes(api, authSvc.RequireUser())
+
+	var aiClient *ai.Client
+	if ollamaURL != "" {
+		aiClient = ai.NewClient(ollamaURL, ollamaModel)
+	}
+	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser())
 
 	log.Printf("flashr backend listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {
