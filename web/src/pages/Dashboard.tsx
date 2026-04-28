@@ -184,6 +184,26 @@ export function Dashboard() {
         </div>
       </section>
 
+      {/* ── Continue / Recent collections ── */}
+      <section className="dash__section">
+        <div className="dash__section-head">
+          <div>
+            <h2 className="text-h2">Pick up where you left off</h2>
+            <p className="text-body">Your most recently touched collections.</p>
+          </div>
+          <Link to="/app/collections" className="dash__section-link">
+            View all
+            <ArrowRight size={14} strokeWidth={2} />
+          </Link>
+        </div>
+
+        <div className="dash__grid">
+          {recentCollections.map((c) => (
+            <CollectionCard key={c.id} collection={c} />
+          ))}
+        </div>
+      </section>
+
       {/* ── Suggestions tailored to learner type ── */}
       {suggestions.length > 0 && (
         <section className="dash__section">
@@ -245,26 +265,6 @@ export function Dashboard() {
           </div>
         </section>
       )}
-
-      {/* ── Continue / Recent collections ── */}
-      <section className="dash__section">
-        <div className="dash__section-head">
-          <div>
-            <h2 className="text-h2">Pick up where you left off</h2>
-            <p className="text-body">Your most recently touched collections.</p>
-          </div>
-          <Link to="/app/collections" className="dash__section-link">
-            View all
-            <ArrowRight size={14} strokeWidth={2} />
-          </Link>
-        </div>
-
-        <div className="dash__grid">
-          {recentCollections.map((c) => (
-            <CollectionCard key={c.id} collection={c} />
-          ))}
-        </div>
-      </section>
 
       {/* ── Bottom row: Upload CTA + Activity ── */}
       <section className="dash__bottom">
