@@ -21,13 +21,13 @@
 
 > Infrastruktur & Architektur-Grundlagen. Kein Feature-Code ohne diese Basis.
 
-- [ ] Projekt-Setup: Go Monolith, Railway Deployment, PostgreSQL
-- [ ] Datenbankschema (siehe unten)
-- [ ] Environment Config (dev / staging / prod)
-- [ ] CI/CD Pipeline via Railway
-- [ ] Logging & Error Handling Grundstruktur
-- [ ] Railway Buckets für temporären File-Storage (PDFs)
-- [ ] Ollama auf Railway deployen & Health-Check
+- [x] Projekt-Setup: Go Monolith, Railway Deployment, PostgreSQL
+- [x] Datenbankschema (siehe unten) — extended with `emoji`, `description` on collections and `password_hash` on users
+- [x] Environment Config (dev / staging / prod) — PORT, DATABASE_URL, JWT_SECRET, OLLAMA_URL, ALLOWED_ORIGINS read from env in `main.go`
+- [ ] Deploy to Railway + connect GitHub repo — Railway auto-deploys on every push to `main`, so this is the CI/CD pipeline
+- [x] Logging & Error Handling Grundstruktur — stdlib `log` throughout, `gin.Default()` request logging, structured JSON error responses from all handlers
+- [ ] Railway Buckets für temporären File-Storage (PDFs) — `pkg/storage` is a stub
+- [x] Ollama auf Railway deployen & Health-Check — `pingOllama` on startup + `/api/health` reports Ollama status; deployment itself is infra
 
 ### Datenbankschema (PostgreSQL)
 
@@ -92,45 +92,58 @@ upload_jobs (
 ### 1.1 Auth
 
 - [ ] OAuth 2.0 Login: Google, Apple, GitHub
-- [ ] JWT Session Management
+- [x] Email/password signup + login — not in original spec (OAuth-only was planned) but fully implemented: bcrypt hashing, unique email index, error messages
+- [x] JWT Session Management — backend issues signed HS256 tokens, frontend stores as `flashr:token:v1`, sends as `Authorization: Bearer`, validated on every protected route
 - [ ] Refresh Token Rotation
-- [ ] Logout / Session Invalidation
-- [ ] User-Profil-Seite (Name, Avatar, E-Mail)
+- [x] Logout / Session Invalidation — token removed from localStorage, local session cleared
+- [x] User-Profil-Seite (Name, Avatar, E-Mail) — `Profile.tsx` wired to real user data from store
 
 ### 1.2 Collections & Ordner
 
-- [ ] Collection erstellen, umbenennen, löschen
-- [ ] Ordner-System zur Gruppierung von Collections
-- [ ] Karteikarten manuell erstellen (Frage + Antwort)
-- [ ] Karteikarten bearbeiten & löschen
-- [ ] Karteikarten innerhalb einer Collection anzeigen
-- [ ] Basis-Lernmodus: Karte aufdecken, weiter blättern
+- [x] Collection erstellen, umbenennen, löschen — full CRUD on backend + frontend store
+- [x] Ordner-System zur Gruppierung von Collections — folder label on collections; local folder list derived from backend data; delete folder PATCHes all affected collections
+- [x] Karteikarten manuell erstellen (Frage + Antwort) — `POST /collections/:id/cards`
+- [x] Karteikarten bearbeiten & löschen — `PATCH /cards/:id`, `DELETE /cards/:id`
+- [x] Karteikarten innerhalb einer Collection anzeigen — `CollectionDetail.tsx` with full card list
+- [x] Basis-Lernmodus: Karte aufdecken, weiter blättern — `Study.tsx` with keyboard shortcuts (space, arrows)
 
 ### 1.3 KI-Generierung (Ollama)
 
-- [ ] PDF-Upload über File-Import
-- [ ] PDF temporär in Railway Buckets speichern
-- [ ] PDF-Text extrahieren & an Ollama senden
-- [ ] Ollama generiert Frage-Antwort-Paare aus dem Text
-- [ ] User reviewt generierte Karten vor dem Speichern
-- [ ] User kann einzelne Karten vor dem Speichern bearbeiten / löschen
-- [ ] Karten nach Bestätigung in gewählte Collection speichern
-- [ ] Temporäre PDF-Datei nach Verarbeitung löschen
+- [x] PDF-Upload über File-Import — drag-and-drop + click-to-pick in `Upload.tsx`; `POST /api/ai/upload` (multipart, auth-gated, 20 MB limit)
+- [x] PDF temporär in Railway Buckets speichern — decision: processed fully in-memory (no disk/bucket write needed); `pkg/storage` stub retained for future use
+- [x] PDF-Text extrahieren & an Ollama senden — `ledongthuc/pdf` extracts text page-by-page; sent to Ollama via `internal/ai`
+- [x] Ollama generiert Frage-Antwort-Paare aus dem Text — `internal/ai/ai.go` prompt-engineered for concise, varied cards; JSON parsed from response
+- [x] User reviewt generierte Karten vor dem Speichern — review step in `Upload.tsx` with keep/skip toggles
+- [x] User kann einzelne Karten vor dem Speichern bearbeiten / löschen — inline textarea edit + trash toggle per card
+- [x] Karten nach Bestätigung in gewählte Collection speichern — saves to chosen or new collection; cards marked `ai_generated = true`
+- [x] Temporäre PDF-Datei nach Verarbeitung löschen — no file is written; in-memory processing means nothing to delete
 
-### 1.4 App-Integrationen (File Import)
+### 1.4 AI Chat — Generate Cards from a Topic
+
+> For users who don't have a PDF but want to study a topic. The user describes what they want to learn (e.g. "AWS S3 and IAM concepts for the Cloud Practitioner exam") and the AI generates a deck of cards from scratch.
+
+- [ ] Chat-style input on the Upload/Create page: free-text prompt describing the topic, target level, and card count
+- [ ] Backend endpoint `POST /ai/generate` — sends the prompt to Ollama, returns a list of question-answer pairs
+- [ ] Same review flow as PDF-generated cards: user reviews, edits, or deletes individual cards before saving
+- [ ] Cards saved to a new or existing collection with `ai_generated = true`
+- [ ] Ollama prompt engineered for flashcard quality: concise answers, no padding, varied question types
+
+**UX note:** This is the primary entry point for users without notes — position it prominently alongside the PDF upload option.
+
+### 1.5 App-Integrationen (File Import)
 
 - [ ] Import via Share-Sheet (iOS/iPadOS): GoodNotes, Notability, Word, Pages
 - [ ] Import via File-Picker: PDF, .docx
 - [ ] Datei-Validierung (Typ, Größe, Sicherheit)
 
-### 1.5 UI / UX
+### 1.6 UI / UX
 
-- [ ] Dashboard: Übersicht aller Collections
-- [ ] Collection-Detail-View mit Kartenliste
-- [ ] Lern-View (Karte aufdecken, navigieren)
-- [ ] KI-Upload-Flow (Upload → Review → Speichern)
-- [ ] Responsive Design (Mobile-first, aber Web-App)
-- [ ] Brand Design System aus `flashr-brand-guidelines.md`
+- [x] Dashboard: Übersicht aller Collections — hero session card, stats, recent collections, suggestions, activity feed; all real data
+- [x] Collection-Detail-View mit Kartenliste — `CollectionDetail.tsx` with edit/delete per card, collection metadata, progress bar
+- [x] Lern-View (Karte aufdecken, navigieren) — `Study.tsx` with flip animation, keyboard shortcuts, session summary screen
+- [x] KI-Upload-Flow (Upload → Review → Speichern) — `Upload.tsx` fully wired: real file pick/drag, processing spinner, review with edit/skip, save to collection
+- [x] Responsive Design (Mobile-first, aber Web-App) — sidebar hidden ≥881px; drawer + backdrop + Escape/route auto-close ≤880px
+- [x] Brand Design System aus `flashr-brand-guidelines.md` — `tokens.css`, DM Sans, Lucide icons, spacing scale applied throughout
 
 ---
 
@@ -161,7 +174,7 @@ upload_jobs (
 ### 2.4 Spaced Repetition (SRS)
 
 - [ ] SM-2 Algorithmus implementieren (basiert auf `srs_metadata` in DB)
-- [ ] Lernmodus mit "Wieder", "Schwer", "Gut", "Einfach" Buttons
+- [x] Lernmodus mit "Wieder", "Schwer", "Gut", "Einfach" Buttons — UI done in `Study.tsx`; mastery tracked locally in localStorage; SM-2 scoring not yet wired
 - [ ] Due-Date-System: Karten erscheinen wenn sie fällig sind
 - [ ] Lernfortschritt-Dashboard (Karten fällig heute, diese Woche etc.)
 
@@ -169,7 +182,8 @@ upload_jobs (
 
 - [ ] Verschiedene Kartentypen: Multiple Choice, Lückentext, Cloze
 - [ ] KI-Qualitätsbewertung der generierten Karten
-- [ ] Karten aus Text-Input (nicht nur PDF)
+- [ ] Karten aus Text-Input (not just PDF — basic version shipped in Phase 1.4; this extends it with richer formatting and multi-turn refinement)
+- [ ] Multi-turn chat: user can ask the AI to add more cards, adjust difficulty, or focus on a subtopic after the initial generation
 - [ ] Karten aus Bild/Screenshot (OCR → KI)
 - [ ] KI-gestützte Karten-Verbesserungsvorschläge
 

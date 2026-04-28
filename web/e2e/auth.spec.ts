@@ -23,10 +23,31 @@ test.describe("auth", () => {
   });
 
   test("sign-up routes a new account through onboarding", async ({ page }) => {
+    const email = `new+${Date.now()}@flashr.io`;
+
+    // Mock the signup endpoint — no backend runs in the preview/CI environment.
+    await page.route("**/api/auth/signup", (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          token: "e2e-test-token",
+          expires_at: Math.floor(Date.now() / 1000) + 86400,
+          user: {
+            id: "e2e-test-user-id",
+            email,
+            name: "Test User",
+            streak: 0,
+            created_at: new Date().toISOString(),
+          },
+        }),
+      })
+    );
+
     await page.goto("/signup");
     await page.getByRole("tab", { name: /create account/i }).click();
     await page.getByLabel(/your name/i).fill("Test User");
-    await page.getByLabel(/^email$/i).fill(`new+${Date.now()}@flashr.io`);
+    await page.getByLabel(/^email$/i).fill(email);
     await page.locator(passwordInput("signup")).fill("testpass123");
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "Create account", exact: true }).click();

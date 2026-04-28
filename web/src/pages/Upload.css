@@ -148,11 +148,46 @@
   justify-content: center;
 }
 
+/* ── Error banner ── */
+
+.up__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 107, 122, 0.08);
+  border: 1px solid rgba(255, 107, 122, 0.3);
+  border-radius: var(--radius-md);
+  color: #ff6b7a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Drop zone drag state ── */
+
+.up__drop--drag {
+  border-color: var(--color-accent);
+  background: rgba(108, 99, 255, 0.06);
+  transform: translateY(-2px);
+}
+
+/* ── Hint / formats ── */
+
 .up__hint {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   align-items: flex-start;
+}
+
+.up__formats {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.up__badge--muted {
+  opacity: 0.5;
 }
 
 .up__sample {
@@ -396,6 +431,31 @@
   color: var(--color-muted) !important;
   padding-left: var(--space-3);
   border-left: 2px solid var(--color-border);
+}
+
+.up__draft-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  grid-column: 2;
+}
+
+.up__draft-textarea {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 8px 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+.up__draft-textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
 }
 
 .up__draft-side {

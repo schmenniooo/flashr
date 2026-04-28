@@ -66,6 +66,7 @@ export type Collection = {
   lastStudied: string;
   progress: number;
   isPublic: boolean;
+  createdAt: string;
 };
 
 export type Folder = {
@@ -91,6 +92,7 @@ export const collections: Collection[] = [
     lastStudied: "2 hours ago",
     progress: 68,
     isPublic: false,
+    createdAt: "2026-04-20T10:00:00Z",
     cards: [
       {
         id: "c1",
@@ -143,6 +145,7 @@ export const collections: Collection[] = [
     lastStudied: "yesterday",
     progress: 42,
     isPublic: true,
+    createdAt: "2026-04-15T09:00:00Z",
     cards: [
       {
         id: "s1",
@@ -183,6 +186,7 @@ export const collections: Collection[] = [
     lastStudied: "3 days ago",
     progress: 91,
     isPublic: false,
+    createdAt: "2026-04-10T14:00:00Z",
     cards: [
       {
         id: "a1",
@@ -211,6 +215,7 @@ export const collections: Collection[] = [
     lastStudied: "5 days ago",
     progress: 23,
     isPublic: false,
+    createdAt: "2026-04-08T11:00:00Z",
     cards: [
       {
         id: "g1",
@@ -247,6 +252,7 @@ export const collections: Collection[] = [
     lastStudied: "a week ago",
     progress: 15,
     isPublic: false,
+    createdAt: "2026-04-05T08:00:00Z",
     cards: [
       {
         id: "m1",
@@ -274,6 +280,7 @@ export const collections: Collection[] = [
     lastStudied: "4 days ago",
     progress: 55,
     isPublic: false,
+    createdAt: "2026-04-12T16:00:00Z",
     cards: [
       {
         id: "p1",
@@ -294,6 +301,7 @@ export const collections: Collection[] = [
     lastStudied: "2 weeks ago",
     progress: 8,
     isPublic: false,
+    createdAt: "2026-04-01T12:00:00Z",
     cards: [
       {
         id: "f1",
@@ -314,6 +322,7 @@ export const collections: Collection[] = [
     lastStudied: "today",
     progress: 77,
     isPublic: true,
+    createdAt: "2026-04-17T20:00:00Z",
     cards: [
       {
         id: "ph1",

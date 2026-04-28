@@ -11,6 +11,7 @@ import {
   type Suggestion,
   type User,
 } from "../data/mock";
+import { api, ApiError, setToken } from "./api";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -18,6 +19,7 @@ import {
 
 export type StoredUser = User & {
   id: string;
+  streak: number;
   // Plain-text password — ONLY acceptable because this is a local prototype.
   // Replace with backend-issued session tokens when the Go API lands.
   password: string;
@@ -32,6 +34,8 @@ type Db = {
   session: Session;
   collections: Collection[];
   folders: Folder[];
+  // card id → mastery, local-only until SRS lands in Phase 2
+  masteryMap: Record<string, Card["mastery"]>;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -44,13 +48,15 @@ function freshDb(): Db {
   const demoUser: StoredUser = {
     ...seedUser,
     id: "demo-user",
+    streak: 12,
     password: "demo1234",
   };
   return {
     users: [demoUser],
     session: null,
-    collections: JSON.parse(JSON.stringify(seedCollections)),
-    folders: JSON.parse(JSON.stringify(seedFolders)),
+    collections: [],
+    folders: [],
+    masteryMap: {},
   };
 }
 
@@ -83,7 +89,11 @@ function readDb(): Db {
       return fresh;
     }
     const parsed = JSON.parse(raw) as Db;
-    return { ...parsed, users: parsed.users.map(migrateUser) };
+    return {
+      ...parsed,
+      users: parsed.users.map(migrateUser),
+      masteryMap: parsed.masteryMap ?? {},
+    };
   } catch {
     const fresh = freshDb();
     writeDb(fresh);
@@ -147,9 +157,6 @@ export function useDb<T>(selector: (db: Db) => T): T {
 // Helpers
 // ─────────────────────────────────────────────────────────────
 
-function uid(prefix = "") {
-  return `${prefix}${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
-}
 
 function recalcProgress(c: Collection): Collection {
   if (c.cards.length === 0) return { ...c, progress: 0 };
@@ -186,69 +193,156 @@ export const selectCollection = (id: string) => (db: Db) =>
 // Auth actions
 // ─────────────────────────────────────────────────────────────
 
+// Backend identity payload returned by /api/auth/{signup,login,me}.
+type BackendUser = {
+  id: string;
+  email: string;
+  name?: string;
+  streak: number;
+  created_at: string;
+};
+
+type AuthResponse = {
+  token: string;
+  expires_at: number;
+  user: BackendUser;
+};
+
+// Build a local profile shadow for a backend user. The backend owns identity
+// (id, email, name, password). Everything else (preferences, onboarding state,
+// daily goal, etc.) is local-only profile data until those endpoints exist.
+function shadowFromBackend(
+  bu: BackendUser,
+  hint?: { firstName?: string; lastName?: string },
+): StoredUser {
+  const fallbackName = (bu.name ?? "").trim();
+  const [first, ...rest] = fallbackName ? fallbackName.split(/\s+/) : [];
+  return {
+    id: bu.id,
+    email: bu.email,
+    password: "",
+    streak: bu.streak ?? 0,
+    firstName: hint?.firstName?.trim() || first || bu.email.split("@")[0],
+    lastName: hint?.lastName?.trim() || rest.join(" "),
+    username: bu.email.split("@")[0],
+    oauthProvider: "google",
+    plan: "free",
+    memberSince: new Date(bu.created_at).toLocaleString("en-US", {
+      month: "long",
+      year: "numeric",
+    }),
+    avatarUrl: null,
+    bio: "",
+    timezone: "Europe/Berlin",
+    language: "English",
+    dailyGoal: 20,
+    emailReminders: true,
+    weeklyDigest: false,
+    age: null,
+    learnerTypes: [],
+    onboardingCompleted: false,
+    dismissedSuggestions: [],
+  };
+}
+
+function adoptBackendUser(
+  bu: BackendUser,
+  hint?: { firstName?: string; lastName?: string },
+) {
+  setState((db) => {
+    const existing = db.users.find((u) => u.id === bu.id);
+    const user = existing
+      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak }
+      : shadowFromBackend(bu, hint);
+    return {
+      ...db,
+      users: [...db.users.filter((u) => u.id !== bu.id), user],
+      session: { userId: bu.id },
+    };
+  });
+}
+
+type AuthResult = { ok: true } | { ok: false; error: string };
+
+function toAuthResult(err: unknown): AuthResult {
+  if (err instanceof ApiError) return { ok: false, error: err.message };
+  return { ok: false, error: "Network error. Please try again." };
+}
+
 export const auth = {
-  signUp(input: {
+  async signUp(input: {
     email: string;
     password: string;
     firstName: string;
     lastName?: string;
-  }): { ok: true } | { ok: false; error: string } {
-    const email = input.email.trim().toLowerCase();
-    if (state.users.some((u) => u.email.toLowerCase() === email)) {
-      return { ok: false, error: "An account with this email already exists." };
+  }): Promise<AuthResult> {
+    const fullName = [input.firstName, input.lastName ?? ""]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" ");
+    try {
+      const res = await api<AuthResponse>("/auth/signup", {
+        method: "POST",
+        body: JSON.stringify({
+          email: input.email.trim(),
+          password: input.password,
+          name: fullName,
+        }),
+      });
+      setToken(res.token);
+      adoptBackendUser(res.user, {
+        firstName: input.firstName,
+        lastName: input.lastName,
+      });
+      void collectionsApi.load().catch(console.error);
+      return { ok: true };
+    } catch (err) {
+      return toAuthResult(err);
     }
-    const id = uid("u_");
-    const newUser: StoredUser = {
-      id,
-      email,
-      password: input.password,
-      firstName: input.firstName || email.split("@")[0],
-      lastName: input.lastName || "",
-      username: email.split("@")[0],
-      oauthProvider: "google",
-      plan: "free",
-      memberSince: new Date().toLocaleString("en-US", {
-        month: "long",
-        year: "numeric",
-      }),
-      avatarUrl: null,
-      bio: "",
-      timezone: "Europe/Berlin",
-      language: "English",
-      dailyGoal: 20,
-      emailReminders: true,
-      weeklyDigest: false,
-      age: null,
-      learnerTypes: [],
-      onboardingCompleted: false,
-      dismissedSuggestions: [],
-    };
-    setState((db) => ({
-      ...db,
-      users: [...db.users, newUser],
-      session: { userId: id },
-    }));
-    return { ok: true };
   },
 
-  signIn(
-    email: string,
-    password: string,
-  ): { ok: true } | { ok: false; error: string } {
-    const found = state.users.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-    );
-    if (!found || found.password !== password) {
-      return { ok: false, error: "Email or password is incorrect." };
+  async signIn(email: string, password: string): Promise<AuthResult> {
+    try {
+      const res = await api<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      setToken(res.token);
+      adoptBackendUser(res.user);
+      void collectionsApi.load().catch(console.error);
+      return { ok: true };
+    } catch (err) {
+      return toAuthResult(err);
     }
-    setState((db) => ({ ...db, session: { userId: found.id } }));
-    return { ok: true };
+  },
+
+  /**
+   * On app boot: if we have a stored token, ask the backend who it belongs to.
+   * If the token is invalid or expired, drop it and the local session.
+   */
+  async bootstrap(): Promise<void> {
+    if (!state.session) return;
+    try {
+      const res = await api<{ user: BackendUser }>("/auth/me");
+      adoptBackendUser(res.user);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setToken(null);
+        setState((db) => ({ ...db, session: null }));
+      }
+      // Network errors: leave local session alone — user can retry.
+    }
   },
 
   signInAsDemo() {
     const demo = state.users.find((u) => u.id === "demo-user");
     if (!demo) return;
-    setState((db) => ({ ...db, session: { userId: demo.id } }));
+    setState((db) => ({
+      ...db,
+      session: { userId: demo.id },
+      collections: JSON.parse(JSON.stringify(seedCollections)),
+      folders: JSON.parse(JSON.stringify(seedFolders)),
+    }));
   },
 
   /**
@@ -259,6 +353,7 @@ export const auth = {
     const id = "onboarding-test-user";
     const testUser: StoredUser = {
       id,
+      streak: 0,
       email: "onboarding-test@flashr.io",
       password: "onboarding",
       firstName: "",
@@ -315,6 +410,7 @@ export const auth = {
   },
 
   signOut() {
+    setToken(null);
     setState((db) => ({ ...db, session: null }));
   },
 
@@ -331,62 +427,165 @@ export const auth = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// Backend → frontend mapping helpers
+// ─────────────────────────────────────────────────────────────
+
+type BackendCard = {
+  id: string;
+  question: string;
+  answer: string;
+  ai_generated: boolean;
+  created_at: string;
+};
+
+type BackendCollection = {
+  id: string;
+  name: string;
+  folder: string;
+  emoji: string;
+  description: string;
+  is_public: boolean;
+  created_at: string;
+  cards: BackendCard[];
+};
+
+// Re-export core domain types so components don't need to import from data/mock.
+export type { Card, Collection, Folder, LearnerType, Suggestion } from "../data/mock";
+
+function mapCard(bc: BackendCard, masteryMap: Record<string, Card["mastery"]>): Card {
+  return {
+    id: bc.id,
+    question: bc.question,
+    answer: bc.answer,
+    aiGenerated: bc.ai_generated,
+    mastery: masteryMap[bc.id] ?? "new",
+  };
+}
+
+function mapCollection(bc: BackendCollection, db: Db): Collection {
+  const cards = bc.cards.map((k) => mapCard(k, db.masteryMap));
+  const progress = cards.length === 0 ? 0 : Math.round(
+    (cards.reduce((s, k) => s + (k.mastery === "known" ? 1 : k.mastery === "learning" ? 0.5 : 0), 0) / cards.length) * 100
+  );
+  const existing = db.collections.find((c) => c.id === bc.id);
+  return {
+    id: bc.id,
+    name: bc.name,
+    folder: bc.folder,
+    emoji: bc.emoji,
+    description: bc.description,
+    isPublic: bc.is_public,
+    createdAt: bc.created_at,
+    cards,
+    lastStudied: existing?.lastStudied ?? "never",
+    progress,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // Collection actions
 // ─────────────────────────────────────────────────────────────
 
 export const collectionsApi = {
-  create(input: {
+  /** Fetch all collections from the backend and replace local state. */
+  async load(): Promise<void> {
+    const res = await api<{ collections: BackendCollection[] }>("/collections");
+    setState((db) => {
+      const collections = res.collections.map((bc) => mapCollection(bc, db));
+      // Upsert any folders present in backend data that aren't in local state yet.
+      const known = new Set(db.folders.map((f) => f.name));
+      const merged = [...db.folders];
+      for (const c of collections) {
+        if (c.folder && !known.has(c.folder)) {
+          merged.push({ name: c.folder, emoji: "📁", count: 0 });
+          known.add(c.folder);
+        }
+      }
+      return { ...db, collections, folders: recountFolders(merged, collections) };
+    });
+  },
+
+  async create(input: {
     name: string;
     folder: string;
     emoji?: string;
     description?: string;
-  }): Collection {
-    const col: Collection = {
-      id: uid("col_"),
-      name: input.name,
-      folder: input.folder,
-      emoji: input.emoji || "📚",
-      description: input.description || "",
-      cards: [],
-      lastStudied: "just now",
-      progress: 0,
-      isPublic: false,
-    };
+  }): Promise<Collection> {
+    const bc = await api<BackendCollection>("/collections", {
+      method: "POST",
+      body: JSON.stringify({
+        name: input.name,
+        folder: input.folder === "Uncategorized" ? "" : input.folder,
+        emoji: input.emoji || "📚",
+        description: input.description || "",
+      }),
+    });
+    const col = mapCollection(bc, state);
     setState((db) => {
       const collections = [col, ...db.collections];
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(db.folders, collections),
-      };
+      // Upsert the folder locally in case it was passed in as a brand-new name.
+      const known = new Set(db.folders.map((f) => f.name));
+      const folders = col.folder && !known.has(col.folder)
+        ? [...db.folders, { name: col.folder, emoji: "📁", count: 0 }]
+        : db.folders;
+      return { ...db, collections, folders: recountFolders(folders, collections) };
     });
     return col;
   },
 
-  update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>) {
+  async update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>): Promise<void> {
+    // Apply optimistically so the UI responds immediately.
     setState((db) => {
-      const collections = db.collections.map((c) =>
-        c.id === id ? { ...c, ...patch } : c,
-      );
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(db.folders, collections),
-      };
+      const existing = db.collections.find(c => c.id === id);
+      if (!existing) return db;
+      const updated = recalcProgress({ ...existing, ...patch });
+      const collections = db.collections.map(c => c.id === id ? updated : c);
+      const known = new Set(db.folders.map(f => f.name));
+      const folders = updated.folder && !known.has(updated.folder)
+        ? [...db.folders, { name: updated.folder, emoji: "📁", count: 0 }]
+        : db.folders;
+      return { ...db, collections, folders: recountFolders(folders, collections) };
     });
+
+    // Persist and reconcile with authoritative backend data.
+    try {
+      const bc = await api<BackendCollection>(`/collections/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: patch.name,
+          folder: patch.folder === "Uncategorized" ? "" : patch.folder,
+          emoji: patch.emoji,
+          description: patch.description,
+        }),
+      });
+      setState((db) => {
+        const existing = db.collections.find(c => c.id === id);
+        const updated = recalcProgress({
+          ...mapCollection(bc, db),
+          cards: existing?.cards ?? [],
+          lastStudied: patch.lastStudied ?? existing?.lastStudied ?? "never",
+        });
+        const collections = db.collections.map(c => c.id === id ? updated : c);
+        const known = new Set(db.folders.map(f => f.name));
+        const folders = updated.folder && !known.has(updated.folder)
+          ? [...db.folders, { name: updated.folder, emoji: "📁", count: 0 }]
+          : db.folders;
+        return { ...db, collections, folders: recountFolders(folders, collections) };
+      });
+    } catch (err) {
+      console.error(err);
+    }
   },
 
-  remove(id: string) {
+  async remove(id: string): Promise<void> {
+    await api(`/collections/${id}`, { method: "DELETE" });
     setState((db) => {
       const collections = db.collections.filter((c) => c.id !== id);
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(db.folders, collections),
-      };
+      return { ...db, collections, folders: recountFolders(db.folders, collections) };
     });
   },
 
+  /** Local-only: record last studied timestamp without a backend call. */
   touch(id: string) {
     setState((db) => ({
       ...db,
@@ -402,14 +601,12 @@ export const collectionsApi = {
 // ─────────────────────────────────────────────────────────────
 
 export const cardsApi = {
-  add(collectionId: string, input: Omit<Card, "id" | "mastery"> & { mastery?: Card["mastery"] }): Card {
-    const card: Card = {
-      id: uid("card_"),
-      question: input.question,
-      answer: input.answer,
-      aiGenerated: input.aiGenerated ?? false,
-      mastery: input.mastery ?? "new",
-    };
+  async add(collectionId: string, input: { question: string; answer: string }): Promise<Card> {
+    const bc = await api<BackendCard>(`/collections/${collectionId}/cards`, {
+      method: "POST",
+      body: JSON.stringify({ question: input.question, answer: input.answer }),
+    });
+    const card = mapCard(bc, state.masteryMap);
     setState((db) => ({
       ...db,
       collections: db.collections.map((c) =>
@@ -421,11 +618,11 @@ export const cardsApi = {
     return card;
   },
 
-  update(
-    collectionId: string,
-    cardId: string,
-    patch: Partial<Omit<Card, "id">>,
-  ) {
+  async update(collectionId: string, cardId: string, patch: { question?: string; answer?: string }): Promise<void> {
+    const bc = await api<BackendCard>(`/cards/${cardId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ question: patch.question, answer: patch.answer }),
+    });
     setState((db) => ({
       ...db,
       collections: db.collections.map((c) =>
@@ -433,7 +630,7 @@ export const cardsApi = {
           ? recalcProgress({
               ...c,
               cards: c.cards.map((k) =>
-                k.id === cardId ? { ...k, ...patch } : k,
+                k.id === cardId ? { ...k, question: bc.question, answer: bc.answer } : k,
               ),
             })
           : c,
@@ -441,26 +638,46 @@ export const cardsApi = {
     }));
   },
 
-  remove(collectionId: string, cardId: string) {
+  async remove(collectionId: string, cardId: string): Promise<void> {
+    await api(`/cards/${cardId}`, { method: "DELETE" });
     setState((db) => ({
       ...db,
       collections: db.collections.map((c) =>
         c.id === collectionId
-          ? recalcProgress({
-              ...c,
-              cards: c.cards.filter((k) => k.id !== cardId),
-            })
+          ? recalcProgress({ ...c, cards: c.cards.filter((k) => k.id !== cardId) })
           : c,
       ),
     }));
   },
 
-  setMastery(
-    collectionId: string,
-    cardId: string,
-    mastery: Card["mastery"],
-  ) {
-    this.update(collectionId, cardId, { mastery });
+  async move(fromCollectionId: string, cardId: string, toCollectionId: string): Promise<void> {
+    const card = state.collections.find(c => c.id === fromCollectionId)?.cards.find(k => k.id === cardId);
+    if (!card) return;
+    await api(`/cards/${cardId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ collection_id: toCollectionId }),
+    });
+    setState((db) => ({
+      ...db,
+      collections: db.collections.map((c) => {
+        if (c.id === fromCollectionId) return recalcProgress({ ...c, cards: c.cards.filter(k => k.id !== cardId) });
+        if (c.id === toCollectionId) return recalcProgress({ ...c, cards: [...c.cards, card] });
+        return c;
+      }),
+    }));
+  },
+
+  /** Local-only: mastery tracking stays in localStorage until SRS (Phase 2). */
+  setMastery(collectionId: string, cardId: string, mastery: Card["mastery"]) {
+    setState((db) => ({
+      ...db,
+      masteryMap: { ...db.masteryMap, [cardId]: mastery },
+      collections: db.collections.map((c) =>
+        c.id === collectionId
+          ? recalcProgress({ ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, mastery } : k) })
+          : c,
+      ),
+    }));
   },
 };
 
@@ -479,14 +696,49 @@ export const foldersApi = {
     });
   },
 
+  rename(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    const affected = state.collections.filter((c) => c.folder === oldName);
+    setState((db) => {
+      if (db.folders.some((f) => f.name.toLowerCase() === trimmed.toLowerCase() && f.name !== oldName)) return db;
+      return {
+        ...db,
+        folders: db.folders.map((f) => f.name === oldName ? { ...f, name: trimmed } : f),
+        collections: db.collections.map((c) => c.folder === oldName ? { ...c, folder: trimmed } : c),
+      };
+    });
+    void Promise.all(
+      affected.map((c) =>
+        api(`/collections/${c.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ folder: trimmed }),
+        }).catch(console.error),
+      ),
+    );
+  },
+
   remove(name: string) {
+    const affected = state.collections.filter((c) => c.folder === name);
+
+    // Update local state immediately so the UI responds without waiting.
     setState((db) => ({
       ...db,
       folders: db.folders.filter((f) => f.name !== name),
       collections: db.collections.map((c) =>
-        c.folder === name ? { ...c, folder: "Uncategorized" } : c,
+        c.folder === name ? { ...c, folder: "" } : c,
       ),
     }));
+
+    // Persist each affected collection to the backend in parallel.
+    void Promise.all(
+      affected.map((c) =>
+        api(`/collections/${c.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ folder: "" }),
+        }).catch(console.error),
+      ),
+    );
   },
 };
 
@@ -563,50 +815,45 @@ export const suggestionsApi = {
     }));
   },
 
-  accept(id: string): Collection | null {
+  async accept(id: string): Promise<Collection | null> {
     const session = state.session;
     if (!session) return null;
     const suggestion = suggestionCatalog.find((s) => s.id === id);
     if (!suggestion) return null;
 
-    const col: Collection = {
-      id: uid("col_"),
+    // Dismiss first so the UI removes it immediately.
+    setState((db) => ({
+      ...db,
+      users: db.users.map((u) =>
+        u.id === session.userId
+          ? {
+              ...u,
+              dismissedSuggestions: u.dismissedSuggestions.includes(id)
+                ? u.dismissedSuggestions
+                : [...u.dismissedSuggestions, id],
+            }
+          : u,
+      ),
+    }));
+
+    // Ensure the folder exists locally.
+    setState((db) => {
+      if (db.folders.some((f) => f.name === suggestion.folder)) return db;
+      return {
+        ...db,
+        folders: [
+          ...db.folders,
+          { name: suggestion.folder, emoji: suggestion.folderEmoji, count: 0 },
+        ],
+      };
+    });
+
+    return collectionsApi.create({
       name: suggestion.title,
       folder: suggestion.folder,
       emoji: suggestion.emoji,
       description: suggestion.description,
-      cards: [],
-      lastStudied: "just now",
-      progress: 0,
-      isPublic: false,
-    };
-
-    setState((db) => {
-      const folderExists = db.folders.some((f) => f.name === suggestion.folder);
-      const folders = folderExists
-        ? db.folders
-        : [
-            ...db.folders,
-            { name: suggestion.folder, emoji: suggestion.folderEmoji, count: 0 },
-          ];
-      const collections = [col, ...db.collections];
-      return {
-        ...db,
-        collections,
-        folders: recountFolders(folders, collections),
-        users: db.users.map((u) =>
-          u.id === session.userId
-            ? {
-                ...u,
-                dismissedSuggestions: u.dismissedSuggestions.includes(id)
-                  ? u.dismissedSuggestions
-                  : [...u.dismissedSuggestions, id],
-              }
-            : u,
-        ),
-      };
     });
-    return col;
   },
 };
 

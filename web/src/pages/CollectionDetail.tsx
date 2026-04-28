@@ -10,29 +10,33 @@ import {
   Trash2,
   Layers,
   X,
+  FolderInput,
 } from "lucide-react";
 import {
   cardsApi,
   collectionsApi,
   selectCollection,
-  selectFolders,
+  selectCollections,
+
   useDb,
 } from "../lib/store";
+import { EditCollectionModal } from "../components/EditCollectionModal";
 import { Modal } from "../components/Modal";
-import type { Card } from "../data/mock";
+import type { Card } from "../lib/store";
 import "./CollectionDetail.css";
 
 export function CollectionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const collection = useDb(selectCollection(id ?? ""));
-  const folders = useDb(selectFolders);
+
 
   const [editingCollection, setEditingCollection] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cardModal, setCardModal] = useState<
     { mode: "create" } | { mode: "edit"; card: Card } | null
   >(null);
+  const [movingCard, setMovingCard] = useState<Card | null>(null);
 
   if (!collection) return <Navigate to="/app/collections" replace />;
 
@@ -176,6 +180,13 @@ export function CollectionDetail() {
                 )}
                 <button
                   className="cdet__card-icon"
+                  title="Move to another collection"
+                  onClick={() => setMovingCard(card)}
+                >
+                  <FolderInput size={13} strokeWidth={1.8} />
+                </button>
+                <button
+                  className="cdet__card-icon"
                   title="Edit"
                   onClick={() => setCardModal({ mode: "edit", card })}
                 >
@@ -211,6 +222,15 @@ export function CollectionDetail() {
         />
       )}
 
+      {movingCard && (
+        <MoveCardModal
+          open
+          onClose={() => setMovingCard(null)}
+          card={movingCard}
+          fromCollectionId={collection.id}
+        />
+      )}
+
       <EditCollectionModal
         open={editingCollection}
         onClose={() => setEditingCollection(false)}
@@ -221,7 +241,6 @@ export function CollectionDetail() {
           emoji: collection.emoji,
           description: collection.description,
         }}
-        folders={folders.map((f) => f.name)}
       />
 
       <Modal
@@ -272,13 +291,12 @@ function CardEditorModal({
       cardsApi.update(collectionId, card.id, {
         question: question.trim(),
         answer: answer.trim(),
-      });
+      }).catch(console.error);
     } else {
       cardsApi.add(collectionId, {
         question: question.trim(),
         answer: answer.trim(),
-        aiGenerated: false,
-      });
+      }).catch(console.error);
     }
     onClose();
   }
@@ -331,33 +349,25 @@ function CardEditorModal({
   );
 }
 
-function EditCollectionModal({
+function MoveCardModal({
   open,
   onClose,
-  collectionId,
-  initial,
-  folders,
+  card,
+  fromCollectionId,
 }: {
   open: boolean;
   onClose: () => void;
-  collectionId: string;
-  initial: { name: string; folder: string; emoji: string; description: string };
-  folders: string[];
+  card: Card;
+  fromCollectionId: string;
 }) {
-  const [name, setName] = useState(initial.name);
-  const [folder, setFolder] = useState(initial.folder);
-  const [emoji, setEmoji] = useState(initial.emoji);
-  const [description, setDescription] = useState(initial.description);
+  const allCollections = useDb(selectCollections);
+  const targets = allCollections.filter((c) => c.id !== fromCollectionId);
+  const [toId, setToId] = useState(targets[0]?.id ?? "");
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    collectionsApi.update(collectionId, {
-      name: name.trim(),
-      folder,
-      emoji: emoji || "📚",
-      description: description.trim(),
-    });
+    if (!toId) return;
+    cardsApi.move(fromCollectionId, card.id, toId).catch(console.error);
     onClose();
   }
 
@@ -365,7 +375,7 @@ function EditCollectionModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Edit collection"
+      title="Move card"
       size="sm"
       footer={
         <>
@@ -373,51 +383,34 @@ function EditCollectionModal({
             <X size={13} strokeWidth={2} />
             Cancel
           </button>
-          <button className="btn-primary" onClick={submit} disabled={!name.trim()}>
-            Save
+          <button className="btn-primary" onClick={submit} disabled={!toId}>
+            Move
           </button>
         </>
       }
     >
       <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <label className="modal__field">
-          <span className="text-meta">Name</span>
-          <input
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <label className="modal__field">
-          <span className="text-meta">Folder</span>
-          <select className="input" value={folder} onChange={(e) => setFolder(e.target.value)}>
-            {folders.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-            <option value="Uncategorized">Uncategorized</option>
-          </select>
-        </label>
-        <label className="modal__field">
-          <span className="text-meta">Emoji</span>
-          <input
-            className="input"
-            maxLength={4}
-            value={emoji}
-            onChange={(e) => setEmoji(e.target.value)}
-            style={{ maxWidth: 80, textAlign: "center", fontSize: 18 }}
-          />
-        </label>
-        <label className="modal__field">
-          <span className="text-meta">Description</span>
-          <textarea
-            className="input"
-            rows={2}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </label>
+        <p className="text-body" style={{ margin: 0 }}>
+          Move <strong style={{ color: "var(--color-text)" }}>{card.question.slice(0, 60)}{card.question.length > 60 ? "…" : ""}</strong> to:
+        </p>
+        {targets.length === 0 ? (
+          <p className="text-meta">No other collections to move this card to.</p>
+        ) : (
+          <label className="modal__field">
+            <span className="text-meta">Destination collection</span>
+            <select
+              className="input"
+              value={toId}
+              onChange={(e) => setToId(e.target.value)}
+            >
+              {targets.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.emoji} {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </form>
     </Modal>
   );

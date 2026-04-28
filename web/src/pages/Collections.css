@@ -95,13 +95,12 @@
   font-weight: 600;
   cursor: pointer;
 }
+.cols__chip-action,
 .cols__chip-del {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
   align-self: stretch;
-  padding: 0 8px 0 4px;
   background: transparent;
   border: none;
   border-left: 1px solid var(--color-border);
@@ -114,11 +113,16 @@
   transition: opacity var(--transition-fast), max-width var(--transition-fast),
     padding var(--transition-fast), color var(--transition-fast);
 }
+.cols__chip--group:hover .cols__chip-action,
 .cols__chip--group:hover .cols__chip-del,
+.cols__chip--group:focus-within .cols__chip-action,
 .cols__chip--group:focus-within .cols__chip-del {
   opacity: 1;
   max-width: 28px;
-  padding: 0 8px 0 4px;
+  padding: 0 7px;
+}
+.cols__chip-action:hover {
+  color: var(--color-accent-light);
 }
 .cols__chip-del:hover {
   color: #ff8b8b;
@@ -185,20 +189,42 @@
 
 .cols__row {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: 44px 1fr auto auto;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  text-decoration: none;
   color: inherit;
+  cursor: pointer;
   transition: border-color var(--transition-fast), transform var(--transition-fast);
 }
 .cols__row:hover {
   border-color: rgba(108, 99, 255, 0.3);
   transform: translateX(2px);
+}
+
+.cols__row-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.cols__row:hover .cols__row-edit {
+  opacity: 1;
+}
+.cols__row-edit:hover {
+  color: var(--color-text);
+  border-color: var(--color-accent);
 }
 
 .cols__row-emoji {

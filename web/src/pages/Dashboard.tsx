@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Sparkles,
@@ -12,7 +13,6 @@ import {
   X,
   Lightbulb,
 } from "lucide-react";
-import { recentActivity } from "../data/mock";
 import {
   selectCollections,
   selectCurrentUser,
@@ -20,6 +20,20 @@ import {
   suggestionsApi,
   useDb,
 } from "../lib/store";
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 2) return "just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs === 1 ? "1 hour ago" : `${hrs} hours ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 14) return "a week ago";
+  return `${Math.floor(days / 7)} weeks ago`;
+}
 import { CollectionCard } from "../components/CollectionCard";
 import "./Dashboard.css";
 
@@ -29,10 +43,22 @@ export function Dashboard() {
   const suggestions = useDb(selectSuggestionsForUser);
   const navigate = useNavigate();
 
-  function handleAcceptSuggestion(id: string) {
-    const created = suggestionsApi.accept(id);
+  async function handleAcceptSuggestion(id: string) {
+    const created = await suggestionsApi.accept(id);
     if (created) navigate(`/app/c/${created.id}`);
   }
+
+  const recentActivity = useMemo(() => {
+    return [...collections]
+      .filter((c) => c.createdAt)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 4)
+      .map((c) => ({
+        label: "Collection created",
+        collection: c.name,
+        time: timeAgo(c.createdAt),
+      }));
+  }, [collections]);
 
   const dueCollection =
     collections.find((c) => c.cards.some((k) => k.mastery !== "known")) ??
@@ -52,7 +78,7 @@ export function Dashboard() {
     <div className="dash">
       <header className="dash__head">
         <div>
-          <span className="text-meta">Dashboard · Wednesday, April 23</span>
+          <span className="text-meta">Dashboard · {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
           <h1 className="text-h1 dash__greeting">
             Hey {currentUser?.firstName ?? "there"} 👋{" "}
             <span className="dash__greeting-sub">Ready for a few cards?</span>
@@ -158,6 +184,26 @@ export function Dashboard() {
         </div>
       </section>
 
+      {/* ── Continue / Recent collections ── */}
+      <section className="dash__section">
+        <div className="dash__section-head">
+          <div>
+            <h2 className="text-h2">Pick up where you left off</h2>
+            <p className="text-body">Your most recently touched collections.</p>
+          </div>
+          <Link to="/app/collections" className="dash__section-link">
+            View all
+            <ArrowRight size={14} strokeWidth={2} />
+          </Link>
+        </div>
+
+        <div className="dash__grid">
+          {recentCollections.map((c) => (
+            <CollectionCard key={c.id} collection={c} />
+          ))}
+        </div>
+      </section>
+
       {/* ── Suggestions tailored to learner type ── */}
       {suggestions.length > 0 && (
         <section className="dash__section">
@@ -219,26 +265,6 @@ export function Dashboard() {
           </div>
         </section>
       )}
-
-      {/* ── Continue / Recent collections ── */}
-      <section className="dash__section">
-        <div className="dash__section-head">
-          <div>
-            <h2 className="text-h2">Pick up where you left off</h2>
-            <p className="text-body">Your most recently touched collections.</p>
-          </div>
-          <Link to="/app/collections" className="dash__section-link">
-            View all
-            <ArrowRight size={14} strokeWidth={2} />
-          </Link>
-        </div>
-
-        <div className="dash__grid">
-          {recentCollections.map((c) => (
-            <CollectionCard key={c.id} collection={c} />
-          ))}
-        </div>
-      </section>
 
       {/* ── Bottom row: Upload CTA + Activity ── */}
       <section className="dash__bottom">

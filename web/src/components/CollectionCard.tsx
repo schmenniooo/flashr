@@ -1,26 +1,53 @@
-import { Link } from "react-router-dom";
-import { Layers, Globe2, Lock, Clock } from "lucide-react";
-import type { Collection } from "../data/mock";
+import { useNavigate } from "react-router-dom";
+import { Layers, Globe2, Lock, Clock, Pencil } from "lucide-react";
+import type { Collection } from "../lib/store";
 import "./CollectionCard.css";
 
-export function CollectionCard({ collection }: { collection: Collection }) {
+export function CollectionCard({
+  collection,
+  onEdit,
+}: {
+  collection: Collection;
+  onEdit?: () => void;
+}) {
+  const navigate = useNavigate();
   const { id, name, folder, emoji, cards, lastStudied, progress, isPublic, description } = collection;
   const aiCount = cards.filter((c) => c.aiGenerated).length;
 
   return (
-    <Link to={`/app/c/${id}`} className="colcard hover-lift">
+    <div
+      className="colcard hover-lift"
+      onClick={() => navigate(`/app/c/${id}`)}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === "Enter" && navigate(`/app/c/${id}`)}
+    >
       <div className="colcard__top">
         <span className="colcard__emoji" aria-hidden>
           {emoji}
         </span>
-        <span className="colcard__folder">
-          {folder}
-          {isPublic ? (
-            <Globe2 size={11} strokeWidth={2} />
-          ) : (
-            <Lock size={11} strokeWidth={2} />
+        <div className="colcard__top-right">
+          <span className="colcard__folder">
+            {folder}
+            {isPublic ? (
+              <Globe2 size={11} strokeWidth={2} />
+            ) : (
+              <Lock size={11} strokeWidth={2} />
+            )}
+          </span>
+          {onEdit && (
+            <button
+              className="colcard__edit-btn"
+              title="Edit collection"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+            >
+              <Pencil size={12} strokeWidth={2} />
+            </button>
           )}
-        </span>
+        </div>
       </div>
 
       <h3 className="colcard__title">{name}</h3>
@@ -49,6 +76,6 @@ export function CollectionCard({ collection }: { collection: Collection }) {
           {lastStudied}
         </span>
       </div>
-    </Link>
+    </div>
   );
 }

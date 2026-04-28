@@ -31,11 +31,43 @@
   opacity: 1;
 }
 
+.colcard {
+  cursor: pointer;
+}
+
 .colcard__top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
+}
+
+.colcard__top-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.colcard__edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+.colcard:hover .colcard__edit-btn {
+  opacity: 1;
+}
+.colcard__edit-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-accent);
 }
 .colcard__emoji {
   width: 40px;

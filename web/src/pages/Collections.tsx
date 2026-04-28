@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter, Trash2, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter, Trash2, X, Pencil } from "lucide-react";
 import {
   collectionsApi,
   foldersApi,
@@ -9,8 +9,10 @@ import {
   useDb,
 } from "../lib/store";
 import { CollectionCard } from "../components/CollectionCard";
+import { EditCollectionModal } from "../components/EditCollectionModal";
 import { Modal } from "../components/Modal";
 import { NewFolderModal } from "../components/NewFolderModal";
+import type { Collection } from "../lib/store";
 import "./Collections.css";
 
 export function Collections() {
@@ -25,6 +27,8 @@ export function Collections() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
+  const [folderToRename, setFolderToRename] = useState<string | null>(null);
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
 
   const [prevFolderParam, setPrevFolderParam] = useState(folderParam);
   if (prevFolderParam !== folderParam) {
@@ -60,10 +64,10 @@ export function Collections() {
             <Plus size={14} strokeWidth={2} />
             New collection
           </button>
-          <Link to="/app/upload" className="btn-primary">
+          <a href="/app/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
             Create with AI
-          </Link>
+          </a>
         </div>
       </header>
 
@@ -89,6 +93,17 @@ export function Collections() {
                 <span>{f.emoji}</span>
                 {f.name}
                 <span className="cols__chip-count">{f.count}</span>
+              </button>
+              <button
+                className="cols__chip-action"
+                title={`Edit folder: ${f.name}`}
+                aria-label={`Edit folder: ${f.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFolderToRename(f.name);
+                }}
+              >
+                <Pencil size={10} strokeWidth={2.2} />
               </button>
               <button
                 className="cols__chip-del"
@@ -157,13 +172,17 @@ export function Collections() {
       ) : view === "grid" ? (
         <div className="cols__grid">
           {filtered.map((c) => (
-            <CollectionCard key={c.id} collection={c} />
+            <CollectionCard
+              key={c.id}
+              collection={c}
+              onEdit={() => setEditingCollection(c)}
+            />
           ))}
         </div>
       ) : (
         <div className="cols__list">
           {filtered.map((c) => (
-            <Link key={c.id} to={`/app/c/${c.id}`} className="cols__row">
+            <div key={c.id} className="cols__row" onClick={() => navigate(`/app/c/${c.id}`)}>
               <span className="cols__row-emoji">{c.emoji}</span>
               <div className="cols__row-main">
                 <div className="cols__row-title">{c.name}</div>
@@ -180,7 +199,17 @@ export function Collections() {
                 </div>
                 <span>{c.progress}%</span>
               </div>
-            </Link>
+              <button
+                className="cols__row-edit"
+                title="Edit collection"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingCollection(c);
+                }}
+              >
+                <Pencil size={13} strokeWidth={1.8} />
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -199,6 +228,31 @@ export function Collections() {
         open={newFolderOpen}
         onClose={() => setNewFolderOpen(false)}
         onCreated={(name) => selectFilter(name)}
+      />
+
+      {editingCollection && (
+        <EditCollectionModal
+          open
+          onClose={() => setEditingCollection(null)}
+          collectionId={editingCollection.id}
+          initial={{
+            name: editingCollection.name,
+            folder: editingCollection.folder,
+            emoji: editingCollection.emoji,
+            description: editingCollection.description,
+          }}
+        />
+      )}
+
+      <RenameFolderModal
+        name={folderToRename}
+        onClose={() => setFolderToRename(null)}
+        onRenamed={(oldName, newName) => {
+          foldersApi.rename(oldName, newName);
+          if (filter === oldName) selectFilter(newName);
+          setFolderToRename(null);
+        }}
+        existingNames={folders.map((f) => f.name)}
       />
 
       <Modal
@@ -249,6 +303,72 @@ export function Collections() {
   );
 }
 
+function RenameFolderModal({
+  name,
+  onClose,
+  onRenamed,
+  existingNames,
+}: {
+  name: string | null;
+  onClose: () => void;
+  onRenamed: (oldName: string, newName: string) => void;
+  existingNames: string[];
+}) {
+  const [value, setValue] = useState("");
+  const [error, setError] = useState("");
+
+  const [prevName, setPrevName] = useState(name);
+  if (prevName !== name) {
+    setPrevName(name);
+    if (name) {
+      setValue(name);
+      setError("");
+    }
+  }
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed || !name) return;
+    if (trimmed === name) { onClose(); return; }
+    if (existingNames.some((n) => n.toLowerCase() === trimmed.toLowerCase() && n !== name)) {
+      setError("A folder with that name already exists.");
+      return;
+    }
+    onRenamed(name, trimmed);
+  }
+
+  return (
+    <Modal
+      open={name !== null}
+      onClose={onClose}
+      title="Rename folder"
+      size="sm"
+      footer={
+        <>
+          <button className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn-primary" onClick={submit} disabled={!value.trim()}>
+            Rename
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={submit}>
+        <label className="modal__field">
+          <span className="text-meta">New name</span>
+          <input
+            className="input"
+            autoFocus
+            value={value}
+            onChange={(e) => { setValue(e.target.value); setError(""); }}
+          />
+          {error && <span className="text-meta" style={{ color: "var(--color-danger, #f87171)", marginTop: 4 }}>{error}</span>}
+        </label>
+      </form>
+    </Modal>
+  );
+}
+
 function CreateCollectionModal({
   open,
   onClose,
@@ -277,10 +397,10 @@ function CreateCollectionModal({
     }
   }
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    const col = collectionsApi.create({
+    const col = await collectionsApi.create({
       name: name.trim(),
       folder,
       emoji: emoji || "📚",
