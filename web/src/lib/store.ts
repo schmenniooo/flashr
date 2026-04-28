@@ -353,6 +353,7 @@ export const auth = {
     const id = "onboarding-test-user";
     const testUser: StoredUser = {
       id,
+      streak: 0,
       email: "onboarding-test@flashr.io",
       password: "onboarding",
       firstName: "",
