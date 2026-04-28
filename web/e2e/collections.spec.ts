@@ -15,6 +15,26 @@ test.describe("collections", () => {
   test("creates a new collection from the modal", async ({ page }) => {
     await page.goto("/app/collections");
     const unique = `Playwright deck ${Date.now()}`;
+    const newId = "e2e-col-id";
+
+    // Mock the create endpoint — no backend runs in the preview/CI environment.
+    await page.route("**/api/collections", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      await route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: newId,
+          name: unique,
+          folder: "",
+          emoji: "📚",
+          description: "",
+          is_public: false,
+          created_at: new Date().toISOString(),
+          cards: [],
+        }),
+      });
+    });
 
     await page.getByRole("button", { name: /new collection/i }).click();
     await page.getByLabel(/name/i).first().fill(unique);
