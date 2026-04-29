@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FileUp, Sparkles, GraduationCap, ArrowRight, Upload, Brain, BookOpen, Check, X } from "lucide-react";
+import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import "./Landing.css";
 
@@ -83,6 +83,10 @@ export function Landing() {
 
       <section className="landing-features" id="features">
         <div className="landing-section-inner">
+          <div className="landing-features-header">
+            <p className="landing-section-label">Features</p>
+            <h2 className="landing-section-title">Everything you need to learn smarter</h2>
+          </div>
           <div className="landing-features-grid">
             <div className="landing-feature-card">
               <div className="landing-feature-icon">
@@ -121,30 +125,21 @@ export function Landing() {
           <h2 className="landing-section-title">Three steps to smarter studying</h2>
           <div className="landing-steps">
             <div className="landing-step">
-              <div className="landing-step-num">1</div>
-              <div className="landing-step-icon">
-                <Upload size={20} strokeWidth={1.5} />
-              </div>
+              <span className="landing-step-num">01</span>
               <h4 className="landing-step-title">Upload your notes</h4>
               <p className="landing-step-desc">
                 Drag in a PDF, export from GoodNotes, or paste raw text — any format works.
               </p>
             </div>
             <div className="landing-step">
-              <div className="landing-step-num">2</div>
-              <div className="landing-step-icon landing-step-icon--accent">
-                <Brain size={20} strokeWidth={1.5} />
-              </div>
+              <span className="landing-step-num">02</span>
               <h4 className="landing-step-title">AI generates cards</h4>
               <p className="landing-step-desc">
                 flashr reads your content and creates a full deck of flashcards in seconds.
               </p>
             </div>
             <div className="landing-step">
-              <div className="landing-step-num">3</div>
-              <div className="landing-step-icon">
-                <BookOpen size={20} strokeWidth={1.5} />
-              </div>
+              <span className="landing-step-num">03</span>
               <h4 className="landing-step-title">Start studying</h4>
               <p className="landing-step-desc">
                 Review your deck with spaced repetition — flashr keeps track of what you need most.
@@ -208,11 +203,11 @@ export function Landing() {
       <section className="landing-cta">
         <div className="landing-cta-glow" aria-hidden="true" />
         <div className="landing-section-inner landing-section-inner--narrow">
-          <h2 className="landing-cta-title">Ready to learn smarter?</h2>
+          <h2 className="landing-cta-title">Stop copying notes.<br />Start retaining them.</h2>
           <Link to="/signup" className="landing-btn-primary landing-btn-large">
             Get started free
           </Link>
-          <p className="landing-cta-caption">No credit card required</p>
+          <p className="landing-cta-caption">Free plan available — no card required</p>
         </div>
       </section>
 
