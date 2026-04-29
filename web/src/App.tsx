@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { RequireAuth, RequireOnboarded } from "./components/RequireAuth";
 import { Dashboard } from "./pages/Dashboard";
@@ -9,9 +9,10 @@ import { Upload } from "./pages/Upload";
 import { Profile } from "./pages/Profile";
 import { Login } from "./pages/Login";
 import { Onboarding } from "./pages/Onboarding";
+import { Landing } from "./pages/Landing";
 
 const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/app" replace /> },
+  { path: "/", element: <Landing /> },
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Login /> },
   {
