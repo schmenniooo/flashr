@@ -5,6 +5,7 @@
   background: var(--color-bg);
   font-family: var(--font-sans);
   color: var(--color-text);
+  scroll-behavior: smooth;
 }
 
 /* ─── Navbar ─────────────────────────────────────────────── */
@@ -14,15 +15,14 @@
   top: 0;
   z-index: 100;
   background: var(--color-bg);
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  border-bottom: 1px solid var(--color-border);
+  transition: box-shadow 0.25s ease, background 0.25s ease;
 }
 
 .landing-nav--scrolled {
-  border-bottom-color: var(--color-border);
   box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
-  background: rgba(13, 15, 20, 0.88);
+  backdrop-filter: blur(14px);
+  background: rgba(13, 15, 20, 0.9);
 }
 
 .landing-nav-inner {
@@ -30,19 +30,65 @@
   margin: 0 auto;
   padding: 0 var(--space-6);
   height: 64px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-6);
 }
 
 .landing-nav-logo {
   text-decoration: none;
 }
 
+/* center nav links */
+.landing-nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.landing-nav-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.landing-nav-link:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* right-side actions */
 .landing-nav-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+.landing-nav-login-btn {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+
+.landing-nav-login-btn:hover {
+  color: var(--color-text);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.landing-nav-cta {
+  font-size: 14px;
+  padding: 8px 18px;
 }
 
 /* ─── Buttons ─────────────────────────────────────────────── */
@@ -604,12 +650,22 @@
   }
 }
 
+@media (max-width: 760px) {
+  .landing-nav-links {
+    display: none;
+  }
+
+  .landing-nav-inner {
+    grid-template-columns: auto auto;
+  }
+}
+
 @media (max-width: 560px) {
   .landing-nav-inner {
     padding: 0 var(--space-4);
   }
 
-  .landing-nav-login {
+  .landing-nav-login-btn {
     display: none;
   }
 

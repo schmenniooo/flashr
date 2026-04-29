@@ -20,9 +20,14 @@ export function Landing() {
           <Link to="/" className="landing-nav-logo">
             <Wordmark size={22} />
           </Link>
+          <div className="landing-nav-links">
+            <a href="#features" className="landing-nav-link">Features</a>
+            <a href="#how-it-works" className="landing-nav-link">How it works</a>
+            <a href="#pricing" className="landing-nav-link">Pricing</a>
+          </div>
           <div className="landing-nav-actions">
-            <Link to="/login" className="landing-btn-ghost landing-nav-login">Log in</Link>
-            <Link to="/login" className="landing-btn-primary">Get started</Link>
+            <Link to="/login" className="landing-nav-login-btn">Log in</Link>
+            <Link to="/signup" className="landing-btn-primary landing-nav-cta">Get started</Link>
           </div>
         </div>
       </nav>
@@ -42,7 +47,7 @@ export function Landing() {
               Drop a PDF or connect your notes. flashr generates flashcards with AI — so you can focus on learning, not formatting.
             </p>
             <div className="landing-hero-ctas">
-              <Link to="/login" className="landing-btn-primary landing-btn-large">
+              <Link to="/signup" className="landing-btn-primary landing-btn-large">
                 Start for free <ArrowRight size={16} strokeWidth={2} />
               </Link>
               <a href="#how-it-works" className="landing-btn-ghost landing-btn-large">
@@ -76,7 +81,7 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="landing-features">
+      <section className="landing-features" id="features">
         <div className="landing-section-inner">
           <div className="landing-features-grid">
             <div className="landing-feature-card">
@@ -153,7 +158,7 @@ export function Landing() {
         <div className="landing-cta-glow" aria-hidden="true" />
         <div className="landing-section-inner landing-section-inner--narrow">
           <h2 className="landing-cta-title">Ready to learn smarter?</h2>
-          <Link to="/login" className="landing-btn-primary landing-btn-large">
+          <Link to="/signup" className="landing-btn-primary landing-btn-large">
             Get started free
           </Link>
           <p className="landing-cta-caption">No credit card required</p>
