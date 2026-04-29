@@ -235,7 +235,7 @@ export function Landing() {
             <a href="#pricing" className="landing-footer-link">Pricing</a>
             <Link to="/login" className="landing-footer-link">Log in</Link>
           </nav>
-          <p className="landing-footer-copy">© 2026 flashr</p>
+          <p className="landing-footer-copy">© {new Date().getFullYear()} flashr</p>
         </div>
       </footer>
     </div>
