@@ -85,6 +85,57 @@ upload_jobs (
 
 ---
 
+## Phase 0.5 — Legal & DSGVO (Pre-Launch Required)
+
+> SmithLabs is a German company → DSGVO applies automatically from day one, regardless of company size. Fines up to **€20M or 4% of annual revenue**. Abmahnung risk in DE is real even for small apps. All items below must be completed before public launch.
+
+### Required pages
+
+| Page | Route | Status |
+|---|---|---|
+| Impressum | `/impressum` | ❌ missing |
+| Datenschutzerklärung | `/datenschutz` | ❌ missing |
+| AGB | `/agb` | ⚠️ recommended (payments active) |
+
+- [ ] Create `/impressum` route and page — use [datenschutz-generator.de](https://datenschutz-generator.de) for a base text
+- [ ] Create `/datenschutz` route and page
+- [ ] Create `/agb` route and page (required once Stripe payments are live)
+- [ ] Add Impressum, Datenschutz, and AGB links to the landing page footer
+
+### Google Fonts — self-hosting required
+
+Loading Google Fonts via Google CDN transmits the user's IP address to US servers without consent. This was ruled a DSGVO violation by LG München in 2022 (Az. 3 O 17493/20).
+
+- [ ] Download DM Sans from [google-webfonts-helper.herokuapp.com](https://google-webfonts-helper.herokuapp.com)
+- [ ] Place font files in `/web/public/fonts/`
+- [ ] Remove the Google Fonts `<link>` tag from `index.html`
+- [ ] Add local `@font-face` declaration to `tokens.css`:
+
+```css
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/fonts/dm-sans.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+```
+
+### Railway — Auftragsverarbeitungsvertrag (AVV)
+
+Railway is a US provider. A server location alone is not sufficient for DSGVO compliance — a Data Processing Agreement (AVV) is required.
+
+- [ ] Sign AVV with Railway (available in their dashboard)
+- [ ] Set EU region in Railway service settings
+
+### Cookie banner
+
+No cookie banner is required as long as no tracking tools are used.
+
+- If analytics are added: use a privacy-friendly, EU-hosted tool such as [Plausible](https://plausible.io) — no cookie banner required
+- Do **not** add Google Analytics without a cookie consent banner
+
+---
+
 ## Phase 1 — MVP
 
 > Ziel: Funktionierendes Kernprodukt das echte User verwenden können.
@@ -130,7 +181,49 @@ upload_jobs (
 
 **UX note:** This is the primary entry point for users without notes — position it prominently alongside the PDF upload option.
 
-### 1.5 App-Integrationen (File Import)
+### 1.5 Billing & Subscriptions (Stripe)
+
+> Free vs. Pro plan enforcement. No annual plan at launch — monthly only.
+
+**Schema additions required:**
+
+```sql
+-- Add to users table
+ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'free';  -- 'free' | 'pro'
+ALTER TABLE users ADD COLUMN stripe_customer_id TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN plan_expires_at TIMESTAMP;
+```
+
+**Backend — `internal/billing` package:**
+
+- [ ] Stripe SDK integrated (`github.com/stripe/stripe-go/v76`)
+- [ ] `POST /api/billing/checkout` — creates a Stripe Checkout Session and returns the URL; redirects user to Stripe-hosted payment page
+- [ ] `POST /api/billing/portal` — creates a Stripe Customer Portal session for managing/cancelling subscriptions
+- [ ] `POST /api/billing/webhook` — receives Stripe events; update `plan`, `stripe_subscription_id`, `plan_expires_at` on `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+- [ ] Plan enforcement middleware — attach `plan` to request context after JWT validation; used by feature-gated handlers
+- [ ] Feature gates: AI generation, PDF upload, app integrations, collection/card limits enforced server-side (not just UI)
+
+**Frontend:**
+
+- [ ] Upgrade prompt shown when a Free user hits a plan limit (collections, cards, AI)
+- [ ] "Upgrade to Pro" CTA in profile/settings page — calls `/api/billing/checkout`, redirects to Stripe
+- [ ] "Manage subscription" link in profile — calls `/api/billing/portal`
+- [ ] Plan badge shown in profile (Free / Pro)
+- [ ] Post-checkout success redirect back to `/app` with a confirmation state
+
+**Environment variables to add:**
+```
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+STRIPE_PRO_PRICE_ID
+```
+
+**Architecture note:** Webhook handler must be registered *without* auth middleware (Stripe signs payloads via `STRIPE_WEBHOOK_SECRET`, not JWT). Validate signature with `webhook.ConstructEvent` before processing.
+
+**Roadmap:** V2 adds an annual plan (~€4.90/mo, ~39% discount) — add a second `STRIPE_PRO_ANNUAL_PRICE_ID` env var at that point.
+
+### 1.6 App-Integrationen (File Import)
 
 - [ ] Import via Share-Sheet (iOS/iPadOS): GoodNotes, Notability, Word, Pages
 - [ ] Import via File-Picker: PDF, .docx
@@ -227,6 +320,7 @@ upload_jobs (
 |`is_public` in `collections`|Sharing kommt in V2 — Flag jetzt anlegen, nicht nachträglich migrieren|
 |`upload_jobs` Tabelle|KI-Verarbeitung wird async — Job-Queue-Pattern von Anfang an|
 |`ai_generated` Boolean auf Cards|Für spätere Filterung & Qualitätsbewertung|
+|`plan`, `stripe_customer_id`, `stripe_subscription_id`, `plan_expires_at` auf `users`|Billing-State muss ab Phase 1.5 vorhanden sein — alle Feature-Gates lesen `plan`|
 |Auth-Middleware modular halten|OAuth-Provider werden erweitert|
 |File-Storage abstrahieren|Railway Buckets jetzt, später ggf. S3-kompatibel|
 |Ollama-Client als Interface|LLM-Provider muss in Phase 4 austauschbar sein|
@@ -246,6 +340,7 @@ upload_jobs (
   /srs            → Spaced Repetition Logik (V2, aber Paket anlegen)
   /sharing        → Public Collections, Sharing-Links (V2)
   /jobs           → Async Job Queue für AI-Processing
+  /billing        → Stripe Checkout, Portal, Webhook handler, plan enforcement
 /pkg
   /db             → PostgreSQL-Verbindung, Migrations
   /storage        → Railway Buckets Abstraction Layer

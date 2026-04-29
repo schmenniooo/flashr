@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -19,7 +19,8 @@ type Mode = "signin" | "signup";
 
 export function Login() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<Mode>("signin");
+  const { pathname } = useLocation();
+  const [mode, setMode] = useState<Mode>(pathname === "/signup" ? "signup" : "signin");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
