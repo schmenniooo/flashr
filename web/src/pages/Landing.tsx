@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FileUp, Sparkles, GraduationCap, ArrowRight, Upload, Brain, BookOpen } from "lucide-react";
+import { FileUp, Sparkles, GraduationCap, ArrowRight, Upload, Brain, BookOpen, Check, X } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import "./Landing.css";
 
@@ -150,6 +150,57 @@ export function Landing() {
                 Review your deck with spaced repetition — flashr keeps track of what you need most.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-pricing" id="pricing">
+        <div className="landing-section-inner">
+          <p className="landing-section-label">Pricing</p>
+          <h2 className="landing-section-title landing-pricing-title">Simple, honest pricing</h2>
+          <div className="landing-pricing-grid">
+
+            <div className="landing-plan">
+              <div className="landing-plan-header">
+                <h3 className="landing-plan-name">Free</h3>
+                <div className="landing-plan-price">
+                  <span className="landing-plan-amount">€0</span>
+                  <span className="landing-plan-period">forever</span>
+                </div>
+                <p className="landing-plan-desc">Get started and build your first decks manually.</p>
+              </div>
+              <Link to="/signup" className="landing-btn-ghost landing-plan-cta">Get started free</Link>
+              <ul className="landing-plan-features">
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 3 collections</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 50 cards per collection</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI card generation</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> PDF upload</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> App integrations</li>
+              </ul>
+            </div>
+
+            <div className="landing-plan landing-plan--pro">
+              <div className="landing-plan-badge">Most popular</div>
+              <div className="landing-plan-header">
+                <h3 className="landing-plan-name">Pro</h3>
+                <div className="landing-plan-price">
+                  <span className="landing-plan-amount">€7.99</span>
+                  <span className="landing-plan-period">/ month</span>
+                </div>
+                <p className="landing-plan-desc">Everything you need to study smarter with AI.</p>
+              </div>
+              <Link to="/signup" className="landing-btn-primary landing-plan-cta">Start for free →</Link>
+              <ul className="landing-plan-features">
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited collections</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited cards</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI card generation</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> PDF upload</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> App integrations</li>
+              </ul>
+            </div>
+
           </div>
         </div>
       </section>
