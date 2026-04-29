@@ -215,6 +215,46 @@ export function Landing() {
         </div>
       </section>
 
+      <section className="landing-faq" id="faq">
+        <div className="landing-section-inner landing-section-inner--narrow">
+          <p className="landing-section-label" data-animate>FAQ</p>
+          <h2 className="landing-section-title" data-animate>Common questions</h2>
+          <div className="landing-faq-list" data-animate>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">Is flashr really free?</summary>
+              <p className="landing-faq-a">Yes. The Free plan is free forever — no trial, no expiry. You get 3 collections and 50 cards each. Upgrade to Pro for €7.99/month when you need AI generation and unlimited cards.</p>
+            </details>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">Can I cancel my Pro subscription at any time?</summary>
+              <p className="landing-faq-a">Yes, cancel anytime from your profile with one click. You keep Pro access until the end of the billing period — no questions asked, no lock-in.</p>
+            </details>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">What file formats are supported?</summary>
+              <p className="landing-faq-a">Currently PDF, GoodNotes exports, and plain text. Support for Notability, Word (.docx), and image-based notes (via OCR) is on the roadmap.</p>
+            </details>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">How good are the AI-generated cards?</summary>
+              <p className="landing-faq-a">Good enough to save you real time — but you always review before saving. You can edit, rewrite, or discard any card before it hits your deck. The AI handles the first draft; you stay in control.</p>
+            </details>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">Do you store my uploaded notes and PDFs?</summary>
+              <p className="landing-faq-a">No. Uploaded files are processed in memory and deleted immediately after your flashcards are generated. Only the cards you choose to save are stored — your original notes never sit on our servers.</p>
+            </details>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">Does flashr share or sell my data?</summary>
+              <p className="landing-faq-a">Never. flashr earns money through subscriptions only. Your notes and cards are never shared with third parties, advertisers, or used to train AI models.</p>
+            </details>
+
+          </div>
+        </div>
+      </section>
+
       <section className="landing-cta">
         <div className="landing-cta-glow" aria-hidden="true" />
         <div className="landing-section-inner landing-section-inner--narrow" data-animate>
@@ -233,6 +273,7 @@ export function Landing() {
             <a href="#features" className="landing-footer-link">Features</a>
             <a href="#how-it-works" className="landing-footer-link">How it works</a>
             <a href="#pricing" className="landing-footer-link">Pricing</a>
+            <a href="#faq" className="landing-footer-link">FAQ</a>
             <Link to="/login" className="landing-footer-link">Log in</Link>
           </nav>
           <p className="landing-footer-copy">© {new Date().getFullYear()} flashr</p>

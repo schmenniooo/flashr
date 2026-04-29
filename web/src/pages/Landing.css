@@ -670,6 +670,82 @@
   }
 }
 
+/* ─── FAQ ─────────────────────────────────────────────────── */
+
+.landing-faq {
+  padding: var(--space-9) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.landing-faq .landing-section-title {
+  margin-bottom: var(--space-6);
+}
+
+.landing-faq-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.landing-faq-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.landing-faq-item:last-child {
+  border-bottom: none;
+}
+
+.landing-faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  list-style: none;
+  background: var(--color-surface);
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.landing-faq-q::-webkit-details-marker {
+  display: none;
+}
+
+.landing-faq-q::after {
+  content: "+";
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--color-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.15s ease;
+  line-height: 1;
+}
+
+.landing-faq-item[open] .landing-faq-q {
+  background: var(--color-card);
+  color: var(--color-text);
+}
+
+.landing-faq-item[open] .landing-faq-q::after {
+  content: "−";
+  color: var(--color-accent);
+}
+
+.landing-faq-a {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--color-muted);
+  padding: 0 var(--space-6) var(--space-5);
+  background: var(--color-card);
+  margin: 0;
+}
+
 /* ─── Final CTA ───────────────────────────────────────────── */
 
 .landing-cta {
