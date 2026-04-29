@@ -13,6 +13,22 @@ export function Landing() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    const els = document.querySelectorAll("[data-animate]");
+    const io = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-visible");
+            io.unobserve(e.target);
+          }
+        }),
+      { threshold: 0.12 }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="landing">
       <nav className={`landing-nav${scrolled ? " landing-nav--scrolled" : ""}`}>
@@ -35,7 +51,6 @@ export function Landing() {
       <section className="landing-hero">
         <div className="landing-hero-inner">
           <div className="landing-hero-text">
-            <div className="landing-badge">AI-Powered Flashcards</div>
             <h1 className="landing-headline">
               <span className="landing-headline-line1">Your notes.</span>
               <span className="landing-headline-line2">
@@ -83,12 +98,12 @@ export function Landing() {
 
       <section className="landing-features" id="features">
         <div className="landing-section-inner">
-          <div className="landing-features-header">
+          <div className="landing-features-header" data-animate>
             <p className="landing-section-label">Features</p>
-            <h2 className="landing-section-title">Everything you need to learn smarter</h2>
+            <h2 className="landing-section-title">From notes to cards in seconds</h2>
           </div>
           <div className="landing-features-grid">
-            <div className="landing-feature-card">
+            <div className="landing-feature-card" data-animate>
               <div className="landing-feature-icon">
                 <FileUp size={22} strokeWidth={1.5} />
               </div>
@@ -97,7 +112,7 @@ export function Landing() {
                 Upload PDFs, GoodNotes exports, or plain text. We handle the rest.
               </p>
             </div>
-            <div className="landing-feature-card">
+            <div className="landing-feature-card" data-animate>
               <div className="landing-feature-icon landing-feature-icon--accent">
                 <Sparkles size={22} strokeWidth={1.5} />
               </div>
@@ -106,7 +121,7 @@ export function Landing() {
                 Our AI reads your notes and creates accurate, concise flashcards automatically.
               </p>
             </div>
-            <div className="landing-feature-card">
+            <div className="landing-feature-card" data-animate>
               <div className="landing-feature-icon">
                 <GraduationCap size={22} strokeWidth={1.5} />
               </div>
@@ -121,24 +136,24 @@ export function Landing() {
 
       <section className="landing-how" id="how-it-works">
         <div className="landing-section-inner">
-          <p className="landing-section-label">How it works</p>
-          <h2 className="landing-section-title">Three steps to smarter studying</h2>
+          <p className="landing-section-label" data-animate>How it works</p>
+          <h2 className="landing-section-title" data-animate>Up and running in under a minute</h2>
           <div className="landing-steps">
-            <div className="landing-step">
+            <div className="landing-step" data-animate>
               <span className="landing-step-num">01</span>
               <h4 className="landing-step-title">Upload your notes</h4>
               <p className="landing-step-desc">
                 Drag in a PDF, export from GoodNotes, or paste raw text — any format works.
               </p>
             </div>
-            <div className="landing-step">
+            <div className="landing-step" data-animate>
               <span className="landing-step-num">02</span>
               <h4 className="landing-step-title">AI generates cards</h4>
               <p className="landing-step-desc">
                 flashr reads your content and creates a full deck of flashcards in seconds.
               </p>
             </div>
-            <div className="landing-step">
+            <div className="landing-step" data-animate>
               <span className="landing-step-num">03</span>
               <h4 className="landing-step-title">Start studying</h4>
               <p className="landing-step-desc">
@@ -151,11 +166,11 @@ export function Landing() {
 
       <section className="landing-pricing" id="pricing">
         <div className="landing-section-inner">
-          <p className="landing-section-label">Pricing</p>
-          <h2 className="landing-section-title landing-pricing-title">Simple, honest pricing</h2>
+          <p className="landing-section-label" data-animate>Pricing</p>
+          <h2 className="landing-section-title landing-pricing-title" data-animate>Simple, honest pricing</h2>
           <div className="landing-pricing-grid">
 
-            <div className="landing-plan">
+            <div className="landing-plan" data-animate>
               <div className="landing-plan-header">
                 <h3 className="landing-plan-name">Free</h3>
                 <div className="landing-plan-price">
@@ -175,8 +190,8 @@ export function Landing() {
               </ul>
             </div>
 
-            <div className="landing-plan landing-plan--pro">
-              <div className="landing-plan-badge">Most popular</div>
+            <div className="landing-plan landing-plan--pro" data-animate>
+              <div className="landing-plan-badge">Includes AI</div>
               <div className="landing-plan-header">
                 <h3 className="landing-plan-name">Pro</h3>
                 <div className="landing-plan-price">
@@ -202,7 +217,7 @@ export function Landing() {
 
       <section className="landing-cta">
         <div className="landing-cta-glow" aria-hidden="true" />
-        <div className="landing-section-inner landing-section-inner--narrow">
+        <div className="landing-section-inner landing-section-inner--narrow" data-animate>
           <h2 className="landing-cta-title">Stop copying notes.<br />Start retaining them.</h2>
           <Link to="/signup" className="landing-btn-primary landing-btn-large">
             Get started free
@@ -214,7 +229,13 @@ export function Landing() {
       <footer className="landing-footer">
         <div className="landing-footer-inner">
           <Wordmark size={18} />
-          <p className="landing-footer-copy">© 2026 flashr. All rights reserved.</p>
+          <nav className="landing-footer-nav">
+            <a href="#features" className="landing-footer-link">Features</a>
+            <a href="#how-it-works" className="landing-footer-link">How it works</a>
+            <a href="#pricing" className="landing-footer-link">Pricing</a>
+            <Link to="/login" className="landing-footer-link">Log in</Link>
+          </nav>
+          <p className="landing-footer-copy">© 2026 flashr</p>
         </div>
       </footer>
     </div>
