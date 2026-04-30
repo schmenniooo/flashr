@@ -108,21 +108,25 @@ func (s *Service) GoogleAuthURL(state string) string {
 
 // GenerateState produces a self-verifying state token: "<unix_ts>.<hmac_hex>".
 // No server-side storage required — VerifyState checks the signature and TTL.
-func (s *Service) GenerateState() string {
+func (s *Service) GenerateState() string { return generateState(s.secret) }
+
+// VerifyState checks the HMAC signature and rejects tokens older than 10 minutes.
+func (s *Service) VerifyState(state string) error { return verifyState(s.secret, state) }
+
+func generateState(secret []byte) string {
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	mac := hmac.New(sha256.New, s.secret)
+	mac := hmac.New(sha256.New, secret)
 	mac.Write([]byte(ts))
 	return ts + "." + hex.EncodeToString(mac.Sum(nil))
 }
 
-// VerifyState checks the HMAC signature and rejects tokens older than 10 minutes.
-func (s *Service) VerifyState(state string) error {
+func verifyState(secret []byte, state string) error {
 	parts := strings.SplitN(state, ".", 2)
 	if len(parts) != 2 {
 		return errors.New("invalid state")
 	}
 	ts, sig := parts[0], parts[1]
-	mac := hmac.New(sha256.New, s.secret)
+	mac := hmac.New(sha256.New, secret)
 	mac.Write([]byte(ts))
 	if !hmac.Equal([]byte(sig), []byte(hex.EncodeToString(mac.Sum(nil)))) {
 		return errors.New("invalid state signature")
@@ -133,6 +137,11 @@ func (s *Service) VerifyState(state string) error {
 	}
 	return nil
 }
+
+// GenerateStateForTest and VerifyStateForTest expose the package-level state
+// functions for unit tests without requiring a Service instance.
+func GenerateStateForTest(secret []byte) string        { return generateState(secret) }
+func VerifyStateForTest(secret []byte, s string) error { return verifyState(secret, s) }
 
 func (s *Service) GithubEnabled() bool { return s.githubOAuth != nil }
 
@@ -202,24 +211,7 @@ func (s *Service) GithubCallback(ctx context.Context, code string) (User, string
 		name = info.Login
 	}
 
-	var u User
-	err = s.pool.QueryRow(ctx, `
-		INSERT INTO users (email, name, oauth_provider)
-		VALUES ($1, NULLIF($2, ''), 'github')
-		ON CONFLICT (email) DO UPDATE
-		  SET oauth_provider = EXCLUDED.oauth_provider,
-		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
-		RETURNING id, email, COALESCE(name, ''), streak, created_at
-	`, normaliseEmail(email), name).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
-	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("github: upsert user: %w", err)
-	}
-
-	token, expires, err := s.issueToken(u.ID)
-	if err != nil {
-		return User{}, "", time.Time{}, err
-	}
-	return u, token, expires, nil
+	return s.OAuthUpsert(ctx, email, name, "github")
 }
 
 type googleUserInfo struct {
@@ -252,19 +244,24 @@ func (s *Service) GoogleCallback(ctx context.Context, code string) (User, string
 		return User{}, "", time.Time{}, errors.New("google: no email in userinfo")
 	}
 
+	return s.OAuthUpsert(ctx, info.Email, info.Name, "google")
+}
+
+// OAuthUpsert inserts or links a user by email for the given OAuth provider,
+// then issues a JWT. Exported so it can be called directly in tests.
+func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string) (User, string, time.Time, error) {
 	var u User
-	err = s.pool.QueryRow(ctx, `
+	err := s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, oauth_provider)
-		VALUES ($1, NULLIF($2, ''), 'google')
+		VALUES ($1, NULLIF($2, ''), $3)
 		ON CONFLICT (email) DO UPDATE
 		  SET oauth_provider = EXCLUDED.oauth_provider,
 		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
 		RETURNING id, email, COALESCE(name, ''), streak, created_at
-	`, normaliseEmail(info.Email), info.Name).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
+	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: upsert user: %w", err)
+		return User{}, "", time.Time{}, fmt.Errorf("oauth upsert: %w", err)
 	}
-
 	token, expires, err := s.issueToken(u.ID)
 	if err != nil {
 		return User{}, "", time.Time{}, err
