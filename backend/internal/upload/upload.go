@@ -30,6 +30,34 @@ func NewService(aiClient *ai.Client) *Service {
 func (s *Service) RegisterRoutes(api *gin.RouterGroup, authMW gin.HandlerFunc) {
 	g := api.Group("/ai", authMW)
 	g.POST("/upload", s.handleUpload)
+	g.POST("/generate", s.handleGenerate)
+}
+
+func (s *Service) handleGenerate(c *gin.Context) {
+	if s.ai == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI generation is not configured — OLLAMA_URL is missing"})
+		return
+	}
+
+	var req struct {
+		Prompt string `json:"prompt"`
+		Count  int    `json:"count"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
+		return
+	}
+	if req.Count <= 0 || req.Count > 20 {
+		req.Count = 10
+	}
+
+	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"cards": cards})
 }
 
 func (s *Service) handleUpload(c *gin.Context) {

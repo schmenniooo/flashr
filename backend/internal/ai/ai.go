@@ -35,13 +35,18 @@ func NewClient(baseURL, model string) *Client {
 
 // GenerateCards sends text to Ollama and returns a list of flashcard drafts.
 func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, error) {
-	// Trim to ~8 000 chars so we stay inside most models' context windows.
 	if len(text) > 8000 {
 		text = text[:8000]
 	}
+	return c.callOllama(ctx, buildPrompt(text))
+}
 
-	prompt := buildPrompt(text)
+// GenerateCardsFromTopic generates cards from a topic description (no source text).
+func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int) ([]CardDraft, error) {
+	return c.callOllama(ctx, buildTopicPrompt(topic, count))
+}
 
+func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, error) {
 	reqBody, err := json.Marshal(map[string]any{
 		"model":  c.model,
 		"prompt": prompt,
@@ -83,6 +88,21 @@ func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, e
 		return nil, fmt.Errorf("ollama parse: %w", err)
 	}
 	return cards, nil
+}
+
+func buildTopicPrompt(topic string, count int) string {
+	return fmt.Sprintf(`You are a flashcard generator. Generate exactly %d flashcard question-answer pairs for the topic below. Output ONLY the JSON array — no explanation, no markdown, no code fences, no intro text.
+
+Topic: %s
+
+Rules:
+- Exactly %d cards
+- Each question must be specific and self-contained
+- Answers: 1–3 sentences, no filler, no "According to..." openers
+- Vary types: definitions, mechanisms, comparisons, examples, applications
+
+Required output format (the entire response must be this and nothing else):
+[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, topic, count)
 }
 
 func buildPrompt(text string) string {
