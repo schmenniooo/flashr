@@ -51,15 +51,15 @@ type Service struct {
 }
 
 type Config struct {
-	Secret              string
-	TokenTTL            time.Duration // defaults to 24h
-	GoogleClientID      string
-	GoogleClientSecret  string
-	GoogleRedirectURL   string
-	GithubClientID      string
-	GithubClientSecret  string
-	GithubRedirectURL   string
-	FrontendURL         string
+	Secret             string
+	TokenTTL           time.Duration // defaults to 24h
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
+	GithubClientID     string
+	GithubClientSecret string
+	GithubRedirectURL  string
+	FrontendURL        string
 }
 
 func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
@@ -156,9 +156,9 @@ type githubUserInfo struct {
 }
 
 type githubEmail struct {
-	Email   string `json:"email"`
-	Primary bool   `json:"primary"`
-	Verified bool  `json:"verified"`
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
 }
 
 // GithubCallback exchanges the authorization code for a user session.
