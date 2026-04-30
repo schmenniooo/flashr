@@ -59,7 +59,9 @@ function loadChatDraft(): Partial<ChatDraft> {
 function saveChatDraft(draft: ChatDraft) {
   try {
     localStorage.setItem(CHAT_DRAFT_KEY, JSON.stringify(draft));
-  } catch {}
+  } catch (_) {
+    // localStorage unavailable (e.g. private browsing with storage blocked)
+  }
 }
 
 function clearChatDraft() {
