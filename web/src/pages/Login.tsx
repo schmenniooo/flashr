@@ -152,17 +152,19 @@ export function Login() {
           </header>
 
           <div className="auth__oauth">
-            <button className="auth__oauth-btn" onClick={handleDemo}>
+            <button
+              className="auth__oauth-btn"
+              onClick={() => { window.location.href = "/api/auth/google"; }}
+            >
               <GoogleIcon />
               Continue with Google
             </button>
-            <button className="auth__oauth-btn" onClick={handleDemo}>
+            <button
+              className="auth__oauth-btn"
+              onClick={() => { window.location.href = "/api/auth/github"; }}
+            >
               <GithubIcon />
               Continue with GitHub
-            </button>
-            <button className="auth__oauth-btn" onClick={handleDemo}>
-              <AppleIcon />
-              Continue with Apple
             </button>
           </div>
 
@@ -349,10 +351,3 @@ function GithubIcon() {
   );
 }
 
-function AppleIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden fill="currentColor">
-      <path d="M16.365 1.43c0 1.14-.49 2.23-1.27 3.02-.84.86-2.2 1.52-3.31 1.43-.14-1.08.43-2.22 1.2-2.98.87-.86 2.32-1.5 3.38-1.47zM20.5 17.03c-.58 1.29-.86 1.86-1.6 3-1.05 1.6-2.54 3.6-4.37 3.62-1.63.02-2.05-1.06-4.27-1.05-2.22.01-2.67 1.07-4.3 1.05-1.83-.02-3.24-1.82-4.29-3.42-2.92-4.48-3.22-9.74-1.42-12.54 1.27-1.99 3.28-3.16 5.17-3.16 1.92 0 3.13 1.06 4.72 1.06 1.54 0 2.48-1.06 4.7-1.06 1.68 0 3.46.92 4.73 2.5-4.15 2.27-3.47 8.21.93 9.99z" />
-    </svg>
-  );
-}

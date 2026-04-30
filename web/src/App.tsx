@@ -8,6 +8,7 @@ import { Study } from "./pages/Study";
 import { Upload } from "./pages/Upload";
 import { Profile } from "./pages/Profile";
 import { Login } from "./pages/Login";
+import { OAuthCallback } from "./pages/OAuthCallback";
 import { Onboarding } from "./pages/Onboarding";
 import { Landing } from "./pages/Landing";
 
@@ -15,6 +16,7 @@ const router = createBrowserRouter([
   { path: "/", element: <Landing /> },
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Login /> },
+  { path: "/auth/callback", element: <OAuthCallback /> },
   {
     path: "/onboarding",
     element: (

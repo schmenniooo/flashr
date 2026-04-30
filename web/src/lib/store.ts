@@ -153,6 +153,10 @@ export function useDb<T>(selector: (db: Db) => T): T {
   );
 }
 
+export function selectNow<T>(selector: (db: Db) => T): T {
+  return selector(getSnapshot());
+}
+
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
@@ -254,10 +258,13 @@ function adoptBackendUser(
     const user = existing
       ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak }
       : shadowFromBackend(bu, hint);
+    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
+      collections: switchingUser ? [] : db.collections,
+      folders: switchingUser ? [] : db.folders,
     };
   });
 }
@@ -312,6 +319,23 @@ export const auth = {
       void collectionsApi.load().catch(console.error);
       return { ok: true };
     } catch (err) {
+      return toAuthResult(err);
+    }
+  },
+
+  /**
+   * OAuth callback: the backend already issued a token; store it and fetch
+   * the user to establish a full session. Used by OAuthCallback.tsx.
+   */
+  async loginWithToken(token: string): Promise<AuthResult> {
+    try {
+      setToken(token);
+      const res = await api<{ user: BackendUser }>("/auth/me");
+      adoptBackendUser(res.user);
+      void collectionsApi.load().catch(console.error);
+      return { ok: true };
+    } catch (err) {
+      setToken(null);
       return toAuthResult(err);
     }
   },

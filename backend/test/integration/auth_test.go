@@ -5,8 +5,10 @@ package integration
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -183,4 +185,132 @@ func TestHTTP_Me_Authenticated(t *testing.T) {
 
 	w := do(t, http.MethodGet, "/api/auth/me", nil, tok)
 	mustStatus(t, w, http.StatusOK)
+}
+
+// ── OAuth ────────────────────────────────────────────────────────────────────
+
+// oauthRouter builds a router with fake Google + GitHub credentials so that
+// the OAuth routes are registered without requiring real provider secrets.
+func oauthRouter(t *testing.T) *gin.Engine {
+	t.Helper()
+	svc, err := auth.NewService(testPool, auth.Config{
+		Secret:             testSecret,
+		GoogleClientID:     "fake-google-id",
+		GoogleClientSecret: "fake-google-secret",
+		GoogleRedirectURL:  "http://localhost:8080/api/auth/google/callback",
+		GithubClientID:     "fake-github-id",
+		GithubClientSecret: "fake-github-secret",
+		GithubRedirectURL:  "http://localhost:8080/api/auth/github/callback",
+		FrontendURL:        "http://localhost:5173",
+	})
+	require.NoError(t, err)
+	r := gin.New()
+	svc.RegisterRoutes(r.Group("/api/auth"))
+	return r
+}
+
+func doOAuth(t *testing.T, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	w := httptest.NewRecorder()
+	oauthRouter(t).ServeHTTP(w, req)
+	return w
+}
+
+func TestHTTP_GoogleRedirect(t *testing.T) {
+	w := doOAuth(t, http.MethodGet, "/api/auth/google")
+	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+	loc := w.Header().Get("Location")
+	assert.Contains(t, loc, "accounts.google.com")
+	assert.Contains(t, loc, "fake-google-id")
+}
+
+func TestHTTP_GithubRedirect(t *testing.T) {
+	w := doOAuth(t, http.MethodGet, "/api/auth/github")
+	assert.Equal(t, http.StatusTemporaryRedirect, w.Code)
+	loc := w.Header().Get("Location")
+	assert.Contains(t, loc, "github.com")
+	assert.Contains(t, loc, "fake-github-id")
+}
+
+func TestHTTP_OAuthRoutes_DisabledWithoutCreds(t *testing.T) {
+	// testRouter has no OAuth creds — routes must not be registered.
+	w := httptest.NewRecorder()
+	testRouter.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/auth/google", nil))
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	w = httptest.NewRecorder()
+	testRouter.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/auth/github", nil))
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestHTTP_OAuthCallback_InvalidState(t *testing.T) {
+	w := doOAuth(t, http.MethodGet, "/api/auth/google/callback?state=tampered&code=irrelevant")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	w = doOAuth(t, http.MethodGet, "/api/auth/github/callback?state=tampered&code=irrelevant")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestHTTP_OAuthCallback_MissingCode(t *testing.T) {
+	svc, err := auth.NewService(testPool, auth.Config{
+		Secret:             testSecret,
+		GoogleClientID:     "fake-google-id",
+		GoogleClientSecret: "fake-google-secret",
+		GoogleRedirectURL:  "http://localhost:8080/api/auth/google/callback",
+		FrontendURL:        "http://localhost:5173",
+	})
+	require.NoError(t, err)
+	validState := svc.GenerateState()
+
+	w := doOAuth(t, http.MethodGet, "/api/auth/google/callback?state="+validState)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestOAuthUpsert_NewUser(t *testing.T) {
+	testutil.Truncate(t, testPool)
+
+	u, tok, expires, err := testAuthSvc.OAuthUpsert(context.Background(), "oauth@example.com", "OAuth User", "google")
+	require.NoError(t, err)
+	assert.Equal(t, "oauth@example.com", u.Email)
+	assert.Equal(t, "OAuth User", u.Name)
+	assert.NotEmpty(t, tok)
+	assert.False(t, expires.IsZero())
+}
+
+func TestOAuthUpsert_LinksExistingEmailAccount(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	ctx := context.Background()
+
+	// Create an email/password user first.
+	existing, _, _, err := testAuthSvc.SignUp(ctx, "link@example.com", "password123", "Link User")
+	require.NoError(t, err)
+
+	// Same email logs in via Google — should return the same user ID.
+	u, tok, _, err := testAuthSvc.OAuthUpsert(ctx, "link@example.com", "Link User", "google")
+	require.NoError(t, err)
+	assert.Equal(t, existing.ID, u.ID)
+	assert.NotEmpty(t, tok)
+}
+
+func TestOAuthUpsert_EmailNormalised(t *testing.T) {
+	testutil.Truncate(t, testPool)
+
+	u, _, _, err := testAuthSvc.OAuthUpsert(context.Background(), "  OAuth@Example.COM  ", "Test", "github")
+	require.NoError(t, err)
+	assert.Equal(t, "oauth@example.com", u.Email)
+}
+
+func TestOAuthUpsert_PreservesExistingName(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	ctx := context.Background()
+
+	// User already has a name set.
+	_, _, _, err := testAuthSvc.SignUp(ctx, "named@example.com", "password123", "Original Name")
+	require.NoError(t, err)
+
+	// OAuth login with a different name — original name must be kept.
+	u, _, _, err := testAuthSvc.OAuthUpsert(ctx, "named@example.com", "Google Name", "google")
+	require.NoError(t, err)
+	assert.Equal(t, "Original Name", u.Name)
 }
