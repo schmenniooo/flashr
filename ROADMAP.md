@@ -173,11 +173,11 @@ No cookie banner is required as long as no tracking tools are used.
 
 > For users who don't have a PDF but want to study a topic. The user describes what they want to learn (e.g. "AWS S3 and IAM concepts for the Cloud Practitioner exam") and the AI generates a deck of cards from scratch.
 
-- [ ] Chat-style input on the Upload/Create page: free-text prompt describing the topic, target level, and card count
-- [ ] Backend endpoint `POST /ai/generate` — sends the prompt to Ollama, returns a list of question-answer pairs
-- [ ] Same review flow as PDF-generated cards: user reviews, edits, or deletes individual cards before saving
-- [ ] Cards saved to a new or existing collection with `ai_generated = true`
-- [ ] Ollama prompt engineered for flashcard quality: concise answers, no padding, varied question types
+- [x] Chat-style input on the Upload/Create page: free-text prompt describing the topic, target level, and card count
+- [x] Backend endpoint `POST /ai/generate` — sends the prompt to Ollama, returns a list of question-answer pairs
+- [x] Same review flow as PDF-generated cards: user reviews, edits, or deletes individual cards before saving
+- [x] Cards saved to a new or existing collection with `ai_generated = true`
+- [x] Ollama prompt engineered for flashcard quality: concise answers, no padding, varied question types
 
 **UX note:** This is the primary entry point for users without notes — position it prominently alongside the PDF upload option.
 

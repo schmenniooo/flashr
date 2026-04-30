@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   UploadCloud,
@@ -36,6 +36,35 @@ type DraftCard = {
   answer: string;
   keep: boolean;
 };
+
+const CHAT_DRAFT_KEY = "flashr:ai-chat-draft:v1";
+
+type ChatDraft = {
+  prompt: string;
+  count: number;
+  level: Level;
+  drafts: DraftCard[];
+  target: string;
+};
+
+function loadChatDraft(): Partial<ChatDraft> {
+  try {
+    const raw = localStorage.getItem(CHAT_DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as ChatDraft) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveChatDraft(draft: ChatDraft) {
+  try {
+    localStorage.setItem(CHAT_DRAFT_KEY, JSON.stringify(draft));
+  } catch {}
+}
+
+function clearChatDraft() {
+  localStorage.removeItem(CHAT_DRAFT_KEY);
+}
 
 const EXAMPLE_PROMPTS = [
   "AWS S3 and IAM for the Cloud Practitioner exam",
@@ -239,14 +268,23 @@ function AiChat({
   collections: { id: string; emoji: string; name: string }[];
   navigate: (to: string) => void;
 }) {
-  const [chatState, setChatState] = useState<ChatState>("idle");
-  const [prompt, setPrompt] = useState("");
-  const [count, setCount] = useState(10);
-  const [level, setLevel] = useState<Level>("intermediate");
-  const [drafts, setDrafts] = useState<DraftCard[]>([]);
+  const saved = loadChatDraft();
+  const [prompt, setPrompt] = useState(saved.prompt ?? "");
+  const [count, setCount] = useState<number>(saved.count ?? 10);
+  const [level, setLevel] = useState<Level>(saved.level ?? "intermediate");
+  const [drafts, setDrafts] = useState<DraftCard[]>(saved.drafts ?? []);
+  const [chatState, setChatState] = useState<ChatState>(
+    saved.drafts?.length ? "results" : "idle"
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [target, setTarget] = useState(collections[0]?.id ?? "__new");
+  const [target, setTarget] = useState(
+    saved.target ?? collections[0]?.id ?? "__new"
+  );
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    saveChatDraft({ prompt, count, level, drafts, target });
+  }, [prompt, count, level, drafts, target]);
 
   const isLoading = chatState === "generating" || chatState === "regenerating";
   const hasResults = chatState === "results" || chatState === "regenerating";
@@ -302,6 +340,7 @@ function AiChat({
         cardsApi.add(collectionId, { question: d.question, answer: d.answer })
       )
     );
+    clearChatDraft();
     navigate(`/app/c/${collectionId}`);
   }
 
