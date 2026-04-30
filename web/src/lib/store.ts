@@ -153,6 +153,10 @@ export function useDb<T>(selector: (db: Db) => T): T {
   );
 }
 
+export function selectNow<T>(selector: (db: Db) => T): T {
+  return selector(getSnapshot());
+}
+
 // ─────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────
@@ -254,10 +258,13 @@ function adoptBackendUser(
     const user = existing
       ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak }
       : shadowFromBackend(bu, hint);
+    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
+      collections: switchingUser ? [] : db.collections,
+      folders: switchingUser ? [] : db.folders,
     };
   });
 }
