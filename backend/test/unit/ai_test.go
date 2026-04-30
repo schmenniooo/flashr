@@ -13,6 +13,20 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/ai"
 )
 
+// ollamaServerCapture is like ollamaServer but also records the last decoded
+// request body sent to /api/generate so tests can inspect the prompt.
+func ollamaServerCapture(t *testing.T, responseText string, captured *map[string]any) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(captured)
+		body, _ := json.Marshal(map[string]string{"response": responseText})
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(body)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
 // ollamaServer returns a test HTTP server that wraps the given text in the
 // Ollama /api/generate response envelope.
 func ollamaServer(t *testing.T, responseText string) *httptest.Server {
@@ -74,4 +88,59 @@ func TestGenerateCards_ServerError(t *testing.T) {
 
 	_, err := client.GenerateCards(context.Background(), "notes")
 	assert.Error(t, err)
+}
+
+// ── GenerateCardsFromTopic ───────────────────────────────────────────────────
+
+func TestGenerateCardsFromTopic_ValidJSON(t *testing.T) {
+	srv := ollamaServer(t, `[{"question":"What is S3?","answer":"Object storage service by AWS"},{"question":"What is IAM?","answer":"Identity and Access Management"}]`)
+	client := ai.NewClient(srv.URL, "test-model")
+
+	cards, err := client.GenerateCardsFromTopic(context.Background(), "AWS Cloud Practitioner", 2)
+	require.NoError(t, err)
+	assert.Len(t, cards, 2)
+	assert.Equal(t, "What is S3?", cards[0].Question)
+	assert.Equal(t, "Object storage service by AWS", cards[0].Answer)
+}
+
+func TestGenerateCardsFromTopic_JSONWrappedInText(t *testing.T) {
+	srv := ollamaServer(t, "Sure! Here are your cards:\n[{\"question\":\"Q1\",\"answer\":\"A1\"}]\nHope that helps!")
+	client := ai.NewClient(srv.URL, "test-model")
+
+	cards, err := client.GenerateCardsFromTopic(context.Background(), "some topic", 1)
+	require.NoError(t, err)
+	require.Len(t, cards, 1)
+	assert.Equal(t, "Q1", cards[0].Question)
+}
+
+func TestGenerateCardsFromTopic_NoArrayInResponse(t *testing.T) {
+	srv := ollamaServer(t, "Let me tell you about the French Revolution...")
+	client := ai.NewClient(srv.URL, "test-model")
+
+	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5)
+	assert.Error(t, err)
+}
+
+func TestGenerateCardsFromTopic_PromptContainsTopic(t *testing.T) {
+	var captured map[string]any
+	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
+	client := ai.NewClient(srv.URL, "test-model")
+
+	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5)
+	require.NoError(t, err)
+
+	prompt, _ := captured["prompt"].(string)
+	assert.Contains(t, prompt, "French Revolution")
+}
+
+func TestGenerateCardsFromTopic_PromptContainsCount(t *testing.T) {
+	var captured map[string]any
+	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
+	client := ai.NewClient(srv.URL, "test-model")
+
+	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 7)
+	require.NoError(t, err)
+
+	prompt, _ := captured["prompt"].(string)
+	assert.Contains(t, prompt, "7")
 }
