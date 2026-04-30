@@ -120,6 +120,97 @@ func TestUpload_InvalidPDFStructure(t *testing.T) {
 	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 }
 
+// ── /api/ai/generate ────────────────────────────────────────────────────────
+
+// generateRequest posts a JSON body to /api/ai/generate and returns the recorder.
+func generateRequest(r interface {
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}, body any) *httptest.ResponseRecorder {
+	b, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/generate", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
+func TestGenerate_NoAI(t *testing.T) {
+	r := uploadRouter(nil)
+	w := generateRequest(r, map[string]any{"prompt": "AWS S3", "count": 5})
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+}
+
+func TestGenerate_MissingPrompt(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test"))
+	w := generateRequest(r, map[string]any{"count": 5})
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGenerate_WhitespaceOnlyPrompt(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test"))
+	w := generateRequest(r, map[string]any{"prompt": "   ", "count": 5})
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGenerate_CountDefaultsToTen(t *testing.T) {
+	var captured map[string]any
+	mockOllama := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	w := generateRequest(r, map[string]any{"prompt": "AWS S3"}) // count omitted
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	prompt, _ := captured["prompt"].(string)
+	assert.Contains(t, prompt, "10")
+}
+
+func TestGenerate_CountClampedWhenTooLarge(t *testing.T) {
+	var captured map[string]any
+	mockOllama := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	w := generateRequest(r, map[string]any{"prompt": "AWS S3", "count": 99})
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	prompt, _ := captured["prompt"].(string)
+	assert.Contains(t, prompt, "10")
+	assert.NotContains(t, prompt, "99")
+}
+
+func TestGenerate_ValidPrompt_MockAI(t *testing.T) {
+	mockOllama := ollamaServer(t, `[{"question":"What is S3?","answer":"Object storage"},{"question":"What is IAM?","answer":"Access management"}]`)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	w := generateRequest(r, map[string]any{"prompt": "AWS Cloud Practitioner", "count": 2})
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Len(t, resp.Cards, 2)
+	assert.Equal(t, "What is S3?", resp.Cards[0].Question)
+}
+
+func TestGenerate_OllamaError_Returns500(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "model not loaded", http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+
+	r := uploadRouter(ai.NewClient(srv.URL, "test-model"))
+	w := generateRequest(r, map[string]any{"prompt": "AWS S3", "count": 5})
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestGenerate_OllamaReturnsNonJSON_Returns500(t *testing.T) {
+	mockOllama := ollamaServer(t, "Here are some flashcards for you, enjoy!")
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	w := generateRequest(r, map[string]any{"prompt": "React hooks", "count": 5})
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func TestUpload_ValidPDF_MockAI(t *testing.T) {
 	mockOllama := ollamaServer(t, `[{"question":"What is a goroutine?","answer":"A lightweight thread"}]`)
 	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
