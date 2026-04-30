@@ -1,12 +1,15 @@
-// Package auth implements email/password signup and login with JWT-based
-// session tokens. OAuth providers (Google/Apple/GitHub — see ROADMAP Phase 1.1)
-// will plug in later via the existing users.oauth_provider column.
 package auth
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +17,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 )
 
 var (
@@ -36,14 +41,20 @@ type User struct {
 }
 
 type Service struct {
-	pool     *pgxpool.Pool
-	secret   []byte
-	tokenTTL time.Duration
+	pool        *pgxpool.Pool
+	secret      []byte
+	tokenTTL    time.Duration
+	googleOAuth *oauth2.Config
+	frontendURL string
 }
 
 type Config struct {
-	Secret   string
-	TokenTTL time.Duration // defaults to 24h
+	Secret              string
+	TokenTTL            time.Duration // defaults to 24h
+	GoogleClientID      string
+	GoogleClientSecret  string
+	GoogleRedirectURL   string
+	FrontendURL         string
 }
 
 func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
@@ -57,11 +68,106 @@ func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	if ttl == 0 {
 		ttl = 24 * time.Hour
 	}
-	return &Service{
-		pool:     pool,
-		secret:   []byte(cfg.Secret),
-		tokenTTL: ttl,
-	}, nil
+	svc := &Service{
+		pool:        pool,
+		secret:      []byte(cfg.Secret),
+		tokenTTL:    ttl,
+		frontendURL: cfg.FrontendURL,
+	}
+	if cfg.GoogleClientID != "" && cfg.GoogleClientSecret != "" {
+		svc.googleOAuth = &oauth2.Config{
+			ClientID:     cfg.GoogleClientID,
+			ClientSecret: cfg.GoogleClientSecret,
+			RedirectURL:  cfg.GoogleRedirectURL,
+			Scopes:       []string{"openid", "email", "profile"},
+			Endpoint:     google.Endpoint,
+		}
+	}
+	return svc, nil
+}
+
+func (s *Service) GoogleEnabled() bool { return s.googleOAuth != nil }
+
+func (s *Service) GoogleAuthURL(state string) string {
+	return s.googleOAuth.AuthCodeURL(state, oauth2.AccessTypeOnline)
+}
+
+// GenerateState produces a self-verifying state token: "<unix_ts>.<hmac_hex>".
+// No server-side storage required — VerifyState checks the signature and TTL.
+func (s *Service) GenerateState() string {
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	mac := hmac.New(sha256.New, s.secret)
+	mac.Write([]byte(ts))
+	return ts + "." + hex.EncodeToString(mac.Sum(nil))
+}
+
+// VerifyState checks the HMAC signature and rejects tokens older than 10 minutes.
+func (s *Service) VerifyState(state string) error {
+	parts := strings.SplitN(state, ".", 2)
+	if len(parts) != 2 {
+		return errors.New("invalid state")
+	}
+	ts, sig := parts[0], parts[1]
+	mac := hmac.New(sha256.New, s.secret)
+	mac.Write([]byte(ts))
+	if !hmac.Equal([]byte(sig), []byte(hex.EncodeToString(mac.Sum(nil)))) {
+		return errors.New("invalid state signature")
+	}
+	tsInt, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil || time.Since(time.Unix(tsInt, 0)) > 10*time.Minute {
+		return errors.New("state expired")
+	}
+	return nil
+}
+
+type googleUserInfo struct {
+	Sub   string `json:"sub"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+// GoogleCallback exchanges the authorization code for a user session.
+// It upserts the user row (matching on email) and issues a JWT.
+func (s *Service) GoogleCallback(ctx context.Context, code string) (User, string, time.Time, error) {
+	tok, err := s.googleOAuth.Exchange(ctx, code)
+	if err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("google: exchange code: %w", err)
+	}
+
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v3/userinfo", nil)
+	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("google: fetch userinfo: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var info googleUserInfo
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("google: decode userinfo: %w", err)
+	}
+	if info.Email == "" {
+		return User{}, "", time.Time{}, errors.New("google: no email in userinfo")
+	}
+
+	var u User
+	err = s.pool.QueryRow(ctx, `
+		INSERT INTO users (email, name, oauth_provider)
+		VALUES ($1, NULLIF($2, ''), 'google')
+		ON CONFLICT (email) DO UPDATE
+		  SET oauth_provider = EXCLUDED.oauth_provider,
+		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
+		RETURNING id, email, COALESCE(name, ''), streak, created_at
+	`, normaliseEmail(info.Email), info.Name).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
+	if err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("google: upsert user: %w", err)
+	}
+
+	token, expires, err := s.issueToken(u.ID)
+	if err != nil {
+		return User{}, "", time.Time{}, err
+	}
+	return u, token, expires, nil
 }
 
 // SignUp creates a new user with the given credentials and returns a fresh

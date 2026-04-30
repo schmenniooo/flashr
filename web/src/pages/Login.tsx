@@ -152,7 +152,10 @@ export function Login() {
           </header>
 
           <div className="auth__oauth">
-            <button className="auth__oauth-btn" onClick={handleDemo}>
+            <button
+              className="auth__oauth-btn"
+              onClick={() => { window.location.href = "/api/auth/google"; }}
+            >
               <GoogleIcon />
               Continue with Google
             </button>

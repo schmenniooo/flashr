@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -31,11 +32,45 @@ type loginRequest struct {
 //
 //	POST /signup
 //	POST /login
-//	GET  /me   (requires Authorization: Bearer <token>)
+//	GET  /me              (requires Authorization: Bearer <token>)
+//	GET  /google          (redirect to Google consent screen)
+//	GET  /google/callback (OAuth callback — issues JWT and redirects to frontend)
 func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/signup", s.handleSignUp)
 	rg.POST("/login", s.handleLogin)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
+	if s.GoogleEnabled() {
+		rg.GET("/google", s.handleGoogleRedirect)
+		rg.GET("/google/callback", s.handleGoogleCallback)
+	}
+}
+
+func (s *Service) handleGoogleRedirect(c *gin.Context) {
+	state := s.GenerateState()
+	c.Redirect(http.StatusTemporaryRedirect, s.GoogleAuthURL(state))
+}
+
+func (s *Service) handleGoogleCallback(c *gin.Context) {
+	if err := s.VerifyState(c.Query("state")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid oauth state"})
+		return
+	}
+
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing code"})
+		return
+	}
+
+	_, token, expires, err := s.GoogleCallback(c.Request.Context(), code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "google login failed"})
+		return
+	}
+
+	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&expires=%d",
+		s.frontendURL, token, expires.Unix())
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
 
 func (s *Service) handleSignUp(c *gin.Context) {

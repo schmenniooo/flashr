@@ -317,6 +317,23 @@ export const auth = {
   },
 
   /**
+   * OAuth callback: the backend already issued a token; store it and fetch
+   * the user to establish a full session. Used by OAuthCallback.tsx.
+   */
+  async loginWithToken(token: string): Promise<AuthResult> {
+    try {
+      setToken(token);
+      const res = await api<{ user: BackendUser }>("/auth/me");
+      adoptBackendUser(res.user);
+      void collectionsApi.load().catch(console.error);
+      return { ok: true };
+    } catch (err) {
+      setToken(null);
+      return toAuthResult(err);
+    }
+  },
+
+  /**
    * On app boot: if we have a stored token, ask the backend who it belongs to.
    * If the token is invalid or expired, drop it and the local session.
    */

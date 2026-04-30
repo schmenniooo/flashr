@@ -23,6 +23,10 @@ func main() {
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	ollamaModel := envOr("OLLAMA_MODEL", "llama3.2:3b")
 	jwtSecret := os.Getenv("JWT_SECRET")
+	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
+	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	frontendURL := envOr("FRONTEND_URL", "http://localhost:5173")
+	backendURL := envOr("BACKEND_URL", "http://localhost:8080")
 
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL is required")
@@ -46,7 +50,13 @@ func main() {
 	}
 	log.Printf("postgres: migrations up to date")
 
-	authSvc, err := auth.NewService(pool, auth.Config{Secret: jwtSecret})
+	authSvc, err := auth.NewService(pool, auth.Config{
+		Secret:             jwtSecret,
+		GoogleClientID:     googleClientID,
+		GoogleClientSecret: googleClientSecret,
+		GoogleRedirectURL:  backendURL + "/api/auth/google/callback",
+		FrontendURL:        frontendURL,
+	})
 	if err != nil {
 		log.Fatalf("auth: %v", err)
 	}
