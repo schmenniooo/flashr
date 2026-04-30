@@ -42,8 +42,9 @@ func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, e
 }
 
 // GenerateCardsFromTopic generates cards from a topic description (no source text).
-func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int) ([]CardDraft, error) {
-	return c.callOllama(ctx, buildTopicPrompt(topic, count))
+// level is one of "beginner", "intermediate", or "advanced".
+func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string) ([]CardDraft, error) {
+	return c.callOllama(ctx, buildTopicPrompt(topic, count, level))
 }
 
 func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, error) {
@@ -90,19 +91,20 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 	return cards, nil
 }
 
-func buildTopicPrompt(topic string, count int) string {
-	return fmt.Sprintf(`You are a flashcard generator. Generate exactly %d flashcard question-answer pairs for the topic below. Output ONLY the JSON array — no explanation, no markdown, no code fences, no intro text.
+func buildTopicPrompt(topic string, count int, level string) string {
+	return fmt.Sprintf(`You are a flashcard generator. Generate exactly %d %s-level flashcard question-answer pairs for the topic below. Output ONLY the JSON array — no explanation, no markdown, no code fences, no intro text.
 
 Topic: %s
 
 Rules:
 - Exactly %d cards
+- Calibrate difficulty and assumed prior knowledge to the %s level
 - Each question must be specific and self-contained
 - Answers: 1–3 sentences, no filler, no "According to..." openers
 - Vary types: definitions, mechanisms, comparisons, examples, applications
 
 Required output format (the entire response must be this and nothing else):
-[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, topic, count)
+[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, count, level)
 }
 
 func buildPrompt(text string) string {

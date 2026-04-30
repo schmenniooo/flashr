@@ -33,6 +33,15 @@ func (s *Service) RegisterRoutes(api *gin.RouterGroup, authMW gin.HandlerFunc) {
 	g.POST("/generate", s.handleGenerate)
 }
 
+func validLevel(l string) string {
+	switch l {
+	case "beginner", "intermediate", "advanced":
+		return l
+	default:
+		return "intermediate"
+	}
+}
+
 func (s *Service) handleGenerate(c *gin.Context) {
 	if s.ai == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI generation is not configured — OLLAMA_URL is missing"})
@@ -42,6 +51,7 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	var req struct {
 		Prompt string `json:"prompt"`
 		Count  int    `json:"count"`
+		Level  string `json:"level"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
@@ -50,8 +60,9 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	if req.Count <= 0 || req.Count > 20 {
 		req.Count = 10
 	}
+	req.Level = validLevel(req.Level)
 
-	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count)
+	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
 		return

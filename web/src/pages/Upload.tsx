@@ -28,6 +28,7 @@ import "./Upload.css";
 type Step = "drop" | "processing" | "review";
 type ActiveTab = "pdf" | "chat";
 type ChatState = "idle" | "generating" | "results" | "regenerating";
+type Level = "beginner" | "intermediate" | "advanced";
 
 type DraftCard = {
   id: string;
@@ -241,6 +242,7 @@ function AiChat({
   const [chatState, setChatState] = useState<ChatState>("idle");
   const [prompt, setPrompt] = useState("");
   const [count, setCount] = useState(10);
+  const [level, setLevel] = useState<Level>("intermediate");
   const [drafts, setDrafts] = useState<DraftCard[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [target, setTarget] = useState(collections[0]?.id ?? "__new");
@@ -262,7 +264,7 @@ function AiChat({
         "/ai/generate",
         {
           method: "POST",
-          body: JSON.stringify({ prompt: prompt.trim(), count }),
+          body: JSON.stringify({ prompt: prompt.trim(), count, level }),
         }
       );
       const generated = result.cards.map((c, i) => ({
@@ -317,18 +319,33 @@ function AiChat({
           rows={3}
         />
         <div className="up__composer-footer">
-          <div className="up__count-pills">
-            <span className="text-meta">Cards</span>
-            {([5, 10, 15, 20] as const).map((n) => (
-              <button
-                key={n}
-                className={`up__pill${count === n ? " up__pill--active" : ""}`}
-                onClick={() => setCount(n)}
-                type="button"
-              >
-                {n}
-              </button>
-            ))}
+          <div className="up__composer-controls">
+            <div className="up__count-pills">
+              <span className="text-meta">Cards</span>
+              {([5, 10, 15, 20] as const).map((n) => (
+                <button
+                  key={n}
+                  className={`up__pill${count === n ? " up__pill--active" : ""}`}
+                  onClick={() => setCount(n)}
+                  type="button"
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            <div className="up__count-pills">
+              <span className="text-meta">Level</span>
+              {(["beginner", "intermediate", "advanced"] as const).map((l) => (
+                <button
+                  key={l}
+                  className={`up__pill${level === l ? " up__pill--active" : ""}`}
+                  onClick={() => setLevel(l)}
+                  type="button"
+                >
+                  {l.charAt(0).toUpperCase() + l.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
           <button
             className="btn-primary up__generate-btn"

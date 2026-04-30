@@ -652,6 +652,13 @@
   flex-wrap: wrap;
 }
 
+.up__composer-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
 .up__count-pills {
   display: flex;
   align-items: center;
