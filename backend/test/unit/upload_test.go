@@ -123,7 +123,9 @@ func TestUpload_InvalidPDFStructure(t *testing.T) {
 // ── /api/ai/generate ────────────────────────────────────────────────────────
 
 // generateRequest posts a JSON body to /api/ai/generate and returns the recorder.
-func generateRequest(r interface{ ServeHTTP(http.ResponseWriter, *http.Request) }, body any) *httptest.ResponseRecorder {
+func generateRequest(r interface {
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}, body any) *httptest.ResponseRecorder {
 	b, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/ai/generate", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
