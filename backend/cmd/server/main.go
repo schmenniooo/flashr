@@ -25,6 +25,8 @@ func main() {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
 	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
+	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
+	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
 	frontendURL := envOr("FRONTEND_URL", "http://localhost:5173")
 	backendURL := envOr("BACKEND_URL", "http://localhost:8080")
 
@@ -55,6 +57,9 @@ func main() {
 		GoogleClientID:     googleClientID,
 		GoogleClientSecret: googleClientSecret,
 		GoogleRedirectURL:  backendURL + "/api/auth/google/callback",
+		GithubClientID:     githubClientID,
+		GithubClientSecret: githubClientSecret,
+		GithubRedirectURL:  backendURL + "/api/auth/github/callback",
 		FrontendURL:        frontendURL,
 	})
 	if err != nil {

@@ -43,6 +43,10 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 		rg.GET("/google", s.handleGoogleRedirect)
 		rg.GET("/google/callback", s.handleGoogleCallback)
 	}
+	if s.GithubEnabled() {
+		rg.GET("/github", s.handleGithubRedirect)
+		rg.GET("/github/callback", s.handleGithubCallback)
+	}
 }
 
 func (s *Service) handleGoogleRedirect(c *gin.Context) {
@@ -65,6 +69,34 @@ func (s *Service) handleGoogleCallback(c *gin.Context) {
 	_, token, expires, err := s.GoogleCallback(c.Request.Context(), code)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "google login failed"})
+		return
+	}
+
+	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&expires=%d",
+		s.frontendURL, token, expires.Unix())
+	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
+}
+
+func (s *Service) handleGithubRedirect(c *gin.Context) {
+	state := s.GenerateState()
+	c.Redirect(http.StatusTemporaryRedirect, s.GithubAuthURL(state))
+}
+
+func (s *Service) handleGithubCallback(c *gin.Context) {
+	if err := s.VerifyState(c.Query("state")); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid oauth state"})
+		return
+	}
+
+	code := c.Query("code")
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "missing code"})
+		return
+	}
+
+	_, token, expires, err := s.GithubCallback(c.Request.Context(), code)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "github login failed"})
 		return
 	}
 

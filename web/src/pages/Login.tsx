@@ -159,7 +159,10 @@ export function Login() {
               <GoogleIcon />
               Continue with Google
             </button>
-            <button className="auth__oauth-btn" onClick={handleDemo}>
+            <button
+              className="auth__oauth-btn"
+              onClick={() => { window.location.href = "/api/auth/github"; }}
+            >
               <GithubIcon />
               Continue with GitHub
             </button>

@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
 )
 
@@ -45,6 +46,7 @@ type Service struct {
 	secret      []byte
 	tokenTTL    time.Duration
 	googleOAuth *oauth2.Config
+	githubOAuth *oauth2.Config
 	frontendURL string
 }
 
@@ -54,6 +56,9 @@ type Config struct {
 	GoogleClientID      string
 	GoogleClientSecret  string
 	GoogleRedirectURL   string
+	GithubClientID      string
+	GithubClientSecret  string
+	GithubRedirectURL   string
 	FrontendURL         string
 }
 
@@ -81,6 +86,15 @@ func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 			RedirectURL:  cfg.GoogleRedirectURL,
 			Scopes:       []string{"openid", "email", "profile"},
 			Endpoint:     google.Endpoint,
+		}
+	}
+	if cfg.GithubClientID != "" && cfg.GithubClientSecret != "" {
+		svc.githubOAuth = &oauth2.Config{
+			ClientID:     cfg.GithubClientID,
+			ClientSecret: cfg.GithubClientSecret,
+			RedirectURL:  cfg.GithubRedirectURL,
+			Scopes:       []string{"read:user", "user:email"},
+			Endpoint:     github.Endpoint,
 		}
 	}
 	return svc, nil
@@ -118,6 +132,94 @@ func (s *Service) VerifyState(state string) error {
 		return errors.New("state expired")
 	}
 	return nil
+}
+
+func (s *Service) GithubEnabled() bool { return s.githubOAuth != nil }
+
+func (s *Service) GithubAuthURL(state string) string {
+	return s.githubOAuth.AuthCodeURL(state, oauth2.AccessTypeOnline)
+}
+
+type githubUserInfo struct {
+	Login string  `json:"login"`
+	Name  string  `json:"name"`
+	Email *string `json:"email"`
+}
+
+type githubEmail struct {
+	Email   string `json:"email"`
+	Primary bool   `json:"primary"`
+	Verified bool  `json:"verified"`
+}
+
+// GithubCallback exchanges the authorization code for a user session.
+func (s *Service) GithubCallback(ctx context.Context, code string) (User, string, time.Time, error) {
+	tok, err := s.githubOAuth.Exchange(ctx, code)
+	if err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("github: exchange code: %w", err)
+	}
+
+	doReq := func(url string, out any) error {
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		req.Header.Set("User-Agent", "flashr")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		return json.NewDecoder(resp.Body).Decode(out)
+	}
+
+	var info githubUserInfo
+	if err := doReq("https://api.github.com/user", &info); err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("github: fetch user: %w", err)
+	}
+
+	email := ""
+	if info.Email != nil && *info.Email != "" {
+		email = *info.Email
+	} else {
+		// Email is private — fetch from the emails endpoint
+		var emails []githubEmail
+		if err := doReq("https://api.github.com/user/emails", &emails); err != nil {
+			return User{}, "", time.Time{}, fmt.Errorf("github: fetch emails: %w", err)
+		}
+		for _, e := range emails {
+			if e.Primary && e.Verified {
+				email = e.Email
+				break
+			}
+		}
+	}
+	if email == "" {
+		return User{}, "", time.Time{}, errors.New("github: no verified email found")
+	}
+
+	name := info.Name
+	if name == "" {
+		name = info.Login
+	}
+
+	var u User
+	err = s.pool.QueryRow(ctx, `
+		INSERT INTO users (email, name, oauth_provider)
+		VALUES ($1, NULLIF($2, ''), 'github')
+		ON CONFLICT (email) DO UPDATE
+		  SET oauth_provider = EXCLUDED.oauth_provider,
+		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
+		RETURNING id, email, COALESCE(name, ''), streak, created_at
+	`, normaliseEmail(email), name).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
+	if err != nil {
+		return User{}, "", time.Time{}, fmt.Errorf("github: upsert user: %w", err)
+	}
+
+	token, expires, err := s.issueToken(u.ID)
+	if err != nil {
+		return User{}, "", time.Time{}, err
+	}
+	return u, token, expires, nil
 }
 
 type googleUserInfo struct {
