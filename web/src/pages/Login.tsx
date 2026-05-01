@@ -64,16 +64,6 @@ export function Login() {
     }
   }
 
-  function handleDemo() {
-    auth.signInAsDemo();
-    navigate("/app");
-  }
-
-  function handleOnboardingTest() {
-    auth.signInAsOnboardingTest();
-    navigate("/onboarding");
-  }
-
   return (
     <div className="auth">
       <aside className="auth__hero">
@@ -307,13 +297,7 @@ export function Login() {
             )}
           </div>
 
-          <button onClick={handleDemo} className="auth__skip">
-            Use demo account → ennio.nick@gmail.com / demo1234
-          </button>
 
-          <button onClick={handleOnboardingTest} className="auth__skip auth__skip--alt">
-            Test onboarding flow → fresh user, no profile
-          </button>
         </div>
       </main>
     </div>
