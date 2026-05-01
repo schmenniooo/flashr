@@ -39,6 +39,7 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/signup", s.handleSignUp)
 	rg.POST("/login", s.handleLogin)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
+	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	if s.GoogleEnabled() {
 		rg.GET("/google", s.handleGoogleRedirect)
 		rg.GET("/google/callback", s.handleGoogleCallback)
@@ -154,6 +155,15 @@ func (s *Service) handleLogin(c *gin.Context) {
 		ExpiresAt: expires.Unix(),
 		User:      user,
 	})
+}
+
+func (s *Service) handleDeleteMe(c *gin.Context) {
+	userID := UserIDFromContext(c)
+	if err := s.DeleteUser(c.Request.Context(), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not delete account"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (s *Service) handleMe(c *gin.Context) {

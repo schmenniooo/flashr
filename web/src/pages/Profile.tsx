@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Crown,
 } from "lucide-react";
-import { auth, selectCollections, selectCurrentUser, useDb } from "../lib/store";
+import { auth, billingApi, selectCollections, selectCurrentUser, useDb } from "../lib/store";
 import "./Profile.css";
 
 export function Profile() {
@@ -100,6 +100,53 @@ export function Profile() {
     });
   }
 
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      setCheckoutSuccess(true);
+      window.history.replaceState({}, "", window.location.pathname);
+      setTimeout(() => setCheckoutSuccess(false), 5000);
+    }
+  }, []);
+
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  async function handleUpgrade() {
+    if (!currentUser) return;
+    setBillingLoading(true);
+    try {
+      await billingApi.checkout(currentUser.email);
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
+  async function handleManageSubscription() {
+    setBillingLoading(true);
+    try {
+      await billingApi.portal();
+    } finally {
+      setBillingLoading(false);
+    }
+  }
+
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleDeleteAccount = useCallback(async () => {
+    setDeleteLoading(true);
+    setDeleteError("");
+    const result = await auth.deleteAccount();
+    if (result.ok) {
+      navigate("/login");
+    } else {
+      setDeleteLoading(false);
+      setDeleteError(result.error);
+    }
+  }, [navigate]);
+
   function handleSignOut() {
     auth.signOut();
     navigate("/login");
@@ -111,6 +158,13 @@ export function Profile() {
         <ArrowLeft size={14} strokeWidth={2} />
         Back to dashboard
       </Link>
+
+      {checkoutSuccess && (
+        <div className="prof__checkout-banner fade-in">
+          <CheckCircle2 size={16} strokeWidth={2} />
+          You're now on Pro — enjoy all features!
+        </div>
+      )}
 
       <header className="prof__head">
         <div>
@@ -256,12 +310,28 @@ export function Profile() {
             <div className="prof__info-body">
               <span className="text-meta">Plan</span>
               <div className="prof__info-val prof__info-val--plan">
-                <span className="prof__plan-pill">Pro</span>
-                <span className="prof__info-hint" style={{ margin: 0 }}>
-                  billed yearly · renews Nov 2026
+                <span className={`prof__plan-pill prof__plan-pill--${currentUser.plan}`}>
+                  {currentUser.plan === "pro" ? "Pro" : "Free"}
                 </span>
               </div>
-              <button className="prof__link">Manage subscription →</button>
+              {currentUser.plan === "pro" ? (
+                <button
+                  className="prof__link"
+                  onClick={handleManageSubscription}
+                  disabled={billingLoading}
+                >
+                  Manage subscription →
+                </button>
+              ) : (
+                <button
+                  className="btn-primary prof__upgrade-btn"
+                  onClick={handleUpgrade}
+                  disabled={billingLoading}
+                >
+                  <Crown size={13} strokeWidth={2} />
+                  {billingLoading ? "Redirecting…" : "Upgrade to Pro"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -400,13 +470,47 @@ export function Profile() {
                 Removes all your collections, cards, and history. This cannot be undone.
               </div>
             </div>
-            <button className="prof__danger-btn">
+            <button className="prof__danger-btn" onClick={() => setDeleteConfirm(true)}>
               <AlertTriangle size={13} strokeWidth={2} />
               Delete account
             </button>
           </div>
         </div>
       </section>
+
+      {/* ── Delete account confirmation modal ── */}
+      {deleteConfirm && (
+        <div className="prof__modal-backdrop" onClick={() => !deleteLoading && setDeleteConfirm(false)}>
+          <div className="prof__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="prof__modal-icon">
+              <AlertTriangle size={22} strokeWidth={2} />
+            </div>
+            <h2 className="text-h2">Delete your account?</h2>
+            <p className="text-body">
+              This permanently removes all your collections, cards, and history.
+              There is no undo.
+            </p>
+            {deleteError && <p className="prof__modal-error">{deleteError}</p>}
+            <div className="prof__modal-actions">
+              <button
+                className="btn-ghost"
+                onClick={() => setDeleteConfirm(false)}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="prof__danger-btn"
+                onClick={handleDeleteAccount}
+                disabled={deleteLoading}
+              >
+                <AlertTriangle size={13} strokeWidth={2} />
+                {deleteLoading ? "Deleting…" : "Yes, delete everything"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Sticky save bar ── */}
       {dirty && (

@@ -12,6 +12,7 @@ import (
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
 	"github.com/smithlabs/flashr/backend/internal/auth"
+	"github.com/smithlabs/flashr/backend/internal/billing"
 	"github.com/smithlabs/flashr/backend/internal/collections"
 	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/db"
@@ -29,6 +30,9 @@ func main() {
 	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
 	frontendURL := envOr("FRONTEND_URL", "http://localhost:5173")
 	backendURL := envOr("BACKEND_URL", "http://localhost:8080")
+	stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
+	stripeWebhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
+	stripeProPriceID := os.Getenv("STRIPE_PRO_PRICE_ID")
 
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL is required")
@@ -114,6 +118,14 @@ func main() {
 		aiClient = ai.NewClient(ollamaURL, ollamaModel)
 	}
 	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser())
+
+	billingSvc := billing.NewService(pool, billing.Config{
+		SecretKey:     stripeSecretKey,
+		WebhookSecret: stripeWebhookSecret,
+		ProPriceID:    stripeProPriceID,
+		FrontendURL:   frontendURL,
+	})
+	billingSvc.RegisterRoutes(api, authSvc.RequireUser())
 
 	log.Printf("flashr backend listening on :%s", port)
 	if err := r.Run(":" + port); err != nil {

@@ -203,6 +203,7 @@ type BackendUser = {
   email: string;
   name?: string;
   streak: number;
+  plan: "free" | "pro";
   created_at: string;
 };
 
@@ -230,7 +231,7 @@ function shadowFromBackend(
     lastName: hint?.lastName?.trim() || rest.join(" "),
     username: bu.email.split("@")[0],
     oauthProvider: "google",
-    plan: "free",
+    plan: bu.plan ?? "free",
     memberSince: new Date(bu.created_at).toLocaleString("en-US", {
       month: "long",
       year: "numeric",
@@ -256,7 +257,7 @@ function adoptBackendUser(
   setState((db) => {
     const existing = db.users.find((u) => u.id === bu.id);
     const user = existing
-      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak }
+      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan }
       : shadowFromBackend(bu, hint);
     const switchingUser = db.session?.userId !== bu.id;
     return {
@@ -431,6 +432,17 @@ export const auth = {
           : u,
       ),
     }));
+  },
+
+  async deleteAccount(): Promise<AuthResult> {
+    try {
+      await api("/auth/me", { method: "DELETE" });
+      setToken(null);
+      setState((db) => ({ ...db, session: null }));
+      return { ok: true };
+    } catch (err) {
+      return toAuthResult(err);
+    }
   },
 
   signOut() {
@@ -878,6 +890,27 @@ export const suggestionsApi = {
       emoji: suggestion.emoji,
       description: suggestion.description,
     });
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Billing actions
+// ─────────────────────────────────────────────────────────────
+
+export const billingApi = {
+  async checkout(email: string): Promise<void> {
+    const { url } = await api<{ url: string }>("/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    window.location.href = url;
+  },
+
+  async portal(): Promise<void> {
+    const { url } = await api<{ url: string }>("/billing/portal", {
+      method: "POST",
+    });
+    window.location.href = url;
   },
 };
 

@@ -319,13 +319,38 @@
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-light));
-  color: var(--color-bg);
   border-radius: 100px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+.prof__plan-pill--pro {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-light));
+  color: var(--color-bg);
   box-shadow: 0 0 12px var(--color-accent-glow);
+}
+.prof__plan-pill--free {
+  background: var(--color-surface-raised, var(--color-border));
+  color: var(--color-muted);
+}
+
+.prof__upgrade-btn {
+  margin-top: 8px;
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+.prof__checkout-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: var(--radius-lg);
+  color: var(--color-accent-light);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .prof__link {
@@ -557,6 +582,54 @@
 .prof__danger-btn:hover {
   background: rgba(255, 107, 122, 0.15);
   border-color: #ff6b7a;
+}
+
+/* ── Delete confirmation modal ── */
+
+.prof__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: var(--space-4);
+}
+
+.prof__modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.prof__modal-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 107, 122, 0.12);
+  color: #ff6b7a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prof__modal-error {
+  font-size: 13px;
+  color: #ff6b7a;
+}
+
+.prof__modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 /* ── Sticky save bar ── */

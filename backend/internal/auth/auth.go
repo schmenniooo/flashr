@@ -38,6 +38,7 @@ type User struct {
 	Email     string    `json:"email"`
 	Name      string    `json:"name,omitempty"`
 	Streak    int       `json:"streak"`
+	Plan      string    `json:"plan"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -257,8 +258,8 @@ func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string)
 		ON CONFLICT (email) DO UPDATE
 		  SET oauth_provider = EXCLUDED.oauth_provider,
 		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
-		RETURNING id, email, COALESCE(name, ''), streak, created_at
-	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
+		RETURNING id, email, COALESCE(name, ''), streak, plan, created_at
+	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.CreatedAt)
 	if err != nil {
 		return User{}, "", time.Time{}, fmt.Errorf("oauth upsert: %w", err)
 	}
@@ -291,8 +292,8 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, NULLIF($2, ''), $3)
-		RETURNING id, email, COALESCE(name, ''), streak, created_at
-	`, email, name, string(hash)).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
+		RETURNING id, email, COALESCE(name, ''), streak, plan, created_at
+	`, email, name, string(hash)).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return User{}, "", time.Time{}, ErrEmailTaken
@@ -318,10 +319,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 		hash *string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), streak, created_at, password_hash
+		SELECT id, email, COALESCE(name, ''), streak, plan, created_at, password_hash
 		FROM users
 		WHERE LOWER(email) = $1
-	`, email).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt, &hash)
+	`, email).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Run a dummy bcrypt compare anyway to keep timing roughly constant.
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"), []byte(password))
@@ -344,13 +345,24 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	return u, token, expires, nil
 }
 
+func (s *Service) DeleteUser(ctx context.Context, id string) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
 func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), streak, created_at
+		SELECT id, email, COALESCE(name, ''), streak, plan, created_at
 		FROM users
 		WHERE id = $1
-	`, id).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.CreatedAt)
+	`, id).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUserNotFound
 	}
