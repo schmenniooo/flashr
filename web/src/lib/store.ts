@@ -394,6 +394,7 @@ export const auth = {
       username: "onboarding-test",
       oauthProvider: "google",
       plan: "free",
+      planExpiresAt: null,
       memberSince: new Date().toLocaleString("en-US", {
         month: "long",
         year: "numeric",
@@ -941,5 +942,12 @@ export function resetLocalDb() {
 }
 
 if (typeof window !== "undefined") {
-  (window as unknown as { flashrResetDb: () => void }).flashrResetDb = resetLocalDb;
+  (window as unknown as {
+    flashrResetDb: () => void;
+    flashrSignInAsDemo: () => void;
+  }).flashrResetDb = resetLocalDb;
+  (window as unknown as {
+    flashrResetDb: () => void;
+    flashrSignInAsDemo: () => void;
+  }).flashrSignInAsDemo = () => auth.signInAsDemo();
 }
