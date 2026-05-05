@@ -56,7 +56,7 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail s
 				Quantity: stripe.Int64(1),
 			},
 		},
-		SuccessURL: stripe.String(s.frontendURL + "/app?checkout=success"),
+		SuccessURL: stripe.String(s.frontendURL + "/app/profile?checkout=success"),
 		CancelURL:  stripe.String(s.frontendURL + "/app"),
 	}
 	sess, err := checkoutsession.New(params)
@@ -79,7 +79,7 @@ func (s *Service) CreatePortalSession(ctx context.Context, userID string) (strin
 
 	params := &stripe.BillingPortalSessionParams{
 		Customer:  stripe.String(customerID),
-		ReturnURL: stripe.String(s.frontendURL + "/app/profile"),
+		ReturnURL: stripe.String(s.frontendURL + "/app/profile?portal=return"),
 	}
 	sess, err := portalsession.New(params)
 	if err != nil {

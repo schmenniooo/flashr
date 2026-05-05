@@ -3,7 +3,6 @@ package billing
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -21,8 +20,11 @@ func (s *Service) handleWebhook(c *gin.Context) {
 		return
 	}
 
-	event, err := webhook.ConstructEvent(body, c.GetHeader("Stripe-Signature"), s.webhookSecret)
+	event, err := webhook.ConstructEventWithOptions(body, c.GetHeader("Stripe-Signature"), s.webhookSecret, webhook.ConstructEventOptions{
+		IgnoreAPIVersionMismatch: true,
+	})
 	if err != nil {
+		log.Printf("billing: webhook signature error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid signature"})
 		return
 	}
@@ -92,31 +94,36 @@ func (s *Service) handleSubscriptionUpdated(ctx context.Context, sub *stripe.Sub
 	switch sub.Status {
 	case stripe.SubscriptionStatusActive, stripe.SubscriptionStatusTrialing:
 		plan = "pro"
+		if sub.CancelAtPeriodEnd {
+			// Subscription will not renew — keep pro access until period ends.
+			t := time.Unix(sub.CurrentPeriodEnd, 0).UTC()
+			expiresAt = &t
+		}
 	default:
-		// past_due, unpaid, paused, etc. — keep as free
 		t := time.Unix(sub.CurrentPeriodEnd, 0).UTC()
 		expiresAt = &t
 	}
 
+	// Match on subscription ID so events for other/old subscriptions don't overwrite the plan.
 	_, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = $1,
-		    stripe_subscription_id = $2,
-		    plan_expires_at = $3
-		WHERE stripe_customer_id = $4
-	`, plan, sub.ID, expiresAt, sub.Customer.ID)
+		    plan_expires_at = $2
+		WHERE stripe_subscription_id = $3
+	`, plan, expiresAt, sub.ID)
 	return err
 }
 
 func (s *Service) handleSubscriptionDeleted(ctx context.Context, sub *stripe.Subscription) error {
 	// Keep plan active until end of billing period so the user gets what they paid for.
 	expiresAt := time.Unix(sub.CurrentPeriodEnd, 0).UTC()
+	// Match on subscription ID — only downgrade the user whose subscription was actually deleted.
 	_, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = 'free',
 		    stripe_subscription_id = NULL,
 		    plan_expires_at = $1
-		WHERE stripe_customer_id = $2
-	`, expiresAt, sub.Customer.ID)
-	return fmt.Errorf("subscription deleted: %w", err)
+		WHERE stripe_subscription_id = $2
+	`, expiresAt, sub.ID)
+	return err
 }

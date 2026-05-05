@@ -103,10 +103,15 @@ export function Profile() {
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("checkout") === "success") {
-      setCheckoutSuccess(true);
+    const fromCheckout = params.get("checkout") === "success";
+    const fromPortal = params.get("portal") === "return";
+    if (fromCheckout || fromPortal) {
       window.history.replaceState({}, "", window.location.pathname);
-      setTimeout(() => setCheckoutSuccess(false), 5000);
+      void auth.refreshUser();
+      if (fromCheckout) {
+        setCheckoutSuccess(true);
+        setTimeout(() => setCheckoutSuccess(false), 5000);
+      }
     }
   }, []);
 
@@ -313,6 +318,11 @@ export function Profile() {
                 <span className={`prof__plan-pill prof__plan-pill--${currentUser.plan}`}>
                   {currentUser.plan === "pro" ? "Pro" : "Free"}
                 </span>
+                {currentUser.plan === "pro" && currentUser.planExpiresAt && (
+                  <span className="prof__info-hint" style={{ margin: 0 }}>
+                    cancels {new Date(currentUser.planExpiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  </span>
+                )}
               </div>
               {currentUser.plan === "pro" ? (
                 <button
@@ -320,7 +330,7 @@ export function Profile() {
                   onClick={handleManageSubscription}
                   disabled={billingLoading}
                 >
-                  Manage subscription →
+                  {currentUser.planExpiresAt ? "Reactivate subscription →" : "Manage subscription →"}
                 </button>
               ) : (
                 <button

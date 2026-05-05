@@ -204,6 +204,7 @@ type BackendUser = {
   name?: string;
   streak: number;
   plan: "free" | "pro";
+  plan_expires_at?: string | null;
   created_at: string;
 };
 
@@ -232,6 +233,7 @@ function shadowFromBackend(
     username: bu.email.split("@")[0],
     oauthProvider: "google",
     plan: bu.plan ?? "free",
+    planExpiresAt: bu.plan_expires_at ?? null,
     memberSince: new Date(bu.created_at).toLocaleString("en-US", {
       month: "long",
       year: "numeric",
@@ -257,7 +259,7 @@ function adoptBackendUser(
   setState((db) => {
     const existing = db.users.find((u) => u.id === bu.id);
     const user = existing
-      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan }
+      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
       : shadowFromBackend(bu, hint);
     const switchingUser = db.session?.userId !== bu.id;
     return {
@@ -432,6 +434,15 @@ export const auth = {
           : u,
       ),
     }));
+  },
+
+  async refreshUser(): Promise<void> {
+    try {
+      const res = await api<{ user: BackendUser }>("/auth/me");
+      adoptBackendUser(res.user);
+    } catch {
+      // ignore — stale plan is better than a broken UI
+    }
   },
 
   async deleteAccount(): Promise<AuthResult> {

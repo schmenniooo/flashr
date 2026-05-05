@@ -13,6 +13,7 @@ export type User = {
   email: string;
   oauthProvider: "google" | "apple" | "github";
   plan: "free" | "pro" | "teams";
+  planExpiresAt: string | null;
   memberSince: string;
   avatarUrl: string | null;
   bio: string;
@@ -34,6 +35,7 @@ export const user: User = {
   email: "ennio.nick@gmail.com",
   oauthProvider: "google",
   plan: "pro",
+  planExpiresAt: null,
   memberSince: "November 2025",
   avatarUrl: null,
   bio: "Med student, note-taker, quietly obsessed with flashcards.",
