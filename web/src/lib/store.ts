@@ -455,7 +455,7 @@ export const auth = {
     try {
       await api("/auth/me", { method: "DELETE" });
       setToken(null);
-      setState((db) => ({ ...db, session: null }));
+      setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
       return { ok: true };
     } catch (err) {
       return toAuthResult(err);
@@ -464,7 +464,7 @@ export const auth = {
 
   signOut() {
     setToken(null);
-    setState((db) => ({ ...db, session: null }));
+    setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
   },
 
   updateProfile(patch: Partial<Omit<StoredUser, "id" | "password" | "email">>) {
