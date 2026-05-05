@@ -12,7 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
-import { auth } from "../lib/store";
+import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -29,6 +29,26 @@ export function Login() {
     email: "",
     password: "",
   });
+
+  const hasProIntent = () => sessionStorage.getItem("checkout_intent") === "pro";
+
+  function clearIntent() {
+    sessionStorage.removeItem("checkout_intent");
+  }
+
+  async function redirectAfterAuth(defaultPath: string) {
+    if (hasProIntent()) {
+      clearIntent();
+      const user = selectNow(selectCurrentUser);
+      if (user?.plan === "pro") {
+        navigate("/app");
+      } else {
+        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "");
+      }
+    } else {
+      navigate(defaultPath);
+    }
+  }
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -55,23 +75,13 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
-        navigate(mode === "signup" ? "/onboarding" : "/app");
+        await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
       } else {
         setError(res.error);
       }
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function handleDemo() {
-    auth.signInAsDemo();
-    navigate("/app");
-  }
-
-  function handleOnboardingTest() {
-    auth.signInAsOnboardingTest();
-    navigate("/onboarding");
   }
 
   return (
@@ -307,13 +317,7 @@ export function Login() {
             )}
           </div>
 
-          <button onClick={handleDemo} className="auth__skip">
-            Use demo account → ennio.nick@gmail.com / demo1234
-          </button>
 
-          <button onClick={handleOnboardingTest} className="auth__skip auth__skip--alt">
-            Test onboarding flow → fresh user, no profile
-          </button>
         </div>
       </main>
     </div>

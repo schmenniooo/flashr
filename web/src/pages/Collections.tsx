@@ -5,6 +5,7 @@ import {
   collectionsApi,
   foldersApi,
   selectCollections,
+  selectCurrentUser,
   selectFolders,
   useDb,
 } from "../lib/store";
@@ -12,6 +13,7 @@ import { CollectionCard } from "../components/CollectionCard";
 import { EditCollectionModal } from "../components/EditCollectionModal";
 import { Modal } from "../components/Modal";
 import { NewFolderModal } from "../components/NewFolderModal";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 import type { Collection } from "../lib/store";
 import "./Collections.css";
 
@@ -19,6 +21,9 @@ export function Collections() {
   const navigate = useNavigate();
   const collections = useDb(selectCollections);
   const folders = useDb(selectFolders);
+  const currentUser = useDb(selectCurrentUser);
+  const isPro = currentUser?.plan === "pro";
+  const atCollectionLimit = !isPro && collections.length >= 3;
 
   const [view, setView] = useState<"grid" | "list">("grid");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -60,7 +65,12 @@ export function Collections() {
           </p>
         </div>
         <div className="cols__head-cta">
-          <button className="btn-ghost" onClick={() => setCreateOpen(true)}>
+          <button
+            className="btn-ghost"
+            onClick={() => atCollectionLimit ? undefined : setCreateOpen(true)}
+            disabled={atCollectionLimit}
+            title={atCollectionLimit ? "Collection limit reached — upgrade to Pro" : undefined}
+          >
             <Plus size={14} strokeWidth={2} />
             New collection
           </button>
@@ -70,6 +80,10 @@ export function Collections() {
           </a>
         </div>
       </header>
+
+      {atCollectionLimit && (
+        <UpgradePrompt reason="You've reached the 3-collection limit on the Free plan. Upgrade for unlimited collections." />
+      )}
 
       <div className="cols__toolbar">
         <div className="cols__filters">
@@ -164,7 +178,12 @@ export function Collections() {
           <p className="text-body" style={{ marginTop: 4, maxWidth: 420 }}>
             Collections hold your cards. Group them by subject, course, or whatever makes sense to you.
           </p>
-          <button className="btn-primary" onClick={() => setCreateOpen(true)} style={{ marginTop: 16 }}>
+          <button
+            className="btn-primary"
+            onClick={() => !atCollectionLimit && setCreateOpen(true)}
+            disabled={atCollectionLimit}
+            style={{ marginTop: 16 }}
+          >
             <Plus size={14} strokeWidth={2} />
             New collection
           </button>

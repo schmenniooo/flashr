@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import "./Landing.css";
 
 export function Landing() {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -200,7 +201,15 @@ export function Landing() {
                 </div>
                 <p className="landing-plan-desc">Everything you need to study smarter with AI.</p>
               </div>
-              <Link to="/signup" className="landing-btn-primary landing-plan-cta">Start for free →</Link>
+              <button
+                className="landing-btn-primary landing-plan-cta"
+                onClick={() => {
+                  sessionStorage.setItem("checkout_intent", "pro");
+                  navigate("/signup");
+                }}
+              >
+                Get Pro →
+              </button>
               <ul className="landing-plan-features">
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited collections</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited cards</li>

@@ -36,6 +36,8 @@ type Db = {
   folders: Folder[];
   // card id → mastery, local-only until SRS lands in Phase 2
   masteryMap: Record<string, Card["mastery"]>;
+  // transient — never persisted, always resets to true on load
+  bootstrapping: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -57,6 +59,7 @@ function freshDb(): Db {
     collections: [],
     folders: [],
     masteryMap: {},
+    bootstrapping: true,
   };
 }
 
@@ -93,6 +96,7 @@ function readDb(): Db {
       ...parsed,
       users: parsed.users.map(migrateUser),
       masteryMap: parsed.masteryMap ?? {},
+      bootstrapping: true,
     };
   } catch {
     const fresh = freshDb();
@@ -102,7 +106,9 @@ function readDb(): Db {
 }
 
 function writeDb(db: Db) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db, (key, value) =>
+    key === "bootstrapping" ? undefined : value
+  ));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -183,6 +189,7 @@ function recountFolders(folders: Folder[], collections: Collection[]): Folder[] 
 // Selectors
 // ─────────────────────────────────────────────────────────────
 
+export const selectBootstrapping = (db: Db) => db.bootstrapping;
 export const selectSession = (db: Db) => db.session;
 export const selectCurrentUser = (db: Db): StoredUser | null => {
   if (!db.session) return null;
@@ -203,6 +210,8 @@ type BackendUser = {
   email: string;
   name?: string;
   streak: number;
+  plan: "free" | "pro";
+  plan_expires_at?: string | null;
   created_at: string;
 };
 
@@ -230,7 +239,8 @@ function shadowFromBackend(
     lastName: hint?.lastName?.trim() || rest.join(" "),
     username: bu.email.split("@")[0],
     oauthProvider: "google",
-    plan: "free",
+    plan: bu.plan ?? "free",
+    planExpiresAt: bu.plan_expires_at ?? null,
     memberSince: new Date(bu.created_at).toLocaleString("en-US", {
       month: "long",
       year: "numeric",
@@ -256,15 +266,12 @@ function adoptBackendUser(
   setState((db) => {
     const existing = db.users.find((u) => u.id === bu.id);
     const user = existing
-      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak }
+      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
       : shadowFromBackend(bu, hint);
-    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
-      collections: switchingUser ? [] : db.collections,
-      folders: switchingUser ? [] : db.folders,
     };
   });
 }
@@ -345,16 +352,19 @@ export const auth = {
    * If the token is invalid or expired, drop it and the local session.
    */
   async bootstrap(): Promise<void> {
-    if (!state.session) return;
     try {
+      if (!state.session) return;
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
+      await collectionsApi.load();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setToken(null);
         setState((db) => ({ ...db, session: null }));
       }
       // Network errors: leave local session alone — user can retry.
+    } finally {
+      setState((db) => ({ ...db, bootstrapping: false }));
     }
   },
 
@@ -385,6 +395,7 @@ export const auth = {
       username: "onboarding-test",
       oauthProvider: "google",
       plan: "free",
+      planExpiresAt: null,
       memberSince: new Date().toLocaleString("en-US", {
         month: "long",
         year: "numeric",
@@ -433,9 +444,29 @@ export const auth = {
     }));
   },
 
+  async refreshUser(): Promise<void> {
+    try {
+      const res = await api<{ user: BackendUser }>("/auth/me");
+      adoptBackendUser(res.user);
+    } catch {
+      // ignore — stale plan is better than a broken UI
+    }
+  },
+
+  async deleteAccount(): Promise<AuthResult> {
+    try {
+      await api("/auth/me", { method: "DELETE" });
+      setToken(null);
+      setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
+      return { ok: true };
+    } catch (err) {
+      return toAuthResult(err);
+    }
+  },
+
   signOut() {
     setToken(null);
-    setState((db) => ({ ...db, session: null }));
+    setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
   },
 
   updateProfile(patch: Partial<Omit<StoredUser, "id" | "password" | "email">>) {
@@ -882,6 +913,27 @@ export const suggestionsApi = {
 };
 
 // ─────────────────────────────────────────────────────────────
+// Billing actions
+// ─────────────────────────────────────────────────────────────
+
+export const billingApi = {
+  async checkout(email: string): Promise<void> {
+    const { url } = await api<{ url: string }>("/billing/checkout", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    window.location.href = url;
+  },
+
+  async portal(): Promise<void> {
+    const { url } = await api<{ url: string }>("/billing/portal", {
+      method: "POST",
+    });
+    window.location.href = url;
+  },
+};
+
+// ─────────────────────────────────────────────────────────────
 // Dev utility
 // ─────────────────────────────────────────────────────────────
 
@@ -891,5 +943,12 @@ export function resetLocalDb() {
 }
 
 if (typeof window !== "undefined") {
-  (window as unknown as { flashrResetDb: () => void }).flashrResetDb = resetLocalDb;
+  (window as unknown as {
+    flashrResetDb: () => void;
+    flashrSignInAsDemo: () => void;
+  }).flashrResetDb = resetLocalDb;
+  (window as unknown as {
+    flashrResetDb: () => void;
+    flashrSignInAsDemo: () => void;
+  }).flashrSignInAsDemo = () => auth.signInAsDemo();
 }

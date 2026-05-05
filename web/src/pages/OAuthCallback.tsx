@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "../lib/logo";
-import { auth, selectNow, selectCurrentUser } from "../lib/store";
+import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 
 export function OAuthCallback() {
   const navigate = useNavigate();
@@ -15,13 +15,19 @@ export function OAuthCallback() {
       return;
     }
 
-    auth.loginWithToken(token).then((res) => {
+    auth.loginWithToken(token).then(async (res) => {
       if (!res.ok) {
         navigate("/login?error=oauth_failed", { replace: true });
         return;
       }
       const user = selectNow(selectCurrentUser);
-      navigate(user?.onboardingCompleted ? "/app" : "/onboarding", { replace: true });
+      const hasProIntent = sessionStorage.getItem("checkout_intent") === "pro";
+      if (hasProIntent && user?.plan !== "pro") {
+        sessionStorage.removeItem("checkout_intent");
+        await billingApi.checkout(user?.email ?? "");
+      } else {
+        navigate(user?.onboardingCompleted ? "/app" : "/onboarding", { replace: true });
+      }
     });
   }, [navigate]);
 

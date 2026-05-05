@@ -39,6 +39,7 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/signup", s.handleSignUp)
 	rg.POST("/login", s.handleLogin)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
+	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	if s.GoogleEnabled() {
 		rg.GET("/google", s.handleGoogleRedirect)
 		rg.GET("/google/callback", s.handleGoogleCallback)
@@ -156,6 +157,15 @@ func (s *Service) handleLogin(c *gin.Context) {
 	})
 }
 
+func (s *Service) handleDeleteMe(c *gin.Context) {
+	userID := UserIDFromContext(c)
+	if err := s.DeleteUser(c.Request.Context(), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not delete account"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (s *Service) handleMe(c *gin.Context) {
 	userID := UserIDFromContext(c)
 	user, err := s.UserByID(c.Request.Context(), userID)
@@ -168,6 +178,23 @@ func (s *Service) handleMe(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+// RequirePro is gin middleware that aborts with 403 if the authenticated user
+// is not on the pro plan. Must be chained after RequireUser.
+func (s *Service) RequirePro() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := UserIDFromContext(c)
+		var plan string
+		err := s.pool.QueryRow(c.Request.Context(),
+			`SELECT plan FROM users WHERE id = $1`, userID,
+		).Scan(&plan)
+		if err != nil || plan != "pro" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
+			return
+		}
+		c.Next()
+	}
 }
 
 // RequireUser is gin middleware that validates the Authorization: Bearer token
