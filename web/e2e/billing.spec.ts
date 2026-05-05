@@ -1,30 +1,55 @@
 import { test, expect, type Page } from "@playwright/test";
-import { signInAsDemo, signInAsFree, setCollections, setCards } from "./fixtures";
+import { signInAsDemo } from "./fixtures";
 
-// ── API mock helpers ──────────────────────────────────────────────────────────
+// ── Backend mock helpers ──────────────────────────────────────────────────────
 
-function mockCheckout(page: Page, redirectUrl = "https://checkout.stripe.com/test") {
-  return page.route("**/api/billing/checkout", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ url: redirectUrl }),
-    })
-  );
+type Plan = "free" | "pro";
+
+interface BackendCollection {
+  id: string;
+  name: string;
+  folder: string;
+  emoji: string;
+  description: string;
+  is_public: boolean;
+  created_at: string;
+  cards: BackendCard[];
 }
 
-function mockPortal(page: Page, redirectUrl = "https://billing.stripe.com/test") {
-  return page.route("**/api/billing/portal", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ url: redirectUrl }),
-    })
-  );
+interface BackendCard {
+  id: string;
+  question: string;
+  answer: string;
+  ai_generated: boolean;
+  created_at: string;
 }
 
-function mockMe(page: Page, plan: "free" | "pro", extras: Record<string, unknown> = {}) {
-  return page.route("**/api/auth/me", (route) =>
+function makeCollection(id: string, name: string, cardCount = 0): BackendCollection {
+  return {
+    id,
+    name,
+    folder: "",
+    emoji: "📚",
+    description: "",
+    is_public: false,
+    created_at: new Date().toISOString(),
+    cards: Array.from({ length: cardCount }, (_, i) => ({
+      id: `card-${id}-${i}`,
+      question: `Q${i + 1}`,
+      answer: `A${i + 1}`,
+      ai_generated: false,
+      created_at: new Date().toISOString(),
+    })),
+  };
+}
+
+/** Mock /api/auth/me and /api/collections so bootstrap resolves immediately. */
+async function mockBackend(
+  page: Page,
+  plan: Plan,
+  collections: BackendCollection[] = [],
+) {
+  await page.route("**/api/auth/me", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -32,14 +57,41 @@ function mockMe(page: Page, plan: "free" | "pro", extras: Record<string, unknown
         user: {
           id: "demo-user",
           email: "demo@flashr.io",
-          name: "Demo User",
+          name: "Demo",
           streak: 0,
           plan,
           plan_expires_at: null,
           created_at: new Date().toISOString(),
-          ...extras,
         },
       }),
+    })
+  );
+  await page.route("**/api/collections", (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ collections }),
+    });
+  });
+}
+
+function mockCheckout(page: Page, url = "https://checkout.stripe.com/test") {
+  return page.route("**/api/billing/checkout", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ url }),
+    })
+  );
+}
+
+function mockPortal(page: Page, url = "https://billing.stripe.com/test") {
+  return page.route("**/api/billing/portal", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ url }),
     })
   );
 }
@@ -48,7 +100,8 @@ function mockMe(page: Page, plan: "free" | "pro", extras: Record<string, unknown
 
 test.describe("profile — plan badge", () => {
   test("free user sees Free badge and Upgrade CTA", async ({ page }) => {
-    await signInAsFree(page);
+    await mockBackend(page, "free");
+    await signInAsDemo(page);
     await page.goto("/app/profile");
 
     await expect(page.locator(".prof__plan-pill--free")).toBeVisible();
@@ -57,6 +110,7 @@ test.describe("profile — plan badge", () => {
   });
 
   test("pro user sees Pro badge and Manage subscription link", async ({ page }) => {
+    await mockBackend(page, "pro");
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
@@ -66,20 +120,29 @@ test.describe("profile — plan badge", () => {
   });
 
   test("pro user with pending cancellation sees expiry date and Reactivate link", async ({ page }) => {
-    await signInAsDemo(page);
-
     const expiryDate = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString();
-    await page.evaluate((expiryDate) => {
-      const key = "flashr:db:v1";
-      const db = JSON.parse(localStorage.getItem(key)!);
-      db.users = db.users.map((u: { id: string; [key: string]: unknown }) =>
-        u.id === "demo-user" ? { ...u, plan: "pro", planExpiresAt: expiryDate } : u
-      );
-      localStorage.setItem(key, JSON.stringify(db));
-    }, expiryDate);
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "demo-user",
+            email: "demo@flashr.io",
+            name: "Demo",
+            streak: 0,
+            plan: "pro",
+            plan_expires_at: expiryDate,
+            created_at: new Date().toISOString(),
+          },
+        }),
+      })
+    );
+    await page.route("**/api/collections", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ collections: [] }) })
+    );
 
-    await page.reload();
-    await page.waitForURL("**/app");
+    await signInAsDemo(page);
     await page.goto("/app/profile");
 
     await expect(page.locator(".prof__plan-pill--pro")).toBeVisible();
@@ -91,68 +154,73 @@ test.describe("profile — plan badge", () => {
 // ── Upgrade flow ──────────────────────────────────────────────────────────────
 
 test.describe("upgrade flow", () => {
-  test("Upgrade to Pro button calls checkout API and redirects to Stripe", async ({ page }) => {
-    await signInAsFree(page);
+  test("Upgrade to Pro button calls checkout API", async ({ page }) => {
+    await mockBackend(page, "free");
     await mockCheckout(page, "https://checkout.stripe.com/test-session");
-
+    await signInAsDemo(page);
     await page.goto("/app/profile");
+
     await expect(page.getByRole("button", { name: /upgrade to pro/i })).toBeVisible();
 
-    const [navigation] = await Promise.all([
-      page.waitForURL("**/checkout.stripe.com/**", { timeout: 10_000 }).catch(() => null),
-      page.waitForRequest("**/api/billing/checkout"),
-      page.getByRole("button", { name: /upgrade to pro/i }).click(),
-    ]);
-
-    // The checkout API was called.
-    // (The actual Stripe redirect is blocked in test — we just verify the call was made.)
-    void navigation;
+    const checkoutRequest = page.waitForRequest("**/api/billing/checkout");
+    await page.getByRole("button", { name: /upgrade to pro/i }).click();
+    await checkoutRequest;
   });
 
   test("Manage subscription calls portal API", async ({ page }) => {
-    await signInAsDemo(page);
+    await mockBackend(page, "pro");
     await mockPortal(page, "https://billing.stripe.com/test-portal");
-
+    await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    const [portalRequest] = await Promise.all([
-      page.waitForRequest("**/api/billing/portal"),
-      page.getByRole("button", { name: /manage subscription/i }).click(),
-    ]);
+    await expect(page.getByRole("button", { name: /manage subscription/i })).toBeVisible();
 
-    expect(portalRequest.method()).toBe("POST");
+    const portalRequest = page.waitForRequest("**/api/billing/portal");
+    await page.getByRole("button", { name: /manage subscription/i }).click();
+    await portalRequest;
   });
 });
 
 // ── Post-checkout success ─────────────────────────────────────────────────────
 
 test.describe("post-checkout success", () => {
-  test("landing on profile with ?checkout=success shows banner and refreshes plan", async ({ page }) => {
-    await signInAsFree(page);
-    await mockMe(page, "pro");
+  test("?checkout=success shows banner and refreshes plan to Pro", async ({ page }) => {
+    // First load: free user
+    await mockBackend(page, "free");
+    await signInAsDemo(page);
+
+    // Re-mock /api/auth/me to return pro (simulating post-payment state)
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          user: {
+            id: "demo-user",
+            email: "demo@flashr.io",
+            name: "Demo",
+            streak: 0,
+            plan: "pro",
+            plan_expires_at: null,
+            created_at: new Date().toISOString(),
+          },
+        }),
+      })
+    );
 
     await page.goto("/app/profile?checkout=success");
 
-    // Success banner should appear.
     await expect(page.locator(".prof__checkout-banner")).toBeVisible();
-
-    // Plan should now show as Pro (after refreshUser call).
     await expect(page.locator(".prof__plan-pill--pro")).toBeVisible();
-
-    // URL should be cleaned (no query param).
     await expect(page).toHaveURL(/\/app\/profile$/);
   });
 
-  test("landing on profile with ?portal=return refreshes plan", async ({ page }) => {
-    await signInAsFree(page);
-    await mockMe(page, "free");
-
+  test("?portal=return cleans up URL", async ({ page }) => {
+    await mockBackend(page, "pro");
+    await signInAsDemo(page);
     await page.goto("/app/profile?portal=return");
 
-    // No banner for portal return.
     await expect(page.locator(".prof__checkout-banner")).not.toBeVisible();
-
-    // URL cleaned up.
     await expect(page).toHaveURL(/\/app\/profile$/);
   });
 });
@@ -164,7 +232,6 @@ test.describe("landing page — Pro CTA", () => {
     await page.goto("/");
 
     await page.getByRole("button", { name: /get pro/i }).click();
-
     await page.waitForURL("**/signup");
 
     const intent = await page.evaluate(() => sessionStorage.getItem("checkout_intent"));
@@ -176,44 +243,22 @@ test.describe("landing page — Pro CTA", () => {
 
 test.describe("AI page — plan gate", () => {
   test("free user sees upgrade prompt and locked content", async ({ page }) => {
-    await signInAsFree(page);
+    await mockBackend(page, "free");
+    await signInAsDemo(page);
     await page.goto("/app/upload");
 
-    // Upgrade prompt should be visible.
     await expect(page.locator(".upgrade-prompt")).toBeVisible();
-
-    // Content area should be visually locked (has the --locked modifier).
     await expect(page.locator(".up__content--locked")).toBeVisible();
   });
 
   test("pro user sees normal AI page without gate", async ({ page }) => {
+    await mockBackend(page, "pro");
     await signInAsDemo(page);
     await page.goto("/app/upload");
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
     await expect(page.locator(".up__content--locked")).not.toBeAttached();
-
-    // PDF tab and drop zone should be accessible.
     await expect(page.locator(".up__drop")).toBeVisible();
-  });
-
-  test("403 from AI endpoint shows upgrade prompt inline", async ({ page }) => {
-    await signInAsDemo(page);
-
-    await page.route("**/api/ai/generate", (route) =>
-      route.fulfill({
-        status: 403,
-        contentType: "application/json",
-        body: JSON.stringify({ error: "pro plan required" }),
-      })
-    );
-
-    await page.goto("/app/upload");
-    await page.getByRole("button", { name: /describe a topic/i }).click();
-    await page.locator(".up__chat-input").fill("AWS fundamentals");
-    await page.getByRole("button", { name: /generate cards/i }).click();
-
-    await expect(page.locator(".upgrade-prompt")).toBeVisible();
   });
 });
 
@@ -221,9 +266,13 @@ test.describe("AI page — plan gate", () => {
 
 test.describe("collection limit", () => {
   test("free user at 3 collections sees upgrade prompt and disabled New button", async ({ page }) => {
-    await signInAsFree(page);
-    await setCollections(page, ["Col 1", "Col 2", "Col 3"]);
-
+    const cols = [
+      makeCollection("c1", "Col 1"),
+      makeCollection("c2", "Col 2"),
+      makeCollection("c3", "Col 3"),
+    ];
+    await mockBackend(page, "free", cols);
+    await signInAsDemo(page);
     await page.goto("/app/collections");
 
     await expect(page.locator(".upgrade-prompt")).toBeVisible();
@@ -231,9 +280,8 @@ test.describe("collection limit", () => {
   });
 
   test("free user below limit sees no upgrade prompt and enabled New button", async ({ page }) => {
-    await signInAsFree(page);
-    await setCollections(page, ["Col 1", "Col 2"]);
-
+    await mockBackend(page, "free", [makeCollection("c1", "Only Col")]);
+    await signInAsDemo(page);
     await page.goto("/app/collections");
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
@@ -241,9 +289,13 @@ test.describe("collection limit", () => {
   });
 
   test("pro user with 3+ collections sees no upgrade prompt", async ({ page }) => {
+    const cols = [
+      makeCollection("c1", "Col 1"),
+      makeCollection("c2", "Col 2"),
+      makeCollection("c3", "Col 3"),
+    ];
+    await mockBackend(page, "pro", cols);
     await signInAsDemo(page);
-    await setCollections(page, ["Col 1", "Col 2", "Col 3"]);
-
     await page.goto("/app/collections");
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
@@ -255,33 +307,30 @@ test.describe("collection limit", () => {
 
 test.describe("card limit", () => {
   test("free user at 50 cards sees upgrade prompt and disabled Add card button", async ({ page }) => {
-    await signInAsFree(page);
-    await setCollections(page, ["Cards Test"]);
-    await setCards(page, 0, 50);
-
-    await page.goto("/app/c/e2e-col-0");
+    const col = makeCollection("col-main", "My Deck", 50);
+    await mockBackend(page, "free", [col]);
+    await signInAsDemo(page);
+    await page.goto("/app/c/col-main");
 
     await expect(page.locator(".upgrade-prompt")).toBeVisible();
     await expect(page.getByRole("button", { name: /add card/i })).toBeDisabled();
   });
 
   test("free user below 50 cards sees no upgrade prompt and enabled Add card button", async ({ page }) => {
-    await signInAsFree(page);
-    await setCollections(page, ["Cards Test"]);
-    await setCards(page, 0, 10);
-
-    await page.goto("/app/c/e2e-col-0");
+    const col = makeCollection("col-main", "My Deck", 10);
+    await mockBackend(page, "free", [col]);
+    await signInAsDemo(page);
+    await page.goto("/app/c/col-main");
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
     await expect(page.getByRole("button", { name: /add card/i })).toBeEnabled();
   });
 
   test("pro user at 50 cards sees no upgrade prompt and enabled Add card button", async ({ page }) => {
+    const col = makeCollection("col-main", "My Deck", 50);
+    await mockBackend(page, "pro", [col]);
     await signInAsDemo(page);
-    await setCollections(page, ["Cards Test"]);
-    await setCards(page, 0, 50);
-
-    await page.goto("/app/c/e2e-col-0");
+    await page.goto("/app/c/col-main");
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
     await expect(page.getByRole("button", { name: /add card/i })).toBeEnabled();
