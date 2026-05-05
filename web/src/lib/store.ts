@@ -106,8 +106,9 @@ function readDb(): Db {
 }
 
 function writeDb(db: Db) {
-  const { bootstrapping: _, ...toSave } = db;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db, (key, value) =>
+    key === "bootstrapping" ? undefined : value
+  ));
 }
 
 // ─────────────────────────────────────────────────────────────

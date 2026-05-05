@@ -53,6 +53,41 @@ export function Profile() {
     );
   }, [form, avatarPreview, currentUser]);
 
+  // Initialise from URL params so state is ready before first render (no effect needed).
+  const [checkoutSuccess, setCheckoutSuccess] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("checkout") === "success";
+  });
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromCheckout = params.get("checkout") === "success";
+    const fromPortal = params.get("portal") === "return";
+    if (fromCheckout || fromPortal) {
+      window.history.replaceState({}, "", window.location.pathname);
+      void auth.refreshUser();
+      if (fromCheckout) {
+        setTimeout(() => setCheckoutSuccess(false), 5000);
+      }
+    }
+  }, []);
+
+  const handleDeleteAccount = useCallback(async () => {
+    setDeleteLoading(true);
+    setDeleteError("");
+    const result = await auth.deleteAccount();
+    if (result.ok) {
+      navigate("/login");
+    } else {
+      setDeleteLoading(false);
+      setDeleteError(result.error);
+    }
+  }, [navigate]);
+
   if (!currentUser || !form) return <Navigate to="/login" replace />;
 
   const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
@@ -100,23 +135,6 @@ export function Profile() {
     });
   }
 
-  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const fromCheckout = params.get("checkout") === "success";
-    const fromPortal = params.get("portal") === "return";
-    if (fromCheckout || fromPortal) {
-      window.history.replaceState({}, "", window.location.pathname);
-      void auth.refreshUser();
-      if (fromCheckout) {
-        setCheckoutSuccess(true);
-        setTimeout(() => setCheckoutSuccess(false), 5000);
-      }
-    }
-  }, []);
-
-  const [billingLoading, setBillingLoading] = useState(false);
-
   async function handleUpgrade() {
     if (!currentUser) return;
     setBillingLoading(true);
@@ -135,22 +153,6 @@ export function Profile() {
       setBillingLoading(false);
     }
   }
-
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-
-  const handleDeleteAccount = useCallback(async () => {
-    setDeleteLoading(true);
-    setDeleteError("");
-    const result = await auth.deleteAccount();
-    if (result.ok) {
-      navigate("/login");
-    } else {
-      setDeleteLoading(false);
-      setDeleteError(result.error);
-    }
-  }, [navigate]);
 
   function handleSignOut() {
     auth.signOut();

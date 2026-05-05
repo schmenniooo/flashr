@@ -34,13 +34,13 @@ var (
 const minPasswordLength = 8
 
 type User struct {
-	ID           string     `json:"id"`
-	Email        string     `json:"email"`
-	Name         string     `json:"name,omitempty"`
-	Streak       int        `json:"streak"`
-	Plan         string     `json:"plan"`
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	Name          string     `json:"name,omitempty"`
+	Streak        int        `json:"streak"`
+	Plan          string     `json:"plan"`
 	PlanExpiresAt *time.Time `json:"plan_expires_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
+	CreatedAt     time.Time  `json:"created_at"`
 }
 
 type Service struct {

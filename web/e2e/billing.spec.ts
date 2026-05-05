@@ -72,7 +72,7 @@ test.describe("profile — plan badge", () => {
     await page.evaluate((expiryDate) => {
       const key = "flashr:db:v1";
       const db = JSON.parse(localStorage.getItem(key)!);
-      db.users = db.users.map((u: any) =>
+      db.users = db.users.map((u: { id: string; [key: string]: unknown }) =>
         u.id === "demo-user" ? { ...u, plan: "pro", planExpiresAt: expiryDate } : u
       );
       localStorage.setItem(key, JSON.stringify(db));

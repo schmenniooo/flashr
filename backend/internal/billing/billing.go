@@ -15,10 +15,10 @@ import (
 var ErrNoSubscription = errors.New("no active subscription")
 
 type Config struct {
-	SecretKey      string
-	WebhookSecret  string
-	ProPriceID     string
-	FrontendURL    string
+	SecretKey     string
+	WebhookSecret string
+	ProPriceID    string
+	FrontendURL   string
 }
 
 type Service struct {

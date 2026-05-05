@@ -4,7 +4,7 @@ export { test, expect };
 
 export async function signInAsDemo(page: Page) {
   await page.goto("/login");
-  await page.evaluate(() => (window as any).flashrSignInAsDemo());
+  await page.evaluate(() => (window as Window & { flashrSignInAsDemo(): void }).flashrSignInAsDemo());
   await page.goto("/app");
   await page.waitForURL("**/app");
 }
@@ -15,7 +15,7 @@ export async function signInAsFree(page: Page) {
   await page.evaluate(() => {
     const key = "flashr:db:v1";
     const db = JSON.parse(localStorage.getItem(key)!);
-    db.users = db.users.map((u: any) =>
+    db.users = db.users.map((u: { id: string; [key: string]: unknown }) =>
       u.id === "demo-user" ? { ...u, plan: "free", planExpiresAt: null } : u
     );
     localStorage.setItem(key, JSON.stringify(db));
