@@ -180,6 +180,23 @@ func (s *Service) handleMe(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
+// RequirePro is gin middleware that aborts with 403 if the authenticated user
+// is not on the pro plan. Must be chained after RequireUser.
+func (s *Service) RequirePro() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := UserIDFromContext(c)
+		var plan string
+		err := s.pool.QueryRow(c.Request.Context(),
+			`SELECT plan FROM users WHERE id = $1`, userID,
+		).Scan(&plan)
+		if err != nil || plan != "pro" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
+			return
+		}
+		c.Next()
+	}
+}
+
 // RequireUser is gin middleware that validates the Authorization: Bearer token
 // and stores the user ID in the request context for downstream handlers.
 func (s *Service) RequireUser() gin.HandlerFunc {

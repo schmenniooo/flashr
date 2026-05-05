@@ -20,9 +20,11 @@ import {
   cardsApi,
   collectionsApi,
   selectCollections,
+  selectCurrentUser,
   useDb,
 } from "../lib/store";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -78,6 +80,8 @@ const EXAMPLE_PROMPTS = [
 export function Upload() {
   const navigate = useNavigate();
   const collections = useDb(selectCollections);
+  const currentUser = useDb(selectCurrentUser);
+  const isPro = currentUser?.plan === "pro";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("pdf");
@@ -121,8 +125,11 @@ export function Upload() {
       setDrafts(generated);
       setStep("review");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      setError(msg);
+      if (err instanceof ApiError && err.status === 403) {
+        setError("__pro__");
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      }
       setStep("drop");
     }
   }
@@ -171,6 +178,13 @@ export function Upload() {
         </p>
       </header>
 
+      {!isPro && (
+        <div className="up__gate">
+          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock PDF uploads and topic-based card generation." />
+        </div>
+      )}
+
+      <div className={`up__content${!isPro ? " up__content--locked" : ""}`}>
       <div className="up__tabs">
         <button
           className={`up__tab${activeTab === "pdf" ? " up__tab--active" : ""}`}
@@ -218,12 +232,14 @@ export function Upload() {
             </li>
           </ol>
 
-          {error && (
+          {error && (error === "__pro__" ? (
+            <UpgradePrompt reason="AI generation from PDFs is a Pro feature." />
+          ) : (
             <div className="up__error">
               <AlertCircle size={14} strokeWidth={2} />
               {error}
             </div>
-          )}
+          ))}
 
           {step === "drop" && (
             <DropStep
@@ -259,6 +275,7 @@ export function Upload() {
       {activeTab === "chat" && (
         <AiChat collections={collections} navigate={navigate} />
       )}
+      </div> {/* up__content */}
     </div>
   );
 }
@@ -316,8 +333,11 @@ function AiChat({
       setDrafts(generated);
       setChatState("results");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      setError(msg);
+      if (err instanceof ApiError && err.status === 403) {
+        setError("__pro__");
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      }
       setChatState(drafts.length > 0 ? "results" : "idle");
     }
   }
@@ -414,12 +434,14 @@ function AiChat({
         </div>
       </div>
 
-      {error && (
+      {error && (error === "__pro__" ? (
+        <UpgradePrompt reason="AI card generation is a Pro feature." />
+      ) : (
         <div className="up__error">
           <AlertCircle size={14} strokeWidth={2} />
           {error}
         </div>
-      )}
+      ))}
 
       {chatState === "idle" && (
         <div className="up__chat-empty fade-in">

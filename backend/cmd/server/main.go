@@ -117,7 +117,7 @@ func main() {
 	if ollamaURL != "" {
 		aiClient = ai.NewClient(ollamaURL, ollamaModel)
 	}
-	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser())
+	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
 
 	billingSvc := billing.NewService(pool, billing.Config{
 		SecretKey:     stripeSecretKey,

@@ -26,9 +26,10 @@ func NewService(aiClient *ai.Client) *Service {
 	return &Service{ai: aiClient}
 }
 
-// RegisterRoutes mounts the upload endpoints under /api with auth middleware.
-func (s *Service) RegisterRoutes(api *gin.RouterGroup, authMW gin.HandlerFunc) {
-	g := api.Group("/ai", authMW)
+// RegisterRoutes mounts the upload endpoints under /api.
+// Both AI endpoints require auth + pro plan.
+func (s *Service) RegisterRoutes(api *gin.RouterGroup, authMW gin.HandlerFunc, requirePro gin.HandlerFunc) {
+	g := api.Group("/ai", authMW, requirePro)
 	g.POST("/upload", s.handleUpload)
 	g.POST("/generate", s.handleGenerate)
 }

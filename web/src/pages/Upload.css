@@ -7,6 +7,22 @@
   width: 100%;
 }
 
+.up__gate {
+  /* UpgradePrompt sits here, full width */
+}
+
+.up__content {
+  display: contents;
+}
+
+.up__content--locked {
+  display: block;
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
+  filter: blur(1px);
+}
+
 .up__back {
   display: inline-flex;
   align-items: center;
