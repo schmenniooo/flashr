@@ -36,6 +36,8 @@ type Db = {
   folders: Folder[];
   // card id → mastery, local-only until SRS lands in Phase 2
   masteryMap: Record<string, Card["mastery"]>;
+  // transient — never persisted, always resets to true on load
+  bootstrapping: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -57,6 +59,7 @@ function freshDb(): Db {
     collections: [],
     folders: [],
     masteryMap: {},
+    bootstrapping: true,
   };
 }
 
@@ -93,6 +96,7 @@ function readDb(): Db {
       ...parsed,
       users: parsed.users.map(migrateUser),
       masteryMap: parsed.masteryMap ?? {},
+      bootstrapping: true,
     };
   } catch {
     const fresh = freshDb();
@@ -102,7 +106,8 @@ function readDb(): Db {
 }
 
 function writeDb(db: Db) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  const { bootstrapping: _, ...toSave } = db;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -183,6 +188,7 @@ function recountFolders(folders: Folder[], collections: Collection[]): Folder[] 
 // Selectors
 // ─────────────────────────────────────────────────────────────
 
+export const selectBootstrapping = (db: Db) => db.bootstrapping;
 export const selectSession = (db: Db) => db.session;
 export const selectCurrentUser = (db: Db): StoredUser | null => {
   if (!db.session) return null;
@@ -261,13 +267,10 @@ function adoptBackendUser(
     const user = existing
       ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
       : shadowFromBackend(bu, hint);
-    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
-      collections: switchingUser ? [] : db.collections,
-      folders: switchingUser ? [] : db.folders,
     };
   });
 }
@@ -348,16 +351,19 @@ export const auth = {
    * If the token is invalid or expired, drop it and the local session.
    */
   async bootstrap(): Promise<void> {
-    if (!state.session) return;
     try {
+      if (!state.session) return;
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
+      await collectionsApi.load();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setToken(null);
         setState((db) => ({ ...db, session: null }));
       }
       // Network errors: leave local session alone — user can retry.
+    } finally {
+      setState((db) => ({ ...db, bootstrapping: false }));
     }
   },
 
