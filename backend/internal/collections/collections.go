@@ -182,12 +182,26 @@ func (s *Service) create(c *gin.Context) {
 		body.Emoji = "📚"
 	}
 
+	userID := auth.UserIDFromContext(c)
+
+	// Free plan: max 3 collections.
+	var plan string
+	var count int
+	_ = s.pool.QueryRow(c.Request.Context(),
+		`SELECT plan, (SELECT COUNT(*) FROM collections WHERE user_id = $1) FROM users WHERE id = $1`,
+		userID,
+	).Scan(&plan, &count)
+	if plan == "free" && count >= 3 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "collection limit reached — upgrade to Pro for unlimited collections"})
+		return
+	}
+
 	var col Collection
 	err := s.pool.QueryRow(c.Request.Context(), `
 		INSERT INTO collections (user_id, name, folder, emoji, description)
 		VALUES ($1, $2, NULLIF($3,''), $4, $5)
 		RETURNING id, name, COALESCE(folder,''), emoji, description, is_public, created_at
-	`, auth.UserIDFromContext(c), body.Name, body.Folder, body.Emoji, body.Description).Scan(
+	`, userID, body.Name, body.Folder, body.Emoji, body.Description).Scan(
 		&col.ID, &col.Name, &col.Folder, &col.Emoji, &col.Description, &col.IsPublic, &col.CreatedAt,
 	)
 	if err != nil {
@@ -262,6 +276,23 @@ func (s *Service) createCard(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "question and answer are required"})
+		return
+	}
+
+	// Free plan: max 50 cards per collection.
+	var cardPlan string
+	var cardCount int
+	_ = s.pool.QueryRow(c.Request.Context(),
+		`SELECT u.plan, COUNT(k.id)
+		 FROM users u
+		 LEFT JOIN collections c ON c.user_id = u.id AND c.id = $2
+		 LEFT JOIN cards k ON k.collection_id = c.id
+		 WHERE u.id = $1
+		 GROUP BY u.plan`,
+		userID, colID,
+	).Scan(&cardPlan, &cardCount)
+	if cardPlan == "free" && cardCount >= 50 {
+		c.JSON(http.StatusForbidden, gin.H{"error": "card limit reached — upgrade to Pro for unlimited cards"})
 		return
 	}
 

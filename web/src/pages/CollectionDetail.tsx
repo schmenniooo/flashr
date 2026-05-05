@@ -17,11 +17,12 @@ import {
   collectionsApi,
   selectCollection,
   selectCollections,
-
+  selectCurrentUser,
   useDb,
 } from "../lib/store";
 import { EditCollectionModal } from "../components/EditCollectionModal";
 import { Modal } from "../components/Modal";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 import type { Card } from "../lib/store";
 import "./CollectionDetail.css";
 
@@ -37,6 +38,10 @@ export function CollectionDetail() {
     { mode: "create" } | { mode: "edit"; card: Card } | null
   >(null);
   const [movingCard, setMovingCard] = useState<Card | null>(null);
+
+  const currentUser = useDb(selectCurrentUser);
+  const isPro = currentUser?.plan === "pro";
+  const atCardLimit = !isPro && (collection?.cards.length ?? 0) >= 50;
 
   if (!collection) return <Navigate to="/app/collections" replace />;
 
@@ -143,7 +148,12 @@ export function CollectionDetail() {
         <div className="cdet__cards-head">
           <h2 className="text-h2">Cards</h2>
           <div className="cdet__cards-actions">
-            <button className="btn-ghost" onClick={() => setCardModal({ mode: "create" })}>
+            <button
+              className="btn-ghost"
+              onClick={() => !atCardLimit && setCardModal({ mode: "create" })}
+              disabled={atCardLimit}
+              title={atCardLimit ? "Card limit reached — upgrade to Pro" : undefined}
+            >
               <Plus size={14} strokeWidth={2} />
               Add card
             </button>
@@ -153,6 +163,10 @@ export function CollectionDetail() {
             </Link>
           </div>
         </div>
+
+        {atCardLimit && (
+          <UpgradePrompt reason="You've reached the 50-card limit per collection on the Free plan. Upgrade for unlimited cards." />
+        )}
 
         <div className="cdet__cards">
           {collection.cards.map((card, i) => (
