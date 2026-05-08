@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -271,13 +271,9 @@ export function Login() {
                 <input type="checkbox" required />
                 <span>
                   I agree to the{" "}
-                  <a href="#" onClick={(e) => e.preventDefault()}>
-                    Terms
-                  </a>{" "}
+                  <Link to="/terms">Terms of Service</Link>{" "}
                   and{" "}
-                  <a href="#" onClick={(e) => e.preventDefault()}>
-                    Privacy Policy
-                  </a>
+                  <Link to="/privacy">Privacy Policy</Link>
                   .
                 </span>
               </label>
