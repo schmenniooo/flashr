@@ -13,11 +13,13 @@ import { Onboarding } from "./pages/Onboarding";
 import { Landing } from "./pages/Landing";
 import { Imprint } from "./pages/Imprint";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
+import { TermsOfService } from "./pages/TermsOfService";
 
 const router = createBrowserRouter([
   { path: "/", element: <Landing /> },
   { path: "/impressum", element: <Imprint /> },
   { path: "/datenschutz", element: <PrivacyPolicy /> },
+  { path: "/terms", element: <TermsOfService /> },
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Login /> },
   { path: "/auth/callback", element: <OAuthCallback /> },
