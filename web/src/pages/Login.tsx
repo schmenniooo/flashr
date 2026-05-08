@@ -273,7 +273,7 @@ export function Login() {
                   I agree to the{" "}
                   <Link to="/terms">Terms of Service</Link>{" "}
                   and{" "}
-                  <Link to="/datenschutz">Privacy Policy</Link>
+                  <Link to="/privacy">Privacy Policy</Link>
                   .
                 </span>
               </label>

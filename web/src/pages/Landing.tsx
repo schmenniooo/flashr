@@ -289,8 +289,8 @@ export function Landing() {
         <div className="landing-footer-sub">
           <p className="landing-footer-copy">© {new Date().getFullYear()} flashr</p>
           <nav className="landing-footer-legal">
-            <Link to="/impressum" className="landing-footer-link">Impressum</Link>
-            <Link to="/datenschutz" className="landing-footer-link">Datenschutz</Link>
+            <Link to="/impressum" className="landing-footer-link">Imprint</Link>
+            <Link to="/privacy" className="landing-footer-link">Privacy Policy</Link>
           </nav>
         </div>
       </footer>

@@ -16,10 +16,7 @@ export function TermsOfService() {
 
       <main className="legal-content">
         <h1 className="legal-title">Terms of Service</h1>
-        <p className="legal-meta">
-          Effective date:{" "}
-          {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-        </p>
+        <p className="legal-meta">Effective date: May 8, 2026</p>
 
         <section className="legal-section">
           <h2>1. Acceptance of Terms</h2>
@@ -73,8 +70,9 @@ export function TermsOfService() {
           <h3>4.1 Free and Pro Plans</h3>
           <p>
             flashr offers a free tier with limited features and a Pro subscription at
-            €7.99/month. The features included in each plan are described on our pricing page
-            and may change with reasonable notice.
+            €7.99/month. The features included in each plan are described on our pricing page.
+            We will give you at least 30 days' notice by email before any price increase takes
+            effect, giving you the opportunity to cancel before the new price applies.
           </p>
 
           <h3>4.2 Recurring Billing</h3>
@@ -216,7 +214,7 @@ export function TermsOfService() {
           </p>
           <p>
             Upon termination, your data will be deleted in accordance with our{" "}
-            <Link to="/datenschutz">Privacy Policy</Link>.
+            <Link to="/privacy">Privacy Policy</Link>.
           </p>
         </section>
 
@@ -248,7 +246,41 @@ export function TermsOfService() {
         <hr className="legal-divider" />
 
         <section className="legal-section">
-          <h2>12. Contact</h2>
+          <h2>12. Intellectual Property</h2>
+          <p>
+            The flashr name, logo, brand, and software are owned by Ennio Schmidt and are
+            protected by applicable intellectual property laws. Nothing in these Terms grants
+            you any right to use our trademarks, brand, or proprietary technology beyond what
+            is necessary to use the Service as intended.
+          </p>
+        </section>
+
+        <hr className="legal-divider" />
+
+        <section className="legal-section">
+          <h2>13. Severability</h2>
+          <p>
+            If any provision of these Terms is found to be unenforceable or invalid under
+            applicable law, that provision will be limited or removed to the minimum extent
+            necessary, and the remaining provisions will continue in full force and effect.
+          </p>
+        </section>
+
+        <hr className="legal-divider" />
+
+        <section className="legal-section">
+          <h2>14. Language</h2>
+          <p>
+            These Terms are provided in English. Where required by applicable law, a German
+            translation may be made available. In case of conflict between language versions,
+            the German version shall prevail for users located in Germany or Austria.
+          </p>
+        </section>
+
+        <hr className="legal-divider" />
+
+        <section className="legal-section">
+          <h2>15. Contact</h2>
           <p>
             Questions about these Terms? Reach us at{" "}
             <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>.

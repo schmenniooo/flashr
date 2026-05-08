@@ -18,7 +18,7 @@ import { TermsOfService } from "./pages/TermsOfService";
 const router = createBrowserRouter([
   { path: "/", element: <Landing /> },
   { path: "/impressum", element: <Imprint /> },
-  { path: "/datenschutz", element: <PrivacyPolicy /> },
+  { path: "/privacy", element: <PrivacyPolicy /> },
   { path: "/terms", element: <TermsOfService /> },
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Login /> },

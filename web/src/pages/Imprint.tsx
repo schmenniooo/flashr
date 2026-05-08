@@ -15,71 +15,85 @@ export function Imprint() {
       </nav>
 
       <main className="legal-content">
-        <h1 className="legal-title">Impressum</h1>
-        <p className="legal-meta">Angaben gemäß § 5 TMG</p>
+        <h1 className="legal-title">Imprint</h1>
+        <p className="legal-meta">Information pursuant to § 5 TMG (German Telemedia Act)</p>
 
         <section className="legal-section">
-          <h2>Anbieter</h2>
+          <h2>Service Provider</h2>
           <p>
             Ennio Schmidt<br />
-            [Straße Hausnummer]<br />
-            [PLZ Ort]<br />
-            Deutschland
+            [Street Address]<br />
+            [Postal Code, City]<br />
+            Germany
           </p>
         </section>
 
         <hr className="legal-divider" />
 
         <section className="legal-section">
-          <h2>Kontakt</h2>
+          <h2>Contact</h2>
           <p>
-            E-Mail: <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
+            Email: <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
           </p>
         </section>
 
         <hr className="legal-divider" />
 
         <section className="legal-section">
-          <h2>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
+          <h2>Responsible for Content pursuant to § 55(2) RStV</h2>
           <p>
             Ennio Schmidt<br />
-            [Straße Hausnummer]<br />
-            [PLZ Ort]
+            [Street Address]<br />
+            [Postal Code, City]
           </p>
         </section>
 
         <hr className="legal-divider" />
 
         <section className="legal-section">
-          <h2>Haftungsausschluss</h2>
-          <h3>Haftung für Inhalte</h3>
+          <h2>Dispute Resolution</h2>
           <p>
-            Als Diensteanbieter sind wir gemäß § 7 Abs. 1 TMG für eigene Inhalte auf diesen Seiten
-            nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 TMG sind wir als
-            Diensteanbieter jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde
-            Informationen zu überwachen oder nach Umständen zu forschen, die auf eine rechtswidrige
-            Tätigkeit hinweisen.
+            The European Commission provides a platform for online dispute resolution (ODR):{" "}
+            <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">
+              ec.europa.eu/consumers/odr
+            </a>
+            . We are not obligated to participate in alternative dispute resolution proceedings
+            before a consumer arbitration board, but we make every effort to resolve disputes
+            directly with our users.
+          </p>
+        </section>
+
+        <hr className="legal-divider" />
+
+        <section className="legal-section">
+          <h2>Liability for Content</h2>
+          <p>
+            As a service provider, we are responsible for our own content on these pages in
+            accordance with general law (§ 7(1) TMG). However, pursuant to §§ 8–10 TMG, we are
+            not obligated to monitor transmitted or stored third-party information or to
+            investigate circumstances indicating unlawful activity.
           </p>
           <p>
-            Verpflichtungen zur Entfernung oder Sperrung der Nutzung von Informationen nach den
-            allgemeinen Gesetzen bleiben hiervon unberührt. Eine diesbezügliche Haftung ist jedoch
-            erst ab dem Zeitpunkt der Kenntnis einer konkreten Rechtsverletzung möglich. Bei
-            Bekanntwerden von entsprechenden Rechtsverletzungen werden wir diese Inhalte umgehend
-            entfernen.
+            Obligations to remove or block the use of information under general law remain
+            unaffected. Liability in this regard is only possible from the point in time at which
+            a specific infringement becomes known. Upon becoming aware of any such violations, we
+            will remove the relevant content immediately.
           </p>
-          <h3>Haftung für Links</h3>
+
+          <h2>Liability for Links</h2>
           <p>
-            Unser Angebot enthält Links zu externen Websites Dritter, auf deren Inhalte wir keinen
-            Einfluss haben. Deshalb können wir für diese fremden Inhalte auch keine Gewähr
-            übernehmen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder
-            Betreiber der Seiten verantwortlich.
+            Our website contains links to external third-party websites over whose content we
+            have no control. We therefore accept no liability for such external content. The
+            respective provider or operator of linked pages is always responsible for their
+            content.
           </p>
-          <h3>Urheberrecht</h3>
+
+          <h2>Copyright</h2>
           <p>
-            Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen Seiten unterliegen
-            dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art
-            der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen
-            Zustimmung des jeweiligen Autors bzw. Erstellers.
+            The content and works created by the site operator on these pages are subject to
+            German copyright law. Reproduction, editing, distribution, or any form of
+            exploitation beyond the limits of copyright law requires the written consent of
+            the respective author or creator.
           </p>
         </section>
       </main>
