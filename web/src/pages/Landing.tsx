@@ -285,7 +285,13 @@ export function Landing() {
             <a href="#faq" className="landing-footer-link">FAQ</a>
             <Link to="/login" className="landing-footer-link">Log in</Link>
           </nav>
+        </div>
+        <div className="landing-footer-sub">
           <p className="landing-footer-copy">© {new Date().getFullYear()} flashr</p>
+          <nav className="landing-footer-legal">
+            <Link to="/impressum" className="landing-footer-link">Impressum</Link>
+            <Link to="/datenschutz" className="landing-footer-link">Datenschutz</Link>
+          </nav>
         </div>
       </footer>
     </div>
