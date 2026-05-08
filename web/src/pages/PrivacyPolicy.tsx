@@ -25,7 +25,7 @@ export function PrivacyPolicy() {
             dieser Website ist:
           </p>
           <p>
-            [Vorname Nachname]<br />
+            Ennio Schmidt<br />
             [Straße Hausnummer]<br />
             [PLZ Ort]<br />
             Deutschland<br />

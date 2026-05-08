@@ -21,7 +21,7 @@ export function Imprint() {
         <section className="legal-section">
           <h2>Anbieter</h2>
           <p>
-            [Vorname Nachname]<br />
+            Ennio Schmidt<br />
             [Straße Hausnummer]<br />
             [PLZ Ort]<br />
             Deutschland
@@ -42,7 +42,7 @@ export function Imprint() {
         <section className="legal-section">
           <h2>Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV</h2>
           <p>
-            [Vorname Nachname]<br />
+            Ennio Schmidt<br />
             [Straße Hausnummer]<br />
             [PLZ Ort]
           </p>
