@@ -287,7 +287,7 @@ export function TermsOfService() {
           </p>
           <p>
             Operator: Ennio Schmidt, Deutschland. Full contact details in the{" "}
-            <Link to="/impressum">Imprint</Link>.
+            <Link to="/imprint">Imprint</Link>.
           </p>
         </section>
       </main>
