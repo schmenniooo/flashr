@@ -206,10 +206,5 @@ export function resetLocalDb() {
   emit();
 }
 
-// Expose helpers on window for manual testing in the browser console.
-if (typeof window !== "undefined") {
-  (window as unknown as Record<string, unknown>).flashrResetDb = resetLocalDb;
-}
-
 // Seed data exported for use by auth actions (demo sign-in).
 export { seedCollections, seedFolders };
