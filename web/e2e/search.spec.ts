@@ -21,7 +21,9 @@ test.describe("global search", () => {
     const input = page.getByPlaceholder(/search collections, cards, or folders/i);
     await input.click();
     await input.fill("a");
-    await expect(page.getByRole("listbox")).toBeVisible();
+    // Wait for actual result options — the listbox becomes visible immediately,
+    // but results are populated after the 150ms search debounce fires.
+    await expect(page.getByRole("option").first()).toBeVisible();
 
     await input.press("Enter");
     await expect(page).toHaveURL(/\/app\/(c\/|collections)/);
