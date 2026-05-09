@@ -202,3 +202,5 @@ button {
   padding: var(--space-5);
   text-align: center;
 }
+
+.badge__icon { margin-right: 4px; }

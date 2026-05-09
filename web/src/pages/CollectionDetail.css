@@ -319,3 +319,6 @@
     justify-content: flex-end;
   }
 }
+
+.cdet__title { margin-top: var(--space-1); }
+.cdet__desc  { margin-top: var(--space-1); }

@@ -94,7 +94,7 @@ export function Dashboard() {
         <article className="dash__session">
           <div className="dash__session-left">
             <span className="badge">
-              <Zap size={11} strokeWidth={2} style={{ marginRight: 5 }} />
+              <Zap size={11} strokeWidth={2} className="badge__icon" />
               Today's session
             </span>
             <h2 className="text-h1 dash__session-title">
@@ -104,7 +104,7 @@ export function Dashboard() {
             </h2>
             <p className="text-body dash__session-sub">
               {dueCollection
-                ? <>Start with <strong style={{ color: "var(--color-text)" }}>{dueCollection.name}</strong> — you last studied it {dueCollection.lastStudied}.</>
+                ? <>Start with <strong className="dash__strong">{dueCollection.name}</strong> — you last studied it {dueCollection.lastStudied}.</>
                 : <>Create your first collection to get started.</>}
             </p>
             <div className="dash__session-ctas">
@@ -207,15 +207,7 @@ export function Dashboard() {
           <div className="dash__section-head">
             <div>
               <h2 className="text-h2">
-                <Lightbulb
-                  size={16}
-                  strokeWidth={2}
-                  style={{
-                    color: "var(--color-accent)",
-                    marginRight: 6,
-                    verticalAlign: -2,
-                  }}
-                />
+                <Lightbulb size={16} strokeWidth={2} className="dash__section-icon" />
                 Suggested for you
               </h2>
               <p className="text-body">
@@ -295,7 +287,7 @@ export function Dashboard() {
                 <div>
                   <div className="dash__activity-label">{a.label}</div>
                   <div className="dash__activity-meta">
-                    {a.collection} · <span className="text-meta" style={{ textTransform: "none" }}>{a.time}</span>
+                    {a.collection} · <span className="text-meta dash__activity-time">{a.time}</span>
                   </div>
                 </div>
               </li>

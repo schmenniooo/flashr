@@ -109,3 +109,6 @@
 .modal__body--flush { padding: 0; }
 .modal__field-error { color: var(--color-danger, #f87171); font-size: 0.8125rem; margin-top: var(--space-1); }
 .modal__emoji-input { max-width: 80px; text-align: center; font-size: 1.125rem; }
+
+.modal__form   { display: flex; flex-direction: column; gap: var(--space-4); }
+.modal__strong { color: var(--color-text); }

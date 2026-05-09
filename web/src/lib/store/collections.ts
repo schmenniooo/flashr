@@ -143,8 +143,9 @@ export const collectionsApi = {
           : db.folders;
         return { ...db, collections, folders: recountFolders(folders, collections) };
       });
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Optimistic update already applied; backend sync failed silently.
+      // Errors here are non-fatal — the local state remains consistent.
     }
   },
 

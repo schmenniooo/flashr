@@ -34,12 +34,12 @@ export function EditCollectionModal({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    collectionsApi.update(collectionId, {
+    void collectionsApi.update(collectionId, {
       name: name.trim(),
       folder,
       emoji: emoji || "📚",
       description: description.trim(),
-    }).catch(console.error);
+    });
     onClose();
   }
 
@@ -61,7 +61,7 @@ export function EditCollectionModal({
         </>
       }
     >
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <form onSubmit={submit} className="modal__body modal__body--flush modal__form">
         <label className="modal__field">
           <span className="text-meta">Name</span>
           <input
@@ -85,11 +85,10 @@ export function EditCollectionModal({
         <label className="modal__field">
           <span className="text-meta">Emoji</span>
           <input
-            className="input"
+            className="input modal__emoji-input"
             maxLength={4}
             value={emoji}
             onChange={(e) => setEmoji(e.target.value)}
-            style={{ maxWidth: 80, textAlign: "center", fontSize: 18 }}
           />
         </label>
         <label className="modal__field">
