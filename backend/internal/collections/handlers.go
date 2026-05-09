@@ -51,21 +51,36 @@ func (s *Service) create(c *gin.Context) {
 	}
 
 	userID := auth.UserIDFromContext(c)
+	ctx := c.Request.Context()
 
-	// Free plan: max 3 collections.
-	var plan string
-	var count int
-	_ = s.pool.QueryRow(c.Request.Context(),
-		`SELECT plan, (SELECT COUNT(*) FROM collections WHERE user_id = $1) FROM users WHERE id = $1`,
-		userID,
-	).Scan(&plan, &count)
-	if plan == domain.PlanFree && count >= 3 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "collection limit reached — upgrade to Pro for unlimited collections"})
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create collection"})
 		return
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock the user row so concurrent requests for the same user are serialised
+	// through this check, preventing the free-plan limit from being exceeded.
+	var plan string
+	if err := tx.QueryRow(ctx, `SELECT plan FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&plan); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create collection"})
+		return
+	}
+	if plan == domain.PlanFree {
+		var count int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM collections WHERE user_id = $1`, userID).Scan(&count); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create collection"})
+			return
+		}
+		if count >= 3 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "collection limit reached — upgrade to Pro for unlimited collections"})
+			return
+		}
 	}
 
 	var col Collection
-	err := s.pool.QueryRow(c.Request.Context(), `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO collections (user_id, name, folder, emoji, description)
 		VALUES ($1, $2, NULLIF($3,''), $4, $5)
 		RETURNING id, name, COALESCE(folder,''), emoji, description, is_public, created_at
@@ -73,6 +88,10 @@ func (s *Service) create(c *gin.Context) {
 		&col.ID, &col.Name, &col.Folder, &col.Emoji, &col.Description, &col.IsPublic, &col.CreatedAt,
 	)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create collection"})
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create collection"})
 		return
 	}
@@ -137,6 +156,7 @@ func (s *Service) delete(c *gin.Context) {
 func (s *Service) createCard(c *gin.Context) {
 	userID := auth.UserIDFromContext(c)
 	colID := c.Param("id")
+	ctx := c.Request.Context()
 
 	var body struct {
 		Question string `json:"question" binding:"required"`
@@ -147,26 +167,23 @@ func (s *Service) createCard(c *gin.Context) {
 		return
 	}
 
-	// Free plan: max 50 cards per collection.
-	var cardPlan string
-	var cardCount int
-	_ = s.pool.QueryRow(c.Request.Context(),
-		`SELECT u.plan, COUNT(k.id)
-		 FROM users u
-		 LEFT JOIN collections c ON c.user_id = u.id AND c.id = $2
-		 LEFT JOIN cards k ON k.collection_id = c.id
-		 WHERE u.id = $1
-		 GROUP BY u.plan`,
-		userID, colID,
-	).Scan(&cardPlan, &cardCount)
-	if cardPlan == domain.PlanFree && cardCount >= 50 {
-		c.JSON(http.StatusForbidden, gin.H{"error": "card limit reached — upgrade to Pro for unlimited cards"})
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create card"})
+		return
+	}
+	defer tx.Rollback(ctx)
+
+	// Lock user row to serialise concurrent card-creation requests.
+	var plan string
+	if err := tx.QueryRow(ctx, `SELECT plan FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&plan); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create card"})
 		return
 	}
 
-	// Verify collection ownership before inserting.
+	// Verify collection ownership.
 	var exists bool
-	if err := s.pool.QueryRow(c.Request.Context(),
+	if err := tx.QueryRow(ctx,
 		`SELECT EXISTS(SELECT 1 FROM collections WHERE id = $1 AND user_id = $2)`,
 		colID, userID,
 	).Scan(&exists); err != nil || !exists {
@@ -174,8 +191,23 @@ func (s *Service) createCard(c *gin.Context) {
 		return
 	}
 
+	// Free plan: max 50 cards per collection.
+	if plan == domain.PlanFree {
+		var cardCount int
+		if err := tx.QueryRow(ctx,
+			`SELECT COUNT(*) FROM cards WHERE collection_id = $1`, colID,
+		).Scan(&cardCount); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create card"})
+			return
+		}
+		if cardCount >= 50 {
+			c.JSON(http.StatusForbidden, gin.H{"error": "card limit reached — upgrade to Pro for unlimited cards"})
+			return
+		}
+	}
+
 	var card Card
-	err := s.pool.QueryRow(c.Request.Context(), `
+	err = tx.QueryRow(ctx, `
 		INSERT INTO cards (collection_id, question, answer)
 		VALUES ($1, $2, $3)
 		RETURNING id, question, answer, ai_generated, created_at
@@ -183,6 +215,10 @@ func (s *Service) createCard(c *gin.Context) {
 		&card.ID, &card.Question, &card.Answer, &card.AIGenerated, &card.CreatedAt,
 	)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create card"})
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create card"})
 		return
 	}

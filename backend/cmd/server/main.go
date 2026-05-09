@@ -85,10 +85,17 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "postgres": dbStatus, "ollama": ollamaStatus})
 	})
 
-	authSvc.RegisterRoutes(api.Group("/auth"))
+	// Route groups with per-group request timeouts.
+	// Auth + collections: 15 s is generous for DB-only work.
+	// Billing: 30 s allows for Stripe API latency.
+	// AI: no deadline here — the Ollama client enforces a 2-minute HTTP timeout.
+	authSvc.RegisterRoutes(api.Group("/auth", timeoutMiddleware(15*time.Second)))
 
 	collectionsSvc := collections.NewService(pool)
-	collectionsSvc.RegisterRoutes(api, authSvc.RequireUser())
+	collectionsSvc.RegisterRoutes(
+		api.Group("", timeoutMiddleware(15*time.Second)),
+		authSvc.RequireUser(),
+	)
 
 	var aiClient *ai.Client
 	if cfg.OllamaURL != "" {
@@ -102,7 +109,10 @@ func main() {
 		ProPriceID:    cfg.StripeProPriceID,
 		FrontendURL:   cfg.FrontendURL,
 	})
-	billingSvc.RegisterRoutes(api, authSvc.RequireUser())
+	billingSvc.RegisterRoutes(
+		api.Group("", timeoutMiddleware(30*time.Second)),
+		authSvc.RequireUser(),
+	)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -148,6 +158,17 @@ type httpError struct{ status int }
 
 func (e *httpError) Error() string {
 	return http.StatusText(e.status)
+}
+
+// timeoutMiddleware cancels the request context after d. Downstream handlers
+// that respect ctx.Done() (DB queries, HTTP calls) will unblock promptly.
+func timeoutMiddleware(d time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), d)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
 }
 
 func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {

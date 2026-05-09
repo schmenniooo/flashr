@@ -7,7 +7,9 @@ export function OAuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    // Token is delivered in the URL fragment (#token=…) so it never appears
+    // in server access logs or the Referer header on subsequent navigation.
+    const params = new URLSearchParams(window.location.hash.slice(1));
     const token = params.get("token");
 
     if (!token) {

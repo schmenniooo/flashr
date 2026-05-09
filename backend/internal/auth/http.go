@@ -5,9 +5,32 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
+
+	"github.com/smithlabs/flashr/backend/pkg/domain"
 )
+
+// authLimiters holds a token-bucket rate limiter keyed by client IP.
+// Allows 10 auth attempts per minute with a burst of 10.
+// Entries are never evicted — acceptable at SaaS scale; swap for an
+// LRU cache if the service is exposed to the open internet at high volume.
+var (
+	authLimiters   sync.Map
+	authRateLimit  = rate.Every(time.Minute / 10) // 10 req / min
+	authRateBurst  = 10
+)
+
+func authRateLimiter(c *gin.Context) {
+	ip := c.ClientIP()
+	v, _ := authLimiters.LoadOrStore(ip, rate.NewLimiter(authRateLimit, authRateBurst))
+	if !v.(*rate.Limiter).Allow() {
+		c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many requests — try again shortly"})
+	}
+}
 
 const userIDContextKey = "user_id"
 
@@ -36,8 +59,8 @@ type loginRequest struct {
 //	GET  /google          (redirect to Google consent screen)
 //	GET  /google/callback (OAuth callback — issues JWT and redirects to frontend)
 func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.POST("/signup", s.handleSignUp)
-	rg.POST("/login", s.handleLogin)
+	rg.POST("/signup", authRateLimiter, s.handleSignUp)
+	rg.POST("/login", authRateLimiter, s.handleLogin)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
 	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	if s.GoogleEnabled() {
@@ -73,7 +96,7 @@ func (s *Service) handleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&expires=%d",
+	redirectURL := fmt.Sprintf("%s/auth/callback#token=%s&expires=%d",
 		s.frontendURL, token, expires.Unix())
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -101,7 +124,7 @@ func (s *Service) handleGithubCallback(c *gin.Context) {
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&expires=%d",
+	redirectURL := fmt.Sprintf("%s/auth/callback#token=%s&expires=%d",
 		s.frontendURL, token, expires.Unix())
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -189,7 +212,11 @@ func (s *Service) RequirePro() gin.HandlerFunc {
 		err := s.pool.QueryRow(c.Request.Context(),
 			`SELECT plan FROM users WHERE id = $1`, userID,
 		).Scan(&plan)
-		if err != nil || plan != "pro" {
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not verify plan"})
+			return
+		}
+		if plan != domain.PlanPro {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
 			return
 		}
