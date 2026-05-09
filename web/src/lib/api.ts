@@ -4,7 +4,9 @@
 //  - Attaches the JWT from localStorage as Authorization: Bearer <token>
 //  - Throws ApiError with the server's error message on non-2xx responses
 
-const TOKEN_KEY = "flashr:token:v1";
+import { STORAGE_KEYS } from "./storageKeys";
+
+const TOKEN_KEY = STORAGE_KEYS.TOKEN;
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 export class ApiError extends Error {
