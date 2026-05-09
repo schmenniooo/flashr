@@ -28,6 +28,8 @@ import {
   selectCollections,
   selectFolders,
   selectCurrentUser,
+  selectTotalCards,
+  selectCardsDueToday,
 } from "../lib/store";
 import { NewFolderModal } from "./NewFolderModal";
 import "./AppShell.css";
@@ -44,18 +46,16 @@ export function AppShell() {
   const collections = useDb(selectCollections);
   const folders = useDb(selectFolders);
   const user = useDb(selectCurrentUser);
+  const totalCards = useDb(selectTotalCards);
+  const cardsDueToday = useDb(selectCardsDueToday);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [searchIndex, setSearchIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
-  const cardsDueToday = collections.reduce(
-    (s, c) => s + c.cards.filter((k) => k.mastery !== "known").length,
-    0,
-  );
 
   const routeKey = `${location.pathname}?${searchParams.toString()}`;
   const [prevRouteKey, setPrevRouteKey] = useState(routeKey);

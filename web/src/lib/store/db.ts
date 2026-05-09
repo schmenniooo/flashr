@@ -169,6 +169,12 @@ export const selectCollections = (db: Db) => db.collections;
 export const selectFolders = (db: Db) => db.folders;
 export const selectCollection = (id: string) => (db: Db) =>
   db.collections.find((c) => c.id === id);
+export const selectTotalCards = (db: Db) =>
+  db.collections.reduce((s, c) => s + c.cards.length, 0);
+export const selectCardsDueToday = (db: Db) =>
+  db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery !== "known").length, 0);
+export const selectKnownCards = (db: Db) =>
+  db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery === "known").length, 0);
 
 // ─────────────────────────────────────────────────────────────
 // Shared helpers (used across action modules)
