@@ -285,21 +285,6 @@ export const collections: Collection[] = [
   },
 ];
 
-export const stats = {
-  streak: 12,
-  cardsDueToday: 23,
-  cardsLearnedThisWeek: 147,
-  totalCards: collections.reduce((sum, c) => sum + c.cards.length, 0),
-  totalCollections: collections.length,
-};
-
-export const recentActivity = [
-  { label: "Studied 5 cards", collection: "Biochemistry — Enzyme Kinetics", time: "2 hours ago" },
-  { label: "Generated 8 cards", collection: "Philosophy · Kant", time: "this morning" },
-  { label: "PDF uploaded", collection: "Biochemistry — Enzyme Kinetics", time: "yesterday" },
-  { label: "Collection created", collection: "French · Subjunctive", time: "2 weeks ago" },
-];
-
 // ─────────────────────────────────────────────────────────────
 // Suggested collections — hand-curated catalog keyed by learner type.
 // Replace with backend recommendations once the Go API lands.

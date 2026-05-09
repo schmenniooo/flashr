@@ -80,7 +80,7 @@ function adoptBackendUser(
   });
 }
 
-export type AuthResult = { ok: true } | { ok: false; error: string };
+type AuthResult = { ok: true } | { ok: false; error: string };
 
 function toAuthResult(err: unknown): AuthResult {
   if (err instanceof ApiError) return { ok: false, error: err.message };
@@ -172,42 +172,6 @@ export const auth = {
       session: { userId: demo.id },
       collections: JSON.parse(JSON.stringify(seedCollections)),
       folders: JSON.parse(JSON.stringify(seedFolders)),
-    }));
-  },
-
-  signInAsOnboardingTest() {
-    const id = "onboarding-test-user";
-    const testUser: StoredUser = {
-      id,
-      streak: 0,
-      email: "onboarding-test@flashr.io",
-      password: "onboarding",
-      firstName: "",
-      lastName: "",
-      username: "onboarding-test",
-      oauthProvider: "google",
-      plan: "free",
-      planExpiresAt: null,
-      memberSince: new Date().toLocaleString("en-US", {
-        month: "long",
-        year: "numeric",
-      }),
-      avatarUrl: null,
-      bio: "",
-      timezone: "Europe/Berlin",
-      language: "English",
-      dailyGoal: 20,
-      emailReminders: true,
-      weeklyDigest: false,
-      age: null,
-      learnerTypes: [],
-      onboardingCompleted: false,
-      dismissedSuggestions: [],
-    };
-    setState((db) => ({
-      ...db,
-      users: [...db.users.filter((u) => u.id !== id), testUser],
-      session: { userId: id },
     }));
   },
 
