@@ -167,6 +167,24 @@ backend/
 
 ---
 
+## Known Bugs Fixed & Architectural Decisions
+
+### Stripe billing: never rely on webhooks alone for plan state
+
+**Problem (fixed 2026-05-09):** After subscribing or cancelling, the plan badge in the app didn't update. Root cause: Stripe's success/portal return redirect happens *before* the webhook fires. If webhooks aren't configured at all (common in new environments), the DB is never updated.
+
+**Pattern to always follow:**
+
+- **Upgrade (free → pro):** The Stripe Checkout `success_url` includes `{CHECKOUT_SESSION_ID}`. On redirect, the frontend calls `POST /api/billing/fulfill` with the session ID. The backend fetches the session directly from Stripe, verifies ownership via `stripe_customer_id`, and immediately writes `plan='pro'` + `stripe_subscription_id` to the DB. Then `auth.refreshUser()` fetches the updated plan.
+
+- **Cancel/downgrade (pro → free):** After Customer Portal return, the frontend calls `POST /api/billing/sync`. The backend lists all Stripe subscriptions for the customer, determines the canonical plan, and writes it to the DB. Then `auth.refreshUser()` fetches the updated plan.
+
+- **Webhooks** remain registered and process events, but they are a *secondary* sync — not the primary source of truth for the post-redirect flow.
+
+**Relevant files:** `backend/internal/billing/billing.go` (`FulfillCheckout`, `SyncPlan`), `backend/internal/billing/http.go` (`/billing/fulfill`, `/billing/sync`), `web/src/pages/Profile.tsx` (calls fulfill/sync before refreshUser), `web/src/lib/store/billing.ts` (`fulfill`, `sync`).
+
+---
+
 ## Working Rules
 
 - Treat ROADMAP.md as authoritative for scope and architecture. If requirements change, update the roadmap rather than diverging silently.

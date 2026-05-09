@@ -16,8 +16,6 @@ export const billingApi = {
     window.location.href = url;
   },
 
-  /** Verify a completed Checkout Session and grant Pro immediately.
-   *  Call this on the checkout success redirect before refreshing user state. */
   async fulfill(sessionId: string): Promise<void> {
     await api("/billing/fulfill", {
       method: "POST",
@@ -25,8 +23,6 @@ export const billingApi = {
     });
   },
 
-  /** Sync the user's plan from Stripe's live subscription state.
-   *  Call this on portal return so cancellations are reflected immediately. */
   async sync(): Promise<void> {
     await api("/billing/sync", { method: "POST" });
   },
