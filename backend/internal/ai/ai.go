@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // CardDraft is a single generated question-answer pair.
@@ -29,14 +30,19 @@ func NewClient(baseURL, model string) *Client {
 	return &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		model:   model,
-		http:    &http.Client{Timeout: 5 * time.Minute},
+		http:    &http.Client{Timeout: 2 * time.Minute},
 	}
 }
 
 // GenerateCards sends text to Ollama and returns a list of flashcard drafts.
 func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, error) {
-	if len(text) > 8000 {
-		text = text[:8000]
+	const maxBytes = 8000
+	if len(text) > maxBytes {
+		// Truncate at a valid UTF-8 boundary so we never split a multi-byte rune.
+		text = text[:maxBytes]
+		for !utf8.ValidString(text) {
+			text = text[:len(text)-1]
+		}
 	}
 	return c.callOllama(ctx, buildPrompt(text))
 }

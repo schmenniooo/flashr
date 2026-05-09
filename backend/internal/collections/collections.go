@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/smithlabs/flashr/backend/internal/auth"
+	"github.com/smithlabs/flashr/backend/pkg/domain"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -191,7 +192,7 @@ func (s *Service) create(c *gin.Context) {
 		`SELECT plan, (SELECT COUNT(*) FROM collections WHERE user_id = $1) FROM users WHERE id = $1`,
 		userID,
 	).Scan(&plan, &count)
-	if plan == "free" && count >= 3 {
+	if plan == domain.PlanFree && count >= 3 {
 		c.JSON(http.StatusForbidden, gin.H{"error": "collection limit reached — upgrade to Pro for unlimited collections"})
 		return
 	}
@@ -291,7 +292,7 @@ func (s *Service) createCard(c *gin.Context) {
 		 GROUP BY u.plan`,
 		userID, colID,
 	).Scan(&cardPlan, &cardCount)
-	if cardPlan == "free" && cardCount >= 50 {
+	if cardPlan == domain.PlanFree && cardCount >= 50 {
 		c.JSON(http.StatusForbidden, gin.H{"error": "card limit reached — upgrade to Pro for unlimited cards"})
 		return
 	}
