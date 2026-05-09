@@ -64,7 +64,13 @@ export function AppShell() {
     setSidebarOpen(false);
     setSearchOpen(false);
     setSearchQuery("");
+    setDebouncedQuery("");
   }
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQuery(searchQuery), 150);
+    return () => clearTimeout(id);
+  }, [searchQuery]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -101,7 +107,7 @@ export function AppShell() {
     | { kind: "folder"; id: string; label: string; subtitle: string; emoji: string };
 
   const searchResults = useMemo<SearchHit[]>(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return [];
     const hits: SearchHit[] = [];
 
@@ -149,11 +155,11 @@ export function AppShell() {
     }
 
     return hits.slice(0, 12);
-  }, [searchQuery, collections, folders]);
+  }, [debouncedQuery, collections, folders]);
 
-  const [prevSearchQuery, setPrevSearchQuery] = useState(searchQuery);
-  if (prevSearchQuery !== searchQuery) {
-    setPrevSearchQuery(searchQuery);
+  const [prevDebouncedQuery, setPrevDebouncedQuery] = useState(debouncedQuery);
+  if (prevDebouncedQuery !== debouncedQuery) {
+    setPrevDebouncedQuery(debouncedQuery);
     setSearchIndex(0);
   }
 
