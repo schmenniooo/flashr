@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
-	"strings"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -15,36 +17,17 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/billing"
 	"github.com/smithlabs/flashr/backend/internal/collections"
 	"github.com/smithlabs/flashr/backend/internal/upload"
+	"github.com/smithlabs/flashr/backend/pkg/config"
 	"github.com/smithlabs/flashr/backend/pkg/db"
 )
 
 func main() {
-	port := envOr("PORT", "8080")
-	dbURL := os.Getenv("DATABASE_URL")
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	ollamaModel := envOr("OLLAMA_MODEL", "llama3.2:3b")
-	jwtSecret := os.Getenv("JWT_SECRET")
-	googleClientID := os.Getenv("GOOGLE_CLIENT_ID")
-	googleClientSecret := os.Getenv("GOOGLE_CLIENT_SECRET")
-	githubClientID := os.Getenv("GITHUB_CLIENT_ID")
-	githubClientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
-	frontendURL := envOr("FRONTEND_URL", "http://localhost:5173")
-	backendURL := envOr("BACKEND_URL", "http://localhost:8080")
-	stripeSecretKey := os.Getenv("STRIPE_SECRET_KEY")
-	stripeWebhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
-	stripeProPriceID := os.Getenv("STRIPE_PRO_PRICE_ID")
-
-	if dbURL == "" {
-		log.Fatal("DATABASE_URL is required")
-	}
-	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET is required")
-	}
+	cfg := config.Load()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	pool, err := db.Connect(ctx, dbURL)
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("postgres: %v", err)
 	}
@@ -57,29 +40,29 @@ func main() {
 	log.Printf("postgres: migrations up to date")
 
 	authSvc, err := auth.NewService(pool, auth.Config{
-		Secret:             jwtSecret,
-		GoogleClientID:     googleClientID,
-		GoogleClientSecret: googleClientSecret,
-		GoogleRedirectURL:  backendURL + "/api/auth/google/callback",
-		GithubClientID:     githubClientID,
-		GithubClientSecret: githubClientSecret,
-		GithubRedirectURL:  backendURL + "/api/auth/github/callback",
-		FrontendURL:        frontendURL,
+		Secret:             cfg.JWTSecret,
+		GoogleClientID:     cfg.GoogleClientID,
+		GoogleClientSecret: cfg.GoogleClientSecret,
+		GoogleRedirectURL:  cfg.BackendURL + "/api/auth/google/callback",
+		GithubClientID:     cfg.GithubClientID,
+		GithubClientSecret: cfg.GithubClientSecret,
+		GithubRedirectURL:  cfg.BackendURL + "/api/auth/github/callback",
+		FrontendURL:        cfg.FrontendURL,
 	})
 	if err != nil {
 		log.Fatalf("auth: %v", err)
 	}
 
-	if ollamaURL != "" {
-		if err := pingOllama(ollamaURL); err != nil {
-			log.Printf("ollama: not reachable at %s: %v", ollamaURL, err)
+	if cfg.OllamaURL != "" {
+		if err := pingOllama(cfg.OllamaURL); err != nil {
+			log.Printf("ollama: not reachable at %s: %v", cfg.OllamaURL, err)
 		} else {
-			log.Printf("ollama: reachable at %s", ollamaURL)
+			log.Printf("ollama: reachable at %s", cfg.OllamaURL)
 		}
 	}
 
 	r := gin.Default()
-	r.Use(corsMiddleware(parseOrigins(os.Getenv("ALLOWED_ORIGINS"))))
+	r.Use(corsMiddleware(cfg.AllowedOrigins))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -91,21 +74,15 @@ func main() {
 		if err := pool.Ping(c.Request.Context()); err != nil {
 			dbStatus = "down: " + err.Error()
 		}
-
 		ollamaStatus := "disabled"
-		if ollamaURL != "" {
-			if err := pingOllama(ollamaURL); err != nil {
+		if cfg.OllamaURL != "" {
+			if err := pingOllama(cfg.OllamaURL); err != nil {
 				ollamaStatus = "down: " + err.Error()
 			} else {
 				ollamaStatus = "up"
 			}
 		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"status":   "ok",
-			"postgres": dbStatus,
-			"ollama":   ollamaStatus,
-		})
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "postgres": dbStatus, "ollama": ollamaStatus})
 	})
 
 	authSvc.RegisterRoutes(api.Group("/auth"))
@@ -114,23 +91,44 @@ func main() {
 	collectionsSvc.RegisterRoutes(api, authSvc.RequireUser())
 
 	var aiClient *ai.Client
-	if ollamaURL != "" {
-		aiClient = ai.NewClient(ollamaURL, ollamaModel)
+	if cfg.OllamaURL != "" {
+		aiClient = ai.NewClient(cfg.OllamaURL, cfg.OllamaModel)
 	}
 	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
 
 	billingSvc := billing.NewService(pool, billing.Config{
-		SecretKey:     stripeSecretKey,
-		WebhookSecret: stripeWebhookSecret,
-		ProPriceID:    stripeProPriceID,
-		FrontendURL:   frontendURL,
+		SecretKey:     cfg.StripeSecretKey,
+		WebhookSecret: cfg.StripeWebhookSecret,
+		ProPriceID:    cfg.StripeProPriceID,
+		FrontendURL:   cfg.FrontendURL,
 	})
 	billingSvc.RegisterRoutes(api, authSvc.RequireUser())
 
-	log.Printf("flashr backend listening on :%s", port)
-	if err := r.Run(":" + port); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
 	}
+
+	// Start server in background so we can listen for shutdown signals.
+	go func() {
+		log.Printf("flashr backend listening on :%s", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server: %v", err)
+		}
+	}()
+
+	// Block until SIGINT or SIGTERM is received (Railway sends SIGTERM on deploy).
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("shutting down gracefully…")
+
+	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutCancel()
+	if err := srv.Shutdown(shutCtx); err != nil {
+		log.Fatalf("forced shutdown: %v", err)
+	}
+	log.Println("server stopped")
 }
 
 func pingOllama(baseURL string) error {
@@ -152,33 +150,6 @@ func (e *httpError) Error() string {
 	return http.StatusText(e.status)
 }
 
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-// parseOrigins splits a comma-separated list of allowed origins, trimming spaces
-// and dropping empty entries. Returns nil if the input is empty.
-func parseOrigins(raw string) []string {
-	if raw == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	out := parts[:0]
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
-// corsMiddleware reflects the request's Origin only if it is in the allowlist.
-// Handles preflight OPTIONS by short-circuiting with 204. If no origins are
-// configured the middleware is a no-op (used for local dev where the Vite
-// proxy makes everything same-origin).
 func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 	allowed := make(map[string]struct{}, len(allowedOrigins))
 	for _, o := range allowedOrigins {
