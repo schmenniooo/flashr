@@ -19,9 +19,9 @@ import (
 // Entries are never evicted — acceptable at SaaS scale; swap for an
 // LRU cache if the service is exposed to the open internet at high volume.
 var (
-	authLimiters   sync.Map
-	authRateLimit  = rate.Every(time.Minute / 10) // 10 req / min
-	authRateBurst  = 10
+	authLimiters  sync.Map
+	authRateLimit = rate.Every(time.Minute / 10) // 10 req / min
+	authRateBurst = 10
 )
 
 func authRateLimiter(c *gin.Context) {
