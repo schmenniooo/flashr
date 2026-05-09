@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -26,7 +26,7 @@ func (s *Service) handleWebhook(c *gin.Context) {
 		IgnoreAPIVersionMismatch: true,
 	})
 	if err != nil {
-		log.Printf("billing: webhook signature error: %v", err)
+		slog.Error("billing: webhook signature error", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid signature"})
 		return
 	}
@@ -35,12 +35,12 @@ func (s *Service) handleWebhook(c *gin.Context) {
 	case "checkout.session.completed":
 		var sess stripe.CheckoutSession
 		if err := json.Unmarshal(event.Data.Raw, &sess); err != nil {
-			log.Printf("billing: unmarshal checkout.session.completed: %v", err)
+			slog.Error("billing: unmarshal checkout.session.completed", "error", err)
 			c.Status(http.StatusBadRequest)
 			return
 		}
 		if err := s.handleCheckoutCompleted(c.Request.Context(), &sess); err != nil {
-			log.Printf("billing: checkout.session.completed: %v", err)
+			slog.Error("billing: checkout.session.completed", "error", err)
 			c.Status(http.StatusInternalServerError)
 			return
 		}
@@ -48,12 +48,12 @@ func (s *Service) handleWebhook(c *gin.Context) {
 	case "customer.subscription.updated":
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
-			log.Printf("billing: unmarshal customer.subscription.updated: %v", err)
+			slog.Error("billing: unmarshal customer.subscription.updated", "error", err)
 			c.Status(http.StatusBadRequest)
 			return
 		}
 		if err := s.handleSubscriptionUpdated(c.Request.Context(), &sub); err != nil {
-			log.Printf("billing: customer.subscription.updated: %v", err)
+			slog.Error("billing: customer.subscription.updated", "error", err)
 			c.Status(http.StatusInternalServerError)
 			return
 		}
@@ -61,12 +61,12 @@ func (s *Service) handleWebhook(c *gin.Context) {
 	case "customer.subscription.deleted":
 		var sub stripe.Subscription
 		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
-			log.Printf("billing: unmarshal customer.subscription.deleted: %v", err)
+			slog.Error("billing: unmarshal customer.subscription.deleted", "error", err)
 			c.Status(http.StatusBadRequest)
 			return
 		}
 		if err := s.handleSubscriptionDeleted(c.Request.Context(), &sub); err != nil {
-			log.Printf("billing: customer.subscription.deleted: %v", err)
+			slog.Error("billing: customer.subscription.deleted", "error", err)
 			c.Status(http.StatusInternalServerError)
 			return
 		}

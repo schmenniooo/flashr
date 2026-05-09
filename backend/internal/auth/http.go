@@ -32,7 +32,10 @@ func authRateLimiter(c *gin.Context) {
 	}
 }
 
-const userIDContextKey = "user_id"
+const (
+	userIDContextKey = "user_id"
+	planContextKey   = "plan"
+)
 
 type tokenResponse struct {
 	Token     string `json:"token"`
@@ -203,29 +206,8 @@ func (s *Service) handleMe(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// RequirePro is gin middleware that aborts with 403 if the authenticated user
-// is not on the pro plan. Must be chained after RequireUser.
-func (s *Service) RequirePro() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userID := UserIDFromContext(c)
-		var plan string
-		err := s.pool.QueryRow(c.Request.Context(),
-			`SELECT plan FROM users WHERE id = $1`, userID,
-		).Scan(&plan)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not verify plan"})
-			return
-		}
-		if plan != domain.PlanPro {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
-			return
-		}
-		c.Next()
-	}
-}
-
 // RequireUser is gin middleware that validates the Authorization: Bearer token
-// and stores the user ID in the request context for downstream handlers.
+// and stores the user ID and plan in the request context for downstream handlers.
 func (s *Service) RequireUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
@@ -234,14 +216,34 @@ func (s *Service) RequireUser() gin.HandlerFunc {
 			return
 		}
 		raw := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		userID, err := s.ParseToken(raw)
+		userID, plan, err := s.ParseToken(raw)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			return
 		}
 		c.Set(userIDContextKey, userID)
+		c.Set(planContextKey, plan)
 		c.Next()
 	}
+}
+
+// RequirePro reads the plan from the JWT claim stored by RequireUser — no
+// extra DB query. Plan accuracy is bounded by token TTL (default 24 h).
+func (s *Service) RequirePro() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if PlanFromContext(c) != domain.PlanPro {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// PlanFromContext returns the plan stored by RequireUser middleware.
+func PlanFromContext(c *gin.Context) string {
+	v, _ := c.Get(planContextKey)
+	plan, _ := v.(string)
+	return plan
 }
 
 // UserIDFromContext returns the authenticated user's ID. Empty if RequireUser

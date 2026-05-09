@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,6 +24,11 @@ import (
 )
 
 func main() {
+	// JSON structured logging for all environments — Railway, Docker, and local.
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
+
 	cfg := config.Load()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -29,15 +36,17 @@ func main() {
 
 	pool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("postgres: %v", err)
+		slog.Error("postgres connect failed", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
-	log.Printf("postgres: connected")
+	slog.Info("postgres connected")
 
 	if err := db.Migrate(ctx, pool); err != nil {
-		log.Fatalf("postgres: migrate: %v", err)
+		slog.Error("postgres migrate failed", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("postgres: migrations up to date")
+	slog.Info("postgres migrations up to date")
 
 	authSvc, err := auth.NewService(pool, auth.Config{
 		Secret:             cfg.JWTSecret,
@@ -50,18 +59,24 @@ func main() {
 		FrontendURL:        cfg.FrontendURL,
 	})
 	if err != nil {
-		log.Fatalf("auth: %v", err)
+		slog.Error("auth service init failed", "error", err)
+		os.Exit(1)
 	}
 
 	if cfg.OllamaURL != "" {
 		if err := pingOllama(cfg.OllamaURL); err != nil {
-			log.Printf("ollama: not reachable at %s: %v", cfg.OllamaURL, err)
+			slog.Warn("ollama not reachable", "url", cfg.OllamaURL, "error", err)
 		} else {
-			log.Printf("ollama: reachable at %s", cfg.OllamaURL)
+			slog.Info("ollama reachable", "url", cfg.OllamaURL)
 		}
 	}
 
-	r := gin.Default()
+	// Replace gin.Default() with gin.New() so we control the middleware stack.
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(requestIDMiddleware())
+	r.Use(requestLogger())
 	r.Use(corsMiddleware(cfg.AllowedOrigins))
 
 	r.GET("/health", func(c *gin.Context) {
@@ -119,45 +134,65 @@ func main() {
 		Handler: r,
 	}
 
-	// Start server in background so we can listen for shutdown signals.
 	go func() {
-		log.Printf("flashr backend listening on :%s", cfg.Port)
+		slog.Info("flashr backend listening", "port", cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
-	// Block until SIGINT or SIGTERM is received (Railway sends SIGTERM on deploy).
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("shutting down gracefully…")
+	slog.Info("shutting down gracefully")
 
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutCancel()
 	if err := srv.Shutdown(shutCtx); err != nil {
-		log.Fatalf("forced shutdown: %v", err)
+		slog.Error("forced shutdown", "error", err)
+		os.Exit(1)
 	}
-	log.Println("server stopped")
+	slog.Info("server stopped")
 }
 
-func pingOllama(baseURL string) error {
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(baseURL + "/api/tags")
-	if err != nil {
-		return err
+// ─── Middleware ───────────────────────────────────────────────────────────────
+
+const requestIDHeader = "X-Request-Id"
+
+// requestIDMiddleware attaches a correlation ID to every request. It honours an
+// incoming X-Request-Id header (from a load balancer or client) and always
+// echoes the final ID back in the response.
+func requestIDMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id := c.GetHeader(requestIDHeader)
+		if id == "" {
+			b := make([]byte, 8)
+			_, _ = rand.Read(b)
+			id = hex.EncodeToString(b)
+		}
+		c.Set(requestIDHeader, id)
+		c.Header(requestIDHeader, id)
+		c.Next()
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 500 {
-		return &httpError{status: resp.StatusCode}
-	}
-	return nil
 }
 
-type httpError struct{ status int }
-
-func (e *httpError) Error() string {
-	return http.StatusText(e.status)
+// requestLogger emits one structured log line per request with method, path,
+// status, latency, client IP, and the correlation ID.
+func requestLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		reqID, _ := c.Get(requestIDHeader)
+		slog.Info("request",
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"status", c.Writer.Status(),
+			"ms", time.Since(start).Milliseconds(),
+			"ip", c.ClientIP(),
+			"request_id", reqID,
+		)
+	}
 }
 
 // timeoutMiddleware cancels the request context after d. Downstream handlers
@@ -182,7 +217,7 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
-			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id")
 			c.Header("Access-Control-Max-Age", "43200")
 		}
 		if c.Request.Method == http.MethodOptions {
@@ -192,3 +227,22 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+func pingOllama(baseURL string) error {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(baseURL + "/api/tags")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 500 {
+		return &httpError{status: resp.StatusCode}
+	}
+	return nil
+}
+
+type httpError struct{ status int }
+
+func (e *httpError) Error() string { return http.StatusText(e.status) }

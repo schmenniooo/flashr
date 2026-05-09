@@ -134,7 +134,7 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 		return User{}, "", time.Time{}, fmt.Errorf("insert user: %w", err)
 	}
 
-	token, expires, err := s.issueToken(u.ID)
+	token, expires, err := s.issueToken(u.ID, u.Plan)
 	if err != nil {
 		return User{}, "", time.Time{}, err
 	}
@@ -170,7 +170,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 		return User{}, "", time.Time{}, ErrInvalidCredentials
 	}
 
-	token, expires, err := s.issueToken(u.ID)
+	token, expires, err := s.issueToken(u.ID, u.Plan)
 	if err != nil {
 		return User{}, "", time.Time{}, err
 	}
@@ -204,28 +204,42 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	return u, nil
 }
 
-// ParseToken validates a signed JWT and returns the subject (user ID).
-func (s *Service) ParseToken(raw string) (string, error) {
-	claims := &jwt.RegisteredClaims{}
-	token, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
+// flashrClaims extends the standard JWT claims with the user's plan so that
+// plan-gating middleware can avoid a DB round-trip on every protected request.
+// The plan in the token reflects the value at sign-in time; it remains valid
+// for the token's lifetime (default 24 h). Subscription webhooks update the DB
+// immediately, but token-based enforcement has up to a 24-hour lag for upgrades
+// and downgrades — an accepted trade-off for this stage of the product.
+type flashrClaims struct {
+	jwt.RegisteredClaims
+	Plan string `json:"plan"`
+}
+
+// ParseToken validates a signed JWT and returns the user ID and plan it contains.
+func (s *Service) ParseToken(raw string) (userID, plan string, err error) {
+	claims := &flashrClaims{}
+	token, parseErr := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return s.secret, nil
 	})
-	if err != nil || !token.Valid || claims.Subject == "" {
-		return "", ErrInvalidToken
+	if parseErr != nil || !token.Valid || claims.Subject == "" {
+		return "", "", ErrInvalidToken
 	}
-	return claims.Subject, nil
+	return claims.Subject, claims.Plan, nil
 }
 
-func (s *Service) issueToken(userID string) (string, time.Time, error) {
+func (s *Service) issueToken(userID, plan string) (string, time.Time, error) {
 	now := time.Now().UTC()
 	expires := now.Add(s.tokenTTL)
-	claims := jwt.RegisteredClaims{
-		Subject:   userID,
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(expires),
+	claims := flashrClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expires),
+		},
+		Plan: plan,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString(s.secret)

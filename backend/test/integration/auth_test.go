@@ -130,13 +130,14 @@ func TestParseToken_RoundTrip(t *testing.T) {
 	created, tok, _, err := testAuthSvc.SignUp(ctx, "frank@example.com", "password123", "Frank")
 	require.NoError(t, err)
 
-	userID, err := testAuthSvc.ParseToken(tok)
+	userID, plan, err := testAuthSvc.ParseToken(tok)
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, userID)
+	assert.Equal(t, "free", plan)
 }
 
 func TestParseToken_Invalid(t *testing.T) {
-	_, err := testAuthSvc.ParseToken("not.a.valid.token")
+	_, _, err := testAuthSvc.ParseToken("not.a.valid.token")
 	assert.ErrorIs(t, err, auth.ErrInvalidToken)
 }
 

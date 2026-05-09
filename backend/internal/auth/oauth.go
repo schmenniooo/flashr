@@ -183,7 +183,7 @@ func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string)
 	if err != nil {
 		return User{}, "", time.Time{}, fmt.Errorf("oauth upsert: %w", err)
 	}
-	token, expires, err := s.issueToken(u.ID)
+	token, expires, err := s.issueToken(u.ID, u.Plan)
 	if err != nil {
 		return User{}, "", time.Time{}, err
 	}
