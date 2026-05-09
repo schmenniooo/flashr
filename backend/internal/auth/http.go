@@ -5,11 +5,37 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
+
+	"github.com/smithlabs/flashr/backend/pkg/domain"
 )
 
-const userIDContextKey = "user_id"
+// authLimiters holds a token-bucket rate limiter keyed by client IP.
+// Allows 10 auth attempts per minute with a burst of 10.
+// Entries are never evicted — acceptable at SaaS scale; swap for an
+// LRU cache if the service is exposed to the open internet at high volume.
+var (
+	authLimiters  sync.Map
+	authRateLimit = rate.Every(time.Minute / 10) // 10 req / min
+	authRateBurst = 10
+)
+
+func authRateLimiter(c *gin.Context) {
+	ip := c.ClientIP()
+	v, _ := authLimiters.LoadOrStore(ip, rate.NewLimiter(authRateLimit, authRateBurst))
+	if !v.(*rate.Limiter).Allow() {
+		c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many requests — try again shortly"})
+	}
+}
+
+const (
+	userIDContextKey = "user_id"
+	planContextKey   = "plan"
+)
 
 type tokenResponse struct {
 	Token     string `json:"token"`
@@ -36,8 +62,8 @@ type loginRequest struct {
 //	GET  /google          (redirect to Google consent screen)
 //	GET  /google/callback (OAuth callback — issues JWT and redirects to frontend)
 func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.POST("/signup", s.handleSignUp)
-	rg.POST("/login", s.handleLogin)
+	rg.POST("/signup", authRateLimiter, s.handleSignUp)
+	rg.POST("/login", authRateLimiter, s.handleLogin)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
 	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	if s.GoogleEnabled() {
@@ -73,7 +99,7 @@ func (s *Service) handleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&expires=%d",
+	redirectURL := fmt.Sprintf("%s/auth/callback#token=%s&expires=%d",
 		s.frontendURL, token, expires.Unix())
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -101,7 +127,7 @@ func (s *Service) handleGithubCallback(c *gin.Context) {
 		return
 	}
 
-	redirectURL := fmt.Sprintf("%s/auth/callback?token=%s&expires=%d",
+	redirectURL := fmt.Sprintf("%s/auth/callback#token=%s&expires=%d",
 		s.frontendURL, token, expires.Unix())
 	c.Redirect(http.StatusTemporaryRedirect, redirectURL)
 }
@@ -180,25 +206,8 @@ func (s *Service) handleMe(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
-// RequirePro is gin middleware that aborts with 403 if the authenticated user
-// is not on the pro plan. Must be chained after RequireUser.
-func (s *Service) RequirePro() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userID := UserIDFromContext(c)
-		var plan string
-		err := s.pool.QueryRow(c.Request.Context(),
-			`SELECT plan FROM users WHERE id = $1`, userID,
-		).Scan(&plan)
-		if err != nil || plan != "pro" {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
-			return
-		}
-		c.Next()
-	}
-}
-
 // RequireUser is gin middleware that validates the Authorization: Bearer token
-// and stores the user ID in the request context for downstream handlers.
+// and stores the user ID and plan in the request context for downstream handlers.
 func (s *Service) RequireUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
@@ -207,14 +216,44 @@ func (s *Service) RequireUser() gin.HandlerFunc {
 			return
 		}
 		raw := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		userID, err := s.ParseToken(raw)
+		userID, plan, err := s.ParseToken(raw)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			return
 		}
 		c.Set(userIDContextKey, userID)
+		c.Set(planContextKey, plan)
 		c.Next()
 	}
+}
+
+// RequirePro queries the DB for the user's current plan so that subscription
+// changes (webhook-driven) take effect immediately without waiting for token
+// rotation. Must be chained after RequireUser.
+func (s *Service) RequirePro() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := UserIDFromContext(c)
+		var plan string
+		err := s.pool.QueryRow(c.Request.Context(),
+			`SELECT plan FROM users WHERE id = $1`, userID,
+		).Scan(&plan)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not verify plan"})
+			return
+		}
+		if plan != domain.PlanPro {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// PlanFromContext returns the plan stored by RequireUser middleware.
+func PlanFromContext(c *gin.Context) string {
+	v, _ := c.Get(planContextKey)
+	plan, _ := v.(string)
+	return plan
 }
 
 // UserIDFromContext returns the authenticated user's ID. Empty if RequireUser

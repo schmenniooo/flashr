@@ -1,15 +1,10 @@
+// Package auth handles user identity: signup, login, JWT issuance, and OAuth.
 package auth
 
 import (
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +17,8 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+// ─── Sentinel errors ─────────────────────────────────────────────────────────
+
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrEmailTaken         = errors.New("email already registered")
@@ -33,6 +30,8 @@ var (
 
 const minPasswordLength = 8
 
+// ─── Domain type ─────────────────────────────────────────────────────────────
+
 type User struct {
 	ID            string     `json:"id"`
 	Email         string     `json:"email"`
@@ -42,6 +41,8 @@ type User struct {
 	PlanExpiresAt *time.Time `json:"plan_expires_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 }
+
+// ─── Service ─────────────────────────────────────────────────────────────────
 
 type Service struct {
 	pool        *pgxpool.Pool
@@ -102,178 +103,9 @@ func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	return svc, nil
 }
 
-func (s *Service) GoogleEnabled() bool { return s.googleOAuth != nil }
+// ─── Core auth ───────────────────────────────────────────────────────────────
 
-func (s *Service) GoogleAuthURL(state string) string {
-	return s.googleOAuth.AuthCodeURL(state, oauth2.AccessTypeOnline)
-}
-
-// GenerateState produces a self-verifying state token: "<unix_ts>.<hmac_hex>".
-// No server-side storage required — VerifyState checks the signature and TTL.
-func (s *Service) GenerateState() string { return generateState(s.secret) }
-
-// VerifyState checks the HMAC signature and rejects tokens older than 10 minutes.
-func (s *Service) VerifyState(state string) error { return verifyState(s.secret, state) }
-
-func generateState(secret []byte) string {
-	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(ts))
-	return ts + "." + hex.EncodeToString(mac.Sum(nil))
-}
-
-func verifyState(secret []byte, state string) error {
-	parts := strings.SplitN(state, ".", 2)
-	if len(parts) != 2 {
-		return errors.New("invalid state")
-	}
-	ts, sig := parts[0], parts[1]
-	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(ts))
-	if !hmac.Equal([]byte(sig), []byte(hex.EncodeToString(mac.Sum(nil)))) {
-		return errors.New("invalid state signature")
-	}
-	tsInt, err := strconv.ParseInt(ts, 10, 64)
-	if err != nil || time.Since(time.Unix(tsInt, 0)) > 10*time.Minute {
-		return errors.New("state expired")
-	}
-	return nil
-}
-
-// GenerateStateForTest and VerifyStateForTest expose the package-level state
-// functions for unit tests without requiring a Service instance.
-func GenerateStateForTest(secret []byte) string        { return generateState(secret) }
-func VerifyStateForTest(secret []byte, s string) error { return verifyState(secret, s) }
-
-func (s *Service) GithubEnabled() bool { return s.githubOAuth != nil }
-
-func (s *Service) GithubAuthURL(state string) string {
-	return s.githubOAuth.AuthCodeURL(state, oauth2.AccessTypeOnline)
-}
-
-type githubUserInfo struct {
-	Login string  `json:"login"`
-	Name  string  `json:"name"`
-	Email *string `json:"email"`
-}
-
-type githubEmail struct {
-	Email    string `json:"email"`
-	Primary  bool   `json:"primary"`
-	Verified bool   `json:"verified"`
-}
-
-// GithubCallback exchanges the authorization code for a user session.
-func (s *Service) GithubCallback(ctx context.Context, code string) (User, string, time.Time, error) {
-	tok, err := s.githubOAuth.Exchange(ctx, code)
-	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("github: exchange code: %w", err)
-	}
-
-	doReq := func(url string, out any) error {
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-		req.Header.Set("Accept", "application/vnd.github+json")
-		req.Header.Set("User-Agent", "flashr")
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		return json.NewDecoder(resp.Body).Decode(out)
-	}
-
-	var info githubUserInfo
-	if err := doReq("https://api.github.com/user", &info); err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("github: fetch user: %w", err)
-	}
-
-	email := ""
-	if info.Email != nil && *info.Email != "" {
-		email = *info.Email
-	} else {
-		// Email is private — fetch from the emails endpoint
-		var emails []githubEmail
-		if err := doReq("https://api.github.com/user/emails", &emails); err != nil {
-			return User{}, "", time.Time{}, fmt.Errorf("github: fetch emails: %w", err)
-		}
-		for _, e := range emails {
-			if e.Primary && e.Verified {
-				email = e.Email
-				break
-			}
-		}
-	}
-	if email == "" {
-		return User{}, "", time.Time{}, errors.New("github: no verified email found")
-	}
-
-	name := info.Name
-	if name == "" {
-		name = info.Login
-	}
-
-	return s.OAuthUpsert(ctx, email, name, "github")
-}
-
-type googleUserInfo struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
-	Name  string `json:"name"`
-}
-
-// GoogleCallback exchanges the authorization code for a user session.
-// It upserts the user row (matching on email) and issues a JWT.
-func (s *Service) GoogleCallback(ctx context.Context, code string) (User, string, time.Time, error) {
-	tok, err := s.googleOAuth.Exchange(ctx, code)
-	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: exchange code: %w", err)
-	}
-
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v3/userinfo", nil)
-	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: fetch userinfo: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var info googleUserInfo
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: decode userinfo: %w", err)
-	}
-	if info.Email == "" {
-		return User{}, "", time.Time{}, errors.New("google: no email in userinfo")
-	}
-
-	return s.OAuthUpsert(ctx, info.Email, info.Name, "google")
-}
-
-// OAuthUpsert inserts or links a user by email for the given OAuth provider,
-// then issues a JWT. Exported so it can be called directly in tests.
-func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string) (User, string, time.Time, error) {
-	var u User
-	err := s.pool.QueryRow(ctx, `
-		INSERT INTO users (email, name, oauth_provider)
-		VALUES ($1, NULLIF($2, ''), $3)
-		ON CONFLICT (email) DO UPDATE
-		  SET oauth_provider = EXCLUDED.oauth_provider,
-		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
-		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at
-	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
-	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("oauth upsert: %w", err)
-	}
-	token, expires, err := s.issueToken(u.ID)
-	if err != nil {
-		return User{}, "", time.Time{}, err
-	}
-	return u, token, expires, nil
-}
-
-// SignUp creates a new user with the given credentials and returns a fresh
-// session token. Email is normalised to lowercase. Returns ErrEmailTaken if a
-// user with that email already exists.
+// SignUp creates a new user with hashed credentials and returns a session token.
 func (s *Service) SignUp(ctx context.Context, email, password, name string) (User, string, time.Time, error) {
 	email = normaliseEmail(email)
 	if !validEmail(email) {
@@ -302,7 +134,7 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 		return User{}, "", time.Time{}, fmt.Errorf("insert user: %w", err)
 	}
 
-	token, expires, err := s.issueToken(u.ID)
+	token, expires, err := s.issueToken(u.ID, u.Plan)
 	if err != nil {
 		return User{}, "", time.Time{}, err
 	}
@@ -310,8 +142,7 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 }
 
 // Login verifies credentials and returns a session token. Returns
-// ErrInvalidCredentials for any failure (missing user, wrong password, OAuth-only
-// account) — the caller must not distinguish between them to avoid user enumeration.
+// ErrInvalidCredentials for any failure to avoid user enumeration.
 func (s *Service) Login(ctx context.Context, email, password string) (User, string, time.Time, error) {
 	email = normaliseEmail(email)
 
@@ -325,7 +156,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 		WHERE LOWER(email) = $1
 	`, email).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt, &hash)
 	if errors.Is(err, pgx.ErrNoRows) {
-		// Run a dummy bcrypt compare anyway to keep timing roughly constant.
+		// Dummy bcrypt compare to keep response timing constant (prevents enumeration).
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"), []byte(password))
 		return User{}, "", time.Time{}, ErrInvalidCredentials
 	}
@@ -339,7 +170,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 		return User{}, "", time.Time{}, ErrInvalidCredentials
 	}
 
-	token, expires, err := s.issueToken(u.ID)
+	token, expires, err := s.issueToken(u.ID, u.Plan)
 	if err != nil {
 		return User{}, "", time.Time{}, err
 	}
@@ -373,13 +204,42 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	return u, nil
 }
 
-func (s *Service) issueToken(userID string) (string, time.Time, error) {
+// flashrClaims extends the standard JWT claims with the user's plan so that
+// plan-gating middleware can avoid a DB round-trip on every protected request.
+// The plan in the token reflects the value at sign-in time; it remains valid
+// for the token's lifetime (default 24 h). Subscription webhooks update the DB
+// immediately, but token-based enforcement has up to a 24-hour lag for upgrades
+// and downgrades — an accepted trade-off for this stage of the product.
+type flashrClaims struct {
+	jwt.RegisteredClaims
+	Plan string `json:"plan"`
+}
+
+// ParseToken validates a signed JWT and returns the user ID and plan it contains.
+func (s *Service) ParseToken(raw string) (userID, plan string, err error) {
+	claims := &flashrClaims{}
+	token, parseErr := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return s.secret, nil
+	})
+	if parseErr != nil || !token.Valid || claims.Subject == "" {
+		return "", "", ErrInvalidToken
+	}
+	return claims.Subject, claims.Plan, nil
+}
+
+func (s *Service) issueToken(userID, plan string) (string, time.Time, error) {
 	now := time.Now().UTC()
 	expires := now.Add(s.tokenTTL)
-	claims := jwt.RegisteredClaims{
-		Subject:   userID,
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(expires),
+	claims := flashrClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   userID,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expires),
+		},
+		Plan: plan,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString(s.secret)
@@ -389,20 +249,7 @@ func (s *Service) issueToken(userID string) (string, time.Time, error) {
 	return signed, expires, nil
 }
 
-// ParseToken validates a signed token and returns the user ID it identifies.
-func (s *Service) ParseToken(raw string) (string, error) {
-	claims := &jwt.RegisteredClaims{}
-	token, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
-		return s.secret, nil
-	})
-	if err != nil || !token.Valid || claims.Subject == "" {
-		return "", ErrInvalidToken
-	}
-	return claims.Subject, nil
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func normaliseEmail(s string) string {
 	return strings.ToLower(strings.TrimSpace(s))
@@ -413,8 +260,6 @@ func validEmail(s string) bool {
 	return at > 0 && at < len(s)-1 && !strings.ContainsAny(s, " \t\n")
 }
 
-// isUniqueViolation reports whether err is a Postgres unique-constraint violation.
-// Avoids importing pgconn just for one error code check.
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "SQLSTATE 23505")
 }

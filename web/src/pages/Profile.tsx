@@ -15,13 +15,15 @@ import {
   AlertTriangle,
   Crown,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, useDb } from "../lib/store";
+import { auth, billingApi, selectCollections, selectCurrentUser, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
 import "./Profile.css";
 
 export function Profile() {
   const navigate = useNavigate();
   const currentUser = useDb(selectCurrentUser);
-  const collections = useDb(selectCollections);
+  const collectionsCount = useDb((db) => selectCollections(db).length);
+  const totalCards = useDb(selectTotalCards);
+  const knownCards = useDb(selectKnownCards);
 
   const [form, setForm] = useState(currentUser);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
@@ -67,12 +69,31 @@ export function Profile() {
     const params = new URLSearchParams(window.location.search);
     const fromCheckout = params.get("checkout") === "success";
     const fromPortal = params.get("portal") === "return";
+
     if (fromCheckout || fromPortal) {
       window.history.replaceState({}, "", window.location.pathname);
-      void auth.refreshUser();
-      if (fromCheckout) {
+    }
+
+    if (fromCheckout) {
+      // Verify the Stripe Checkout Session directly so the plan is updated
+      // immediately — without waiting for the webhook to arrive.
+      const sessionId = params.get("session_id");
+      void (async () => {
+        if (sessionId) await billingApi.fulfill(sessionId).catch(() => {});
+        await auth.refreshUser();
         setTimeout(() => setCheckoutSuccess(false), 5000);
-      }
+      })();
+    } else if (fromPortal) {
+      // Sync plan from Stripe's live subscription state so cancellations and
+      // upgrades are reflected immediately — without waiting for the webhook.
+      void (async () => {
+        await billingApi.sync().catch(() => {});
+        await auth.refreshUser();
+      })();
+    } else {
+      // Always refresh plan on profile mount so any changes are reflected
+      // without a full page reload.
+      void auth.refreshUser();
     }
   }, []);
 
@@ -89,12 +110,6 @@ export function Profile() {
   }, [navigate]);
 
   if (!currentUser || !form) return <Navigate to="/login" replace />;
-
-  const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
-  const knownCards = collections.reduce(
-    (s, c) => s + c.cards.filter((k) => k.mastery === "known").length,
-    0,
-  );
 
   const initials = `${form.firstName[0] ?? ""}${form.lastName[0] ?? ""}`.toUpperCase();
 
@@ -176,8 +191,8 @@ export function Profile() {
       <header className="prof__head">
         <div>
           <span className="text-meta">Account · Profile</span>
-          <h1 className="text-h1" style={{ marginTop: 8 }}>Your profile</h1>
-          <p className="text-body" style={{ marginTop: 4, maxWidth: 520 }}>
+          <h1 className="text-h1">Your profile</h1>
+          <p className="text-body">
             Manage how you show up in flashr. Changes sync instantly across every device you're signed in on.
           </p>
         </div>
@@ -321,7 +336,7 @@ export function Profile() {
                   {currentUser.plan === "pro" ? "Pro" : "Free"}
                 </span>
                 {currentUser.plan === "pro" && currentUser.planExpiresAt && (
-                  <span className="prof__info-hint" style={{ margin: 0 }}>
+                  <span className="prof__info-hint prof__info-hint--flush">
                     cancels {new Date(currentUser.planExpiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                   </span>
                 )}
@@ -451,7 +466,7 @@ export function Profile() {
         <div className="prof__glance-card">
           <Crown size={14} strokeWidth={2} color="var(--color-accent)" />
           <div>
-            <div className="prof__glance-val">{collections.length}</div>
+            <div className="prof__glance-val">{collectionsCount}</div>
             <div className="prof__glance-lbl">collections</div>
           </div>
         </div>

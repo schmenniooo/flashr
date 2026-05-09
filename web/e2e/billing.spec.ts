@@ -305,12 +305,25 @@ test.describe("collection limit", () => {
 
 // ── Card limit ────────────────────────────────────────────────────────────────
 
+// Helper: sign in with a specific collection pre-loaded into the store.
+// signInAsDemo navigates to /app which triggers bootstrap. We wait for network
+// idle so bootstrap finishes writing the mocked collection to localStorage
+// before the second page.goto (which does a full reload and re-reads localStorage).
+async function signInAndGoToCollection(
+  page: Parameters<typeof signInAsDemo>[0],
+  plan: Plan,
+  col: BackendCollection,
+) {
+  await mockBackend(page, plan, [col]);
+  await signInAsDemo(page);
+  await page.waitForLoadState("networkidle");
+  await page.goto("/app/c/" + col.id);
+}
+
 test.describe("card limit", () => {
   test("free user at 50 cards sees upgrade prompt and disabled Add card button", async ({ page }) => {
     const col = makeCollection("col-main", "My Deck", 50);
-    await mockBackend(page, "free", [col]);
-    await signInAsDemo(page);
-    await page.goto("/app/c/col-main");
+    await signInAndGoToCollection(page, "free", col);
 
     await expect(page.locator(".upgrade-prompt")).toBeVisible();
     await expect(page.getByRole("button", { name: /add card/i })).toBeDisabled();
@@ -318,9 +331,7 @@ test.describe("card limit", () => {
 
   test("free user below 50 cards sees no upgrade prompt and enabled Add card button", async ({ page }) => {
     const col = makeCollection("col-main", "My Deck", 10);
-    await mockBackend(page, "free", [col]);
-    await signInAsDemo(page);
-    await page.goto("/app/c/col-main");
+    await signInAndGoToCollection(page, "free", col);
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
     await expect(page.getByRole("button", { name: /add card/i })).toBeEnabled();
@@ -328,9 +339,7 @@ test.describe("card limit", () => {
 
   test("pro user at 50 cards sees no upgrade prompt and enabled Add card button", async ({ page }) => {
     const col = makeCollection("col-main", "My Deck", 50);
-    await mockBackend(page, "pro", [col]);
-    await signInAsDemo(page);
-    await page.goto("/app/c/col-main");
+    await signInAndGoToCollection(page, "pro", col);
 
     await expect(page.locator(".upgrade-prompt")).not.toBeVisible();
     await expect(page.getByRole("button", { name: /add card/i })).toBeEnabled();

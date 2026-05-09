@@ -25,7 +25,7 @@
 - [x] Datenbankschema (siehe unten) — extended with `emoji`, `description` on collections and `password_hash` on users
 - [x] Environment Config (dev / staging / prod) — PORT, DATABASE_URL, JWT_SECRET, OLLAMA_URL, ALLOWED_ORIGINS read from env in `main.go`
 - [ ] Deploy to Railway + connect GitHub repo — Railway auto-deploys on every push to `main`, so this is the CI/CD pipeline
-- [x] Logging & Error Handling Grundstruktur — stdlib `log` throughout, `gin.Default()` request logging, structured JSON error responses from all handlers
+- [x] Logging & Error Handling Grundstruktur — `slog` JSON structured logging, per-request correlation IDs (`X-Request-Id`), structured JSON error responses from all handlers
 - [ ] Railway Buckets für temporären File-Storage (PDFs) — `pkg/storage` is a stub
 - [x] Ollama auf Railway deployen & Health-Check — `pingOllama` on startup + `/api/health` reports Ollama status; deployment itself is infra
 
@@ -97,10 +97,10 @@ upload_jobs (
 | Datenschutzerklärung | `/datenschutz` | ❌ missing |
 | AGB | `/agb` | ⚠️ recommended (payments active) |
 
-- [ ] Create `/impressum` route and page — use [datenschutz-generator.de](https://datenschutz-generator.de) for a base text
-- [ ] Create `/datenschutz` route and page
-- [ ] Create `/agb` route and page (required once Stripe payments are live)
-- [ ] Add Impressum, Datenschutz, and AGB links to the landing page footer
+- [x] Create `/imprint` route and page
+- [x] Create `/privacy` route and page
+- [x] Create `/terms` route and page (Stripe is live)
+- [x] Add Imprint, Privacy Policy, and Terms links to the landing page footer
 
 ### Google Fonts — self-hosting required
 
@@ -142,7 +142,7 @@ No cookie banner is required as long as no tracking tools are used.
 
 ### 1.1 Auth
 
-- [ ] OAuth 2.0 Login: Google, Apple, GitHub
+- [x] OAuth 2.0 Login: Google, GitHub — Apple not yet supported
 - [x] Email/password signup + login — not in original spec (OAuth-only was planned) but fully implemented: bcrypt hashing, unique email index, error messages
 - [x] JWT Session Management — backend issues signed HS256 tokens, frontend stores as `flashr:token:v1`, sends as `Authorization: Bearer`, validated on every protected route
 - [ ] Refresh Token Rotation
@@ -197,20 +197,20 @@ ALTER TABLE users ADD COLUMN plan_expires_at TIMESTAMP;
 
 **Backend — `internal/billing` package:**
 
-- [ ] Stripe SDK integrated (`github.com/stripe/stripe-go/v76`)
-- [ ] `POST /api/billing/checkout` — creates a Stripe Checkout Session and returns the URL; redirects user to Stripe-hosted payment page
-- [ ] `POST /api/billing/portal` — creates a Stripe Customer Portal session for managing/cancelling subscriptions
-- [ ] `POST /api/billing/webhook` — receives Stripe events; update `plan`, `stripe_subscription_id`, `plan_expires_at` on `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
-- [ ] Plan enforcement middleware — attach `plan` to request context after JWT validation; used by feature-gated handlers
-- [ ] Feature gates: AI generation, PDF upload, app integrations, collection/card limits enforced server-side (not just UI)
+- [x] Stripe SDK integrated (`github.com/stripe/stripe-go/v76`)
+- [x] `POST /api/billing/checkout` — creates a Stripe Checkout Session and returns the URL
+- [x] `POST /api/billing/portal` — creates a Stripe Customer Portal session
+- [x] `POST /api/billing/webhook` — handles `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+- [x] Plan enforcement middleware — `plan` embedded in JWT claim, read from context; `RequirePro` checks JWT with no extra DB query
+- [x] Feature gates: AI generation gated by `RequirePro`; collection (3) and card (50) limits enforced server-side with TOCTOU-safe `FOR UPDATE` transactions
 
 **Frontend:**
 
-- [ ] Upgrade prompt shown when a Free user hits a plan limit (collections, cards, AI)
-- [ ] "Upgrade to Pro" CTA in profile/settings page — calls `/api/billing/checkout`, redirects to Stripe
-- [ ] "Manage subscription" link in profile — calls `/api/billing/portal`
-- [ ] Plan badge shown in profile (Free / Pro)
-- [ ] Post-checkout success redirect back to `/app` with a confirmation state
+- [x] Upgrade prompt shown when a Free user hits a plan limit (collections, cards, AI)
+- [x] "Upgrade to Pro" CTA in profile/settings page — calls `/api/billing/checkout`, redirects to Stripe
+- [x] "Manage subscription" link in profile — calls `/api/billing/portal`
+- [x] Plan badge shown in profile (Free / Pro)
+- [x] Post-checkout success redirect back to `/app/profile?checkout=success` with confirmation banner
 
 **Environment variables to add:**
 ```

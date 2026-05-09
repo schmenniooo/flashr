@@ -130,13 +130,14 @@ func TestParseToken_RoundTrip(t *testing.T) {
 	created, tok, _, err := testAuthSvc.SignUp(ctx, "frank@example.com", "password123", "Frank")
 	require.NoError(t, err)
 
-	userID, err := testAuthSvc.ParseToken(tok)
+	userID, plan, err := testAuthSvc.ParseToken(tok)
 	require.NoError(t, err)
 	assert.Equal(t, created.ID, userID)
+	assert.Equal(t, "free", plan)
 }
 
 func TestParseToken_Invalid(t *testing.T) {
-	_, err := testAuthSvc.ParseToken("not.a.valid.token")
+	_, _, err := testAuthSvc.ParseToken("not.a.valid.token")
 	assert.ErrorIs(t, err, auth.ErrInvalidToken)
 }
 
@@ -313,4 +314,81 @@ func TestOAuthUpsert_PreservesExistingName(t *testing.T) {
 	u, _, _, err := testAuthSvc.OAuthUpsert(ctx, "named@example.com", "Google Name", "google")
 	require.NoError(t, err)
 	assert.Equal(t, "Original Name", u.Name)
+}
+
+// ── DELETE /auth/me ───────────────────────────────────────────────────────────
+
+func TestHTTP_DeleteMe_RemovesUser(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	userID, tok := signUp(t, uniqueEmail("delete_me"))
+
+	w := do(t, http.MethodDelete, "/api/auth/me", nil, tok)
+	mustStatus(t, w, http.StatusNoContent)
+
+	// User must no longer exist.
+	_, err := testAuthSvc.UserByID(context.Background(), userID)
+	assert.ErrorIs(t, err, auth.ErrUserNotFound)
+}
+
+func TestHTTP_DeleteMe_Unauthenticated(t *testing.T) {
+	w := do(t, http.MethodDelete, "/api/auth/me", nil, "")
+	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestHTTP_DeleteMe_InvalidToken(t *testing.T) {
+	w := do(t, http.MethodDelete, "/api/auth/me", nil, "not.a.jwt")
+	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+// ── HTTP signup / login edge cases ───────────────────────────────────────────
+
+func TestHTTP_SignUp_MissingEmail(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	w := do(t, http.MethodPost, "/api/auth/signup", map[string]string{
+		"password": "password123",
+	}, "")
+	mustStatus(t, w, http.StatusBadRequest)
+}
+
+func TestHTTP_SignUp_MissingPassword(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	w := do(t, http.MethodPost, "/api/auth/signup", map[string]string{
+		"email": "nopw@example.com",
+	}, "")
+	mustStatus(t, w, http.StatusBadRequest)
+}
+
+func TestHTTP_SignUp_WeakPassword(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	w := do(t, http.MethodPost, "/api/auth/signup", map[string]string{
+		"email": "weak@example.com", "password": "short",
+	}, "")
+	mustStatus(t, w, http.StatusBadRequest)
+}
+
+func TestHTTP_SignUp_DuplicateEmail(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	body := map[string]string{"email": "dup_http@example.com", "password": "password123"}
+	mustStatus(t, do(t, http.MethodPost, "/api/auth/signup", body, ""), http.StatusCreated)
+	mustStatus(t, do(t, http.MethodPost, "/api/auth/signup", body, ""), http.StatusConflict)
+}
+
+func TestHTTP_Login_WrongPassword(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	do(t, http.MethodPost, "/api/auth/signup", map[string]string{
+		"email": "wrongpw@example.com", "password": "correct-horse",
+	}, "")
+
+	w := do(t, http.MethodPost, "/api/auth/login", map[string]string{
+		"email": "wrongpw@example.com", "password": "wrong-password",
+	}, "")
+	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestHTTP_Login_UnknownUser(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	w := do(t, http.MethodPost, "/api/auth/login", map[string]string{
+		"email": "ghost@example.com", "password": "anything",
+	}, "")
+	mustStatus(t, w, http.StatusUnauthorized)
 }

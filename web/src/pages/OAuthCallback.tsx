@@ -2,13 +2,19 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "../lib/logo";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
+import "../components/RequireAuth.css";
 
 export function OAuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    // Token is in the URL fragment (#token=…) on current deployments so it
+    // never appears in server logs or the Referer header. Fall back to the
+    // query string for backwards-compatibility during rolling deploys where
+    // the frontend is updated before the backend.
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const searchParams = new URLSearchParams(window.location.search);
+    const token = hashParams.get("token") ?? searchParams.get("token");
 
     if (!token) {
       navigate("/login?error=oauth_failed", { replace: true });
@@ -32,18 +38,9 @@ export function OAuthCallback() {
   }, [navigate]);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: "var(--space-4)",
-      background: "var(--color-bg)",
-      color: "var(--color-muted)",
-    }}>
+    <div className="require-auth__loading">
       <Wordmark size={24} />
-      <span style={{ fontSize: "13px" }}>Signing you in…</span>
+      <span className="require-auth__label">Signing you in…</span>
     </div>
   );
 }

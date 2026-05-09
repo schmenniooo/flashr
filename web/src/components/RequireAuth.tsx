@@ -1,26 +1,21 @@
 import { Navigate, useLocation } from "react-router-dom";
-import { useDb, selectCurrentUser, selectSession, selectBootstrapping } from "../lib/store";
+import { useDb, selectSession, selectBootstrapping, selectCurrentUser } from "../lib/store";
 import { Wordmark } from "../lib/logo";
+import "./RequireAuth.css";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const bootstrapping = useDb(selectBootstrapping);
   const session = useDb(selectSession);
   const location = useLocation();
 
-  if (bootstrapping) {
+  // Block only when bootstrap is still running AND we have no cached session to show.
+  // When a session exists in localStorage we render immediately from cached data;
+  // bootstrap validates the token in the background and clears the session on 401.
+  if (bootstrapping && !session) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "var(--space-4)",
-        background: "var(--color-bg)",
-        color: "var(--color-muted)",
-      }}>
+      <div className="require-auth__loading">
         <Wordmark size={24} />
-        <span style={{ fontSize: "13px" }}>Loading…</span>
+        <span className="require-auth__label">Loading…</span>
       </div>
     );
   }

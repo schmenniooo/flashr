@@ -9,19 +9,18 @@ import {
   Pencil,
   Trash2,
   Layers,
-  X,
-  FolderInput,
 } from "lucide-react";
 import {
   cardsApi,
   collectionsApi,
   selectCollection,
-  selectCollections,
   selectCurrentUser,
   useDb,
 } from "../lib/store";
+import { CardEditorModal } from "../components/CardEditorModal";
 import { EditCollectionModal } from "../components/EditCollectionModal";
 import { Modal } from "../components/Modal";
+import { MoveCardModal } from "../components/MoveCardModal";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import type { Card } from "../lib/store";
 import "./CollectionDetail.css";
@@ -30,7 +29,9 @@ export function CollectionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const collection = useDb(selectCollection(id ?? ""));
-
+  const currentUser = useDb(selectCurrentUser);
+  const isPro = currentUser?.plan === "pro";
+  const atCardLimit = !isPro && (collection?.cards.length ?? 0) >= 50;
 
   const [editingCollection, setEditingCollection] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -38,10 +39,6 @@ export function CollectionDetail() {
     { mode: "create" } | { mode: "edit"; card: Card } | null
   >(null);
   const [movingCard, setMovingCard] = useState<Card | null>(null);
-
-  const currentUser = useDb(selectCurrentUser);
-  const isPro = currentUser?.plan === "pro";
-  const atCardLimit = !isPro && (collection?.cards.length ?? 0) >= 50;
 
   if (!collection) return <Navigate to="/app/collections" replace />;
 
@@ -59,7 +56,7 @@ export function CollectionDetail() {
 
   function handleDeleteCard(cardId: string) {
     if (!window.confirm("Delete this card? This can't be undone.")) return;
-    cardsApi.remove(collection!.id, cardId);
+    void cardsApi.remove(collection!.id, cardId);
   }
 
   return (
@@ -75,21 +72,20 @@ export function CollectionDetail() {
             <span className="cdet__emoji">{collection.emoji}</span>
             <div>
               <span className="text-meta">{collection.folder}</span>
-              <h1 className="text-h1" style={{ marginTop: 4 }}>
-                {collection.name}
-              </h1>
-              <p className="text-body" style={{ marginTop: 6 }}>
+              <h1 className="text-h1 cdet__title">{collection.name}</h1>
+              <p className="text-body cdet__desc">
                 {collection.description || "No description yet."}
               </p>
             </div>
           </div>
 
           <div className="cdet__actions">
-            <button className="btn-ghost" title="Share">
+            <button className="btn-ghost" aria-label="Share collection" title="Share">
               <Share2 size={14} strokeWidth={2} />
             </button>
             <button
               className="btn-ghost"
+              aria-label="Edit collection"
               title="Edit collection"
               onClick={() => setEditingCollection(true)}
             >
@@ -97,6 +93,7 @@ export function CollectionDetail() {
             </button>
             <button
               className="btn-ghost cdet__danger-btn"
+              aria-label="Delete collection"
               title="Delete collection"
               onClick={() => setConfirmDelete(true)}
             >
@@ -106,9 +103,7 @@ export function CollectionDetail() {
               to={`/app/c/${collection.id}/study`}
               className="btn-primary"
               aria-disabled={collection.cards.length === 0}
-              onClick={(e) => {
-                if (collection.cards.length === 0) e.preventDefault();
-              }}
+              onClick={(e) => { if (collection.cards.length === 0) e.preventDefault(); }}
             >
               <BookOpen size={14} strokeWidth={2} />
               Start studying
@@ -194,13 +189,15 @@ export function CollectionDetail() {
                 )}
                 <button
                   className="cdet__card-icon"
+                  aria-label="Move to another collection"
                   title="Move to another collection"
                   onClick={() => setMovingCard(card)}
                 >
-                  <FolderInput size={13} strokeWidth={1.8} />
+                  <Layers size={13} strokeWidth={1.8} />
                 </button>
                 <button
                   className="cdet__card-icon"
+                  aria-label="Edit card"
                   title="Edit"
                   onClick={() => setCardModal({ mode: "edit", card })}
                 >
@@ -208,6 +205,7 @@ export function CollectionDetail() {
                 </button>
                 <button
                   className="cdet__card-icon cdet__card-icon--danger"
+                  aria-label="Delete card"
                   title="Delete"
                   onClick={() => handleDeleteCard(card.id)}
                 >
@@ -217,10 +215,7 @@ export function CollectionDetail() {
             </article>
           ))}
 
-          <button
-            className="cdet__add-card"
-            onClick={() => setCardModal({ mode: "create" })}
-          >
+          <button className="cdet__add-card" onClick={() => setCardModal({ mode: "create" })}>
             <Plus size={16} strokeWidth={2} />
             Create new card
           </button>
@@ -264,9 +259,7 @@ export function CollectionDetail() {
         size="sm"
         footer={
           <>
-            <button className="btn-ghost" onClick={() => setConfirmDelete(false)}>
-              Cancel
-            </button>
+            <button className="btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
             <button className="modal__btn-danger" onClick={handleDelete}>
               <Trash2 size={13} strokeWidth={2} />
               Delete forever
@@ -275,157 +268,11 @@ export function CollectionDetail() {
         }
       >
         <p className="text-body">
-          <strong style={{ color: "var(--color-text)" }}>{collection.name}</strong> and all{" "}
-          {collection.cards.length} card{collection.cards.length === 1 ? "" : "s"} will be removed.
-          This can't be undone.
+          <strong className="modal__strong">{collection.name}</strong> and all{" "}
+          {collection.cards.length} card{collection.cards.length === 1 ? "" : "s"} will be
+          removed. This can't be undone.
         </p>
       </Modal>
     </div>
-  );
-}
-
-function CardEditorModal({
-  open,
-  onClose,
-  collectionId,
-  card,
-}: {
-  open: boolean;
-  onClose: () => void;
-  collectionId: string;
-  card?: Card;
-}) {
-  const [question, setQuestion] = useState(card?.question ?? "");
-  const [answer, setAnswer] = useState(card?.answer ?? "");
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!question.trim() || !answer.trim()) return;
-    if (card) {
-      cardsApi.update(collectionId, card.id, {
-        question: question.trim(),
-        answer: answer.trim(),
-      }).catch(console.error);
-    } else {
-      cardsApi.add(collectionId, {
-        question: question.trim(),
-        answer: answer.trim(),
-      }).catch(console.error);
-    }
-    onClose();
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={card ? "Edit card" : "New card"}
-      size="md"
-      footer={
-        <>
-          <button className="btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn-primary"
-            onClick={submit}
-            disabled={!question.trim() || !answer.trim()}
-          >
-            {card ? "Save changes" : "Add card"}
-          </button>
-        </>
-      }
-    >
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <label className="modal__field">
-          <span className="text-meta">Question</span>
-          <textarea
-            className="input"
-            rows={3}
-            autoFocus
-            placeholder="What does Kₘ describe?"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-          />
-        </label>
-        <label className="modal__field">
-          <span className="text-meta">Answer</span>
-          <textarea
-            className="input"
-            rows={5}
-            placeholder="The substrate concentration at which v = ½ Vₘₐₓ…"
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
-        </label>
-      </form>
-    </Modal>
-  );
-}
-
-function MoveCardModal({
-  open,
-  onClose,
-  card,
-  fromCollectionId,
-}: {
-  open: boolean;
-  onClose: () => void;
-  card: Card;
-  fromCollectionId: string;
-}) {
-  const allCollections = useDb(selectCollections);
-  const targets = allCollections.filter((c) => c.id !== fromCollectionId);
-  const [toId, setToId] = useState(targets[0]?.id ?? "");
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!toId) return;
-    cardsApi.move(fromCollectionId, card.id, toId).catch(console.error);
-    onClose();
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Move card"
-      size="sm"
-      footer={
-        <>
-          <button className="btn-ghost" onClick={onClose}>
-            <X size={13} strokeWidth={2} />
-            Cancel
-          </button>
-          <button className="btn-primary" onClick={submit} disabled={!toId}>
-            Move
-          </button>
-        </>
-      }
-    >
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <p className="text-body" style={{ margin: 0 }}>
-          Move <strong style={{ color: "var(--color-text)" }}>{card.question.slice(0, 60)}{card.question.length > 60 ? "…" : ""}</strong> to:
-        </p>
-        {targets.length === 0 ? (
-          <p className="text-meta">No other collections to move this card to.</p>
-        ) : (
-          <label className="modal__field">
-            <span className="text-meta">Destination collection</span>
-            <select
-              className="input"
-              value={toId}
-              onChange={(e) => setToId(e.target.value)}
-            >
-              {targets.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.emoji} {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </form>
-    </Modal>
   );
 }

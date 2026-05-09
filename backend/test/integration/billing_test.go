@@ -353,3 +353,32 @@ func TestCardLimit_ProUserUnlimited(t *testing.T) {
 		map[string]string{"question": "Q51", "answer": "A51"}, tok)
 	mustStatus(t, w, http.StatusCreated)
 }
+
+// ── Webhook: unhandled event type ─────────────────────────────────────────────
+
+// TestWebhook_UnknownEventType_Returns200 verifies the default: case in the
+// webhook switch. Stripe expects a 200 for any event it sends — silently
+// ignoring unknown types is the correct behaviour.
+func TestWebhook_UnknownEventType_Returns200(t *testing.T) {
+	testutil.Truncate(t, testPool)
+
+	w := webhook(t, "invoice.payment_succeeded", map[string]any{
+		"id": "in_test_123",
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// ── Webhook: checkout without customer ───────────────────────────────────────
+
+// TestWebhook_CheckoutCompleted_NilCustomer verifies that a checkout.session
+// with a subscription but no customer ID does not crash the handler.
+func TestWebhook_CheckoutCompleted_NilCustomer(t *testing.T) {
+	testutil.Truncate(t, testPool)
+
+	// No customer field — UPDATE matches zero rows; must still return 200.
+	w := webhook(t, "checkout.session.completed", map[string]any{
+		"subscription": map[string]any{"id": "sub_orphan"},
+		"status":       "complete",
+	})
+	assert.Equal(t, http.StatusOK, w.Code)
+}

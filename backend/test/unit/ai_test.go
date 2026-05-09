@@ -156,3 +156,52 @@ func TestGenerateCardsFromTopic_PromptContainsLevel(t *testing.T) {
 	prompt, _ := captured["prompt"].(string)
 	assert.Contains(t, prompt, "advanced")
 }
+
+// ── Text truncation ──────────────────────────────────────────────────────────
+
+// TestGenerateCards_LongTextIsTruncated verifies that text longer than 8000
+// bytes is cut before being sent to Ollama, and that the prompt still reaches
+// the server (i.e. the request is made at all).
+func TestGenerateCards_LongTextIsTruncated(t *testing.T) {
+	var captured map[string]any
+	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
+	client := ai.NewClient(srv.URL, "test-model")
+
+	longText := string(make([]byte, 12000)) // 12 KB of null bytes — well over the 8 KB limit
+	_, err := client.GenerateCards(context.Background(), longText)
+	require.NoError(t, err)
+
+	prompt, _ := captured["prompt"].(string)
+	// The prompt must be present but shorter than the full input.
+	assert.NotEmpty(t, prompt)
+	assert.Less(t, len(prompt), 12000, "prompt must not include the full 12 KB input")
+}
+
+// TestGenerateCards_UTF8TruncationIsSafe verifies that truncating near a
+// multi-byte UTF-8 boundary does not produce an invalid string. We craft a
+// string whose 8000th byte lands inside a 3-byte rune (€ = 0xE2 0x82 0xAC).
+func TestGenerateCards_UTF8TruncationIsSafe(t *testing.T) {
+	var captured map[string]any
+	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
+	client := ai.NewClient(srv.URL, "test-model")
+
+	// Fill 7999 ASCII bytes then append multi-byte runes so that byte 8000
+	// lands inside a rune, forcing the truncation code to back up.
+	prefix := make([]byte, 7999)
+	for i := range prefix {
+		prefix[i] = 'a'
+	}
+	text := string(prefix) + "€€€€€" // each € is 3 bytes
+
+	_, err := client.GenerateCards(context.Background(), text)
+	require.NoError(t, err)
+
+	prompt, _ := captured["prompt"].(string)
+	assert.NotEmpty(t, prompt)
+	// The prompt must be valid UTF-8 — no truncation artefacts.
+	for i, r := range prompt {
+		if r == '�' {
+			t.Fatalf("replacement rune at byte offset %d — string is not valid UTF-8", i)
+		}
+	}
+}

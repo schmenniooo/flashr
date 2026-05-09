@@ -456,3 +456,7 @@
     display: none;
   }
 }
+
+.dash__strong        { color: var(--color-text); }
+.dash__section-icon  { color: var(--color-accent); vertical-align: -2px; margin-right: 6px; }
+.dash__activity-time { text-transform: none; }

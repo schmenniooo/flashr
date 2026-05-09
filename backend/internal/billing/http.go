@@ -17,6 +17,8 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup, requireUser gin.HandlerFun
 	protected := rg.Group("/billing", requireUser)
 	protected.POST("/checkout", s.handleCheckout)
 	protected.POST("/portal", s.handlePortal)
+	protected.POST("/fulfill", s.handleFulfill)
+	protected.POST("/sync", s.handleSync)
 }
 
 func (s *Service) handleCheckout(c *gin.Context) {
@@ -33,6 +35,33 @@ func (s *Service) handleCheckout(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"url": url})
+}
+
+func (s *Service) handleFulfill(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+
+	var body struct {
+		SessionID string `json:"session_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "session_id is required"})
+		return
+	}
+
+	if err := s.FulfillCheckout(c.Request.Context(), body.SessionID, userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not fulfill checkout"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (s *Service) handleSync(c *gin.Context) {
+	userID := auth.UserIDFromContext(c)
+	if err := s.SyncPlan(c.Request.Context(), userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not sync plan"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (s *Service) handlePortal(c *gin.Context) {
