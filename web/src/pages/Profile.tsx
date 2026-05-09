@@ -69,12 +69,31 @@ export function Profile() {
     const params = new URLSearchParams(window.location.search);
     const fromCheckout = params.get("checkout") === "success";
     const fromPortal = params.get("portal") === "return";
+
     if (fromCheckout || fromPortal) {
       window.history.replaceState({}, "", window.location.pathname);
-      void auth.refreshUser();
-      if (fromCheckout) {
+    }
+
+    if (fromCheckout) {
+      // Verify the Stripe Checkout Session directly so the plan is updated
+      // immediately — without waiting for the webhook to arrive.
+      const sessionId = params.get("session_id");
+      void (async () => {
+        if (sessionId) await billingApi.fulfill(sessionId).catch(() => {});
+        await auth.refreshUser();
         setTimeout(() => setCheckoutSuccess(false), 5000);
-      }
+      })();
+    } else if (fromPortal) {
+      // Sync plan from Stripe's live subscription state so cancellations and
+      // upgrades are reflected immediately — without waiting for the webhook.
+      void (async () => {
+        await billingApi.sync().catch(() => {});
+        await auth.refreshUser();
+      })();
+    } else {
+      // Always refresh plan on profile mount so any changes are reflected
+      // without a full page reload.
+      void auth.refreshUser();
     }
   }, []);
 

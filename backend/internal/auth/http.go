@@ -227,11 +227,21 @@ func (s *Service) RequireUser() gin.HandlerFunc {
 	}
 }
 
-// RequirePro reads the plan from the JWT claim stored by RequireUser — no
-// extra DB query. Plan accuracy is bounded by token TTL (default 24 h).
+// RequirePro queries the DB for the user's current plan so that subscription
+// changes (webhook-driven) take effect immediately without waiting for token
+// rotation. Must be chained after RequireUser.
 func (s *Service) RequirePro() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if PlanFromContext(c) != domain.PlanPro {
+		userID := UserIDFromContext(c)
+		var plan string
+		err := s.pool.QueryRow(c.Request.Context(),
+			`SELECT plan FROM users WHERE id = $1`, userID,
+		).Scan(&plan)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not verify plan"})
+			return
+		}
+		if plan != domain.PlanPro {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "pro plan required"})
 			return
 		}
