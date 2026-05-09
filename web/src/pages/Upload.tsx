@@ -24,6 +24,7 @@ import {
   useDb,
 } from "../lib/store";
 import { api, ApiError } from "../lib/api";
+import { STORAGE_KEYS } from "../lib/storageKeys";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import "./Upload.css";
 
@@ -39,7 +40,7 @@ type DraftCard = {
   keep: boolean;
 };
 
-const CHAT_DRAFT_KEY = "flashr:ai-chat-draft:v1";
+const CHAT_DRAFT_KEY = STORAGE_KEYS.AI_CHAT_DRAFT;
 
 type ChatDraft = {
   prompt: string;

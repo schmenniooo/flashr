@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import { auth, useDb, selectCurrentUser } from "../lib/store";
-import type { LearnerType } from "../data/mock";
+import type { LearnerType } from "../types";
 import "./Onboarding.css";
 
 type Step = 0 | 1 | 2;
