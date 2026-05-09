@@ -277,3 +277,10 @@
     display: none;
   }
 }
+
+.cols__title       { margin-top: var(--space-2); }
+.cols__subtitle    { margin-top: var(--space-1); }
+.cols__strong      { color: var(--color-text); }
+.cols__empty-title { margin-top: var(--space-2); }
+.cols__empty-body  { margin-top: var(--space-1); max-width: 420px; }
+.cols__empty-cta   { margin-top: var(--space-4); }

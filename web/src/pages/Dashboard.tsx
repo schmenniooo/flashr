@@ -17,6 +17,9 @@ import {
   selectCollections,
   selectCurrentUser,
   selectSuggestionsForUser,
+  selectTotalCards,
+  selectCardsDueToday,
+  selectKnownCards,
   suggestionsApi,
   useDb,
 } from "../lib/store";
@@ -41,6 +44,9 @@ export function Dashboard() {
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const suggestions = useDb(selectSuggestionsForUser);
+  const cardsDue = useDb(selectCardsDueToday);
+  const totalCards = useDb(selectTotalCards);
+  const cardsLearned = useDb(selectKnownCards);
   const navigate = useNavigate();
 
   async function handleAcceptSuggestion(id: string) {
@@ -64,15 +70,6 @@ export function Dashboard() {
     collections.find((c) => c.cards.some((k) => k.mastery !== "known")) ??
     collections[0];
   const recentCollections = collections.slice(0, 6);
-  const cardsDue = collections.reduce(
-    (s, c) => s + c.cards.filter((k) => k.mastery !== "known").length,
-    0,
-  );
-  const totalCards = collections.reduce((s, c) => s + c.cards.length, 0);
-  const cardsLearned = collections.reduce(
-    (s, c) => s + c.cards.filter((k) => k.mastery === "known").length,
-    0,
-  );
 
   return (
     <div className="dash">
