@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import {
   Mail,
   Lock,
@@ -17,12 +17,20 @@ import "./Login.css";
 
 type Mode = "signin" | "signup";
 
+const OAUTH_ERRORS: Record<string, string> = {
+  oauth_failed: "Sign-in with Google or GitHub failed — please try again.",
+};
+
 export function Login() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<Mode>(pathname === "/signup" ? "signup" : "signin");
   const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const code = searchParams.get("error");
+    return code ? (OAUTH_ERRORS[code] ?? "Something went wrong — please try again.") : null;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: "",
