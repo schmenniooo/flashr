@@ -191,3 +191,14 @@ button {
 .fade-in {
   animation: fadeIn 0.3s ease forwards;
 }
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  text-align: center;
+}
