@@ -25,23 +25,32 @@ type Release struct {
 	Description string `yaml:"description" json:"description"`
 }
 
-type service struct {
+type Service struct {
 	token          string
-	rawURLTemplate string
-	branchesURL    string
-	client         *http.Client
+	RawURLTemplate string
+	BranchesURL    string
+	Client         *http.Client
 
 	mu     sync.Mutex
 	cache  []Release
 	expiry time.Time
 }
 
-func newService(token string) *service {
-	return &service{
+func newService(token string) *Service {
+	return &Service{
 		token:          token,
-		rawURLTemplate: "https://raw.githubusercontent.com/schmenniooo/flashr/%s/ANNOUNCEMENTS.md",
-		branchesURL:    "https://api.github.com/repos/schmenniooo/flashr/branches",
-		client:         &http.Client{Timeout: 5 * time.Second},
+		RawURLTemplate: "https://raw.githubusercontent.com/schmenniooo/flashr/%s/ANNOUNCEMENTS.md",
+		BranchesURL:    "https://api.github.com/repos/schmenniooo/flashr/branches",
+		Client:         &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+// NewTestService builds a Service with custom URLs for use in tests.
+func NewTestService(rawURLTemplate, branchesURL string) *Service {
+	return &Service{
+		RawURLTemplate: rawURLTemplate,
+		BranchesURL:    branchesURL,
+		Client:         &http.Client{Timeout: 5 * time.Second},
 	}
 }
 
@@ -50,7 +59,7 @@ func RegisterRoutes(rg *gin.RouterGroup, githubToken string) {
 	rg.GET("/announcements", svc.handle)
 }
 
-func (s *service) handle(c *gin.Context) {
+func (s *Service) handle(c *gin.Context) {
 	s.mu.Lock()
 	if time.Now().Before(s.expiry) {
 		result := s.cache
@@ -60,7 +69,7 @@ func (s *service) handle(c *gin.Context) {
 	}
 	s.mu.Unlock()
 
-	releases, err := s.load()
+	releases, err := s.Load()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load announcements"})
 		return
@@ -74,8 +83,8 @@ func (s *service) handle(c *gin.Context) {
 	c.JSON(http.StatusOK, releases)
 }
 
-func (s *service) load() ([]Release, error) {
-	releases, err := s.fetchFromBranch("main")
+func (s *Service) Load() ([]Release, error) {
+	releases, err := s.FetchFromBranch("main")
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +92,7 @@ func (s *service) load() ([]Release, error) {
 		return releases, nil
 	}
 
-	branches, err := s.listBranches()
+	branches, err := s.ListBranches()
 	if err != nil {
 		return []Release{}, nil
 	}
@@ -91,7 +100,7 @@ func (s *service) load() ([]Release, error) {
 		if !strings.HasPrefix(branch, "feature-") {
 			continue
 		}
-		r, err := s.fetchFromBranch(branch)
+		r, err := s.FetchFromBranch(branch)
 		if err != nil || len(r) == 0 {
 			continue
 		}
@@ -100,8 +109,8 @@ func (s *service) load() ([]Release, error) {
 	return []Release{}, nil
 }
 
-func (s *service) fetchFromBranch(branch string) ([]Release, error) {
-	resp, err := s.get(fmt.Sprintf(s.rawURLTemplate, branch))
+func (s *Service) FetchFromBranch(branch string) ([]Release, error) {
+	resp, err := s.get(fmt.Sprintf(s.RawURLTemplate, branch))
 	if err != nil {
 		return nil, err
 	}
@@ -116,11 +125,11 @@ func (s *service) fetchFromBranch(branch string) ([]Release, error) {
 		return nil, err
 	}
 
-	return parse(data)
+	return Parse(data)
 }
 
-func (s *service) listBranches() ([]string, error) {
-	resp, err := s.get(s.branchesURL)
+func (s *Service) ListBranches() ([]string, error) {
+	resp, err := s.get(s.BranchesURL)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +149,22 @@ func (s *service) listBranches() ([]string, error) {
 	return names, nil
 }
 
-func (s *service) get(url string) (*http.Response, error) {
+func (s *Service) SetToken(token string) { s.token = token }
+
+func (s *Service) SetCache(releases []Release, expiry time.Time) {
+	s.mu.Lock()
+	s.cache = releases
+	s.expiry = expiry
+	s.mu.Unlock()
+}
+
+func (s *Service) GetCache() (releases []Release, expiry time.Time) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.cache, s.expiry
+}
+
+func (s *Service) get(url string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -148,12 +172,12 @@ func (s *service) get(url string) (*http.Response, error) {
 	if s.token != "" {
 		req.Header.Set("Authorization", "Bearer "+s.token)
 	}
-	return s.client.Do(req)
+	return s.Client.Do(req)
 }
 
-// parse extracts the first ```yaml block from a markdown document and
+// Parse extracts the first ```yaml block from a markdown document and
 // unmarshals it into a slice of Release.
-func parse(data []byte) ([]Release, error) {
+func Parse(data []byte) ([]Release, error) {
 	m := yamlBlockRe.FindSubmatch(data)
 	if m == nil {
 		return []Release{}, nil
