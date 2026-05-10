@@ -16,6 +16,7 @@ import { Study } from "./pages/Study";
 import { Upload } from "./pages/Upload";
 import { Profile } from "./pages/Profile";
 import { Onboarding } from "./pages/Onboarding";
+import { Announcements } from "./pages/Announcements";
 
 // Infrequent pages — lazy is fine, no user-visible flicker expected.
 const Imprint = lazy(() => import("./pages/Imprint").then(m => ({ default: m.Imprint })));
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
       { path: "c/:id/study", element: <Study /> },
       { path: "upload", element: <Upload /> },
       { path: "profile", element: <Profile /> },
+      { path: "announcements", element: <Announcements /> },
     ],
   },
 ]);

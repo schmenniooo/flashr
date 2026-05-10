@@ -1,0 +1,124 @@
+.ann {
+  max-width: var(--max-narrow);
+}
+
+.ann__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.ann__header-icon {
+  color: var(--color-accent-light);
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.ann__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.ann__subtitle {
+  font-size: 13px;
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.ann__loading,
+.ann__empty {
+  font-size: 13px;
+  color: var(--color-muted);
+  padding: var(--space-5) 0;
+}
+
+.ann__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ann__item {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.ann__timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.ann__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-border);
+  border: 2px solid var(--color-surface);
+  flex-shrink: 0;
+}
+
+.ann__dot--latest {
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+.ann__line {
+  width: 1px;
+  flex: 1;
+  min-height: var(--space-5);
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+.ann__card {
+  flex: 1;
+  padding-bottom: var(--space-6);
+}
+
+.ann__card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.ann__version {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--color-accent-light);
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.22);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.ann__date {
+  font-size: 12px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.ann__card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 var(--space-2);
+}
+
+.ann__card-desc {
+  font-size: 13px;
+  color: var(--color-muted);
+  line-height: 1.6;
+  margin: 0;
+}
