@@ -150,6 +150,16 @@
   color: var(--color-muted);
 }
 
+.shell__nav-unread {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+  flex-shrink: 0;
+}
+
 .shell__nav-count {
   margin-left: auto;
   font-size: 11px;

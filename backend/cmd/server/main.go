@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
+	"github.com/smithlabs/flashr/backend/internal/announcements"
 	"github.com/smithlabs/flashr/backend/internal/auth"
 	"github.com/smithlabs/flashr/backend/internal/billing"
 	"github.com/smithlabs/flashr/backend/internal/collections"
@@ -104,6 +105,8 @@ func main() {
 	// Auth + collections: 15 s is generous for DB-only work.
 	// Billing: 30 s allows for Stripe API latency.
 	// AI: no deadline here — the Ollama client enforces a 2-minute HTTP timeout.
+	announcements.RegisterRoutes(api, cfg.GithubToken)
+
 	authSvc.RegisterRoutes(api.Group("/auth", timeoutMiddleware(15*time.Second)))
 
 	collectionsSvc := collections.NewService(pool)

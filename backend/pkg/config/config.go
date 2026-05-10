@@ -24,6 +24,7 @@ type Config struct {
 
 	GithubClientID     string
 	GithubClientSecret string
+	GithubToken        string
 
 	FrontendURL string
 	BackendURL  string
@@ -62,6 +63,7 @@ func Load() Config {
 
 		GithubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 		GithubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
+		GithubToken:        os.Getenv("GITHUB_TOKEN"),
 
 		FrontendURL: envOr("FRONTEND_URL", "http://localhost:5173"),
 		BackendURL:  envOr("BACKEND_URL", "http://localhost:8080"),
