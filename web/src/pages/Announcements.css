@@ -1,38 +1,14 @@
 .ann {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
   max-width: var(--max-narrow);
 }
 
-.ann__header {
+.ann__head {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  margin-bottom: var(--space-6);
-}
-
-.ann__header-icon {
-  color: var(--color-accent-light);
-  margin-top: 3px;
-  flex-shrink: 0;
-}
-
-.ann__title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0 0 4px;
-}
-
-.ann__subtitle {
-  font-size: 13px;
-  color: var(--color-muted);
-  margin: 0;
-}
-
-.ann__loading,
-.ann__empty {
-  font-size: 13px;
-  color: var(--color-muted);
-  padding: var(--space-5) 0;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .ann__list {
@@ -41,56 +17,51 @@
   padding: 0;
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
 }
 
-.ann__item {
-  display: flex;
-  gap: var(--space-4);
-}
-
-.ann__timeline {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-  padding-top: 4px;
-}
-
-.ann__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-border);
-  border: 2px solid var(--color-surface);
-  flex-shrink: 0;
-}
-
-.ann__dot--latest {
-  background: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
-}
-
-.ann__line {
-  width: 1px;
-  flex: 1;
-  min-height: var(--space-5);
-  background: var(--color-border);
-  margin: 4px 0;
-}
+/* ── Release card ── */
 
 .ann__card {
-  flex: 1;
-  padding-bottom: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-base), transform var(--transition-base);
 }
 
-.ann__card-head {
+.ann__card:hover {
+  border-color: rgba(108, 99, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.ann__card--latest {
+  background:
+    radial-gradient(320px 160px at 100% 0%, rgba(108, 99, 255, 0.1), transparent 70%),
+    var(--color-surface);
+  border-color: rgba(108, 99, 255, 0.25);
+}
+
+.ann__card--latest:hover {
+  border-color: rgba(108, 99, 255, 0.45);
+}
+
+/* ── Card meta row ── */
+
+.ann__card-meta {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .ann__version {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   font-weight: 700;
   font-family: var(--font-mono);
@@ -99,26 +70,31 @@
   background: rgba(108, 99, 255, 0.12);
   border: 1px solid rgba(108, 99, 255, 0.22);
   border-radius: 6px;
-  padding: 2px 8px;
+  padding: 3px 8px;
 }
 
-.ann__date {
-  font-size: 12px;
-  color: var(--color-muted);
+.ann__latest-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
   font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6bd88c;
+  background: rgba(107, 216, 140, 0.08);
+  border: 1px solid rgba(107, 216, 140, 0.2);
+  border-radius: 6px;
+  padding: 3px 8px;
 }
+
+/* ── Card title ── */
 
 .ann__card-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--color-text);
-  margin: 0 0 var(--space-2);
-}
-
-.ann__card-desc {
-  font-size: 13px;
-  color: var(--color-muted);
-  line-height: 1.6;
   margin: 0;
+  letter-spacing: -0.2px;
 }
