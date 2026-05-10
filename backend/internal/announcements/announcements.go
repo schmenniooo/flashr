@@ -31,9 +31,9 @@ type service struct {
 	branchesURL    string
 	client         *http.Client
 
-	mu      sync.Mutex
-	cache   []Release
-	expiry  time.Time
+	mu     sync.Mutex
+	cache  []Release
+	expiry time.Time
 }
 
 func newService(token string) *service {

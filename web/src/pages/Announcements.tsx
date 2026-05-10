@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Megaphone, Tag, ArrowRight } from "lucide-react";
+import { Tag, ArrowRight } from "lucide-react";
 import { api } from "../lib/api";
 import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Announcements.css";
