@@ -14,21 +14,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	rawURLTemplate = "https://raw.githubusercontent.com/schmenniooo/flashr/%s/ANNOUNCEMENTS.md"
-	branchesAPIURL = "https://api.github.com/repos/schmenniooo/flashr/branches"
-)
-
 const cacheTTL = 5 * time.Minute
 
-var (
-	httpClient  = &http.Client{Timeout: 5 * time.Second}
-	yamlBlockRe = regexp.MustCompile("(?s)```yaml\n(.*?)```")
-
-	cacheMu      sync.Mutex
-	cachedResult []Release
-	cacheExpiry  time.Time
-)
+var yamlBlockRe = regexp.MustCompile("(?s)```yaml\n(.*?)```")
 
 type Release struct {
 	Version     string `yaml:"version" json:"version"`
@@ -37,38 +25,57 @@ type Release struct {
 	Description string `yaml:"description" json:"description"`
 }
 
-func RegisterRoutes(rg *gin.RouterGroup, githubToken string) {
-	rg.GET("/announcements", func(c *gin.Context) {
-		handle(c, githubToken)
-	})
+type service struct {
+	token          string
+	rawURLTemplate string
+	branchesURL    string
+	client         *http.Client
+
+	mu      sync.Mutex
+	cache   []Release
+	expiry  time.Time
 }
 
-func handle(c *gin.Context, token string) {
-	cacheMu.Lock()
-	if time.Now().Before(cacheExpiry) {
-		result := cachedResult
-		cacheMu.Unlock()
+func newService(token string) *service {
+	return &service{
+		token:          token,
+		rawURLTemplate: "https://raw.githubusercontent.com/schmenniooo/flashr/%s/ANNOUNCEMENTS.md",
+		branchesURL:    "https://api.github.com/repos/schmenniooo/flashr/branches",
+		client:         &http.Client{Timeout: 5 * time.Second},
+	}
+}
+
+func RegisterRoutes(rg *gin.RouterGroup, githubToken string) {
+	svc := newService(githubToken)
+	rg.GET("/announcements", svc.handle)
+}
+
+func (s *service) handle(c *gin.Context) {
+	s.mu.Lock()
+	if time.Now().Before(s.expiry) {
+		result := s.cache
+		s.mu.Unlock()
 		c.JSON(http.StatusOK, result)
 		return
 	}
-	cacheMu.Unlock()
+	s.mu.Unlock()
 
-	releases, err := load(token)
+	releases, err := s.load()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load announcements"})
 		return
 	}
 
-	cacheMu.Lock()
-	cachedResult = releases
-	cacheExpiry = time.Now().Add(cacheTTL)
-	cacheMu.Unlock()
+	s.mu.Lock()
+	s.cache = releases
+	s.expiry = time.Now().Add(cacheTTL)
+	s.mu.Unlock()
 
 	c.JSON(http.StatusOK, releases)
 }
 
-func load(token string) ([]Release, error) {
-	releases, err := fetchFromBranch("main", token)
+func (s *service) load() ([]Release, error) {
+	releases, err := s.fetchFromBranch("main")
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +83,7 @@ func load(token string) ([]Release, error) {
 		return releases, nil
 	}
 
-	// main has no entries yet — try other branches as fallback.
-	branches, err := listBranches(token)
+	branches, err := s.listBranches()
 	if err != nil {
 		return []Release{}, nil
 	}
@@ -85,7 +91,7 @@ func load(token string) ([]Release, error) {
 		if !strings.HasPrefix(branch, "feature-") {
 			continue
 		}
-		r, err := fetchFromBranch(branch, token)
+		r, err := s.fetchFromBranch(branch)
 		if err != nil || len(r) == 0 {
 			continue
 		}
@@ -94,8 +100,8 @@ func load(token string) ([]Release, error) {
 	return []Release{}, nil
 }
 
-func fetchFromBranch(branch, token string) ([]Release, error) {
-	resp, err := get(fmt.Sprintf(rawURLTemplate, branch), token)
+func (s *service) fetchFromBranch(branch string) ([]Release, error) {
+	resp, err := s.get(fmt.Sprintf(s.rawURLTemplate, branch))
 	if err != nil {
 		return nil, err
 	}
@@ -110,20 +116,11 @@ func fetchFromBranch(branch, token string) ([]Release, error) {
 		return nil, err
 	}
 
-	m := yamlBlockRe.FindSubmatch(data)
-	if m == nil {
-		return []Release{}, nil
-	}
-
-	var releases []Release
-	if err := yaml.Unmarshal([]byte(strings.TrimSpace(string(m[1]))), &releases); err != nil {
-		return nil, err
-	}
-	return releases, nil
+	return parse(data)
 }
 
-func listBranches(token string) ([]string, error) {
-	resp, err := get(branchesAPIURL, token)
+func (s *service) listBranches() ([]string, error) {
+	resp, err := s.get(s.branchesURL)
 	if err != nil {
 		return nil, err
 	}
@@ -143,13 +140,28 @@ func listBranches(token string) ([]string, error) {
 	return names, nil
 }
 
-func get(url, token string) (*http.Response, error) {
+func (s *service) get(url string) (*http.Response, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	if s.token != "" {
+		req.Header.Set("Authorization", "Bearer "+s.token)
 	}
-	return httpClient.Do(req)
+	return s.client.Do(req)
+}
+
+// parse extracts the first ```yaml block from a markdown document and
+// unmarshals it into a slice of Release.
+func parse(data []byte) ([]Release, error) {
+	m := yamlBlockRe.FindSubmatch(data)
+	if m == nil {
+		return []Release{}, nil
+	}
+
+	var releases []Release
+	if err := yaml.Unmarshal([]byte(strings.TrimSpace(string(m[1]))), &releases); err != nil {
+		return nil, err
+	}
+	return releases, nil
 }
