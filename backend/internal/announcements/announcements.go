@@ -60,7 +60,7 @@ func load(token string) ([]Release, error) {
 		return []Release{}, nil
 	}
 	for _, branch := range branches {
-		if branch == "main" {
+		if !strings.HasPrefix(branch, "feature-") {
 			continue
 		}
 		r, err := fetchFromBranch(branch, token)
