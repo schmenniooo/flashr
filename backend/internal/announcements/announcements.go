@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,9 +19,15 @@ const (
 	branchesAPIURL = "https://api.github.com/repos/schmenniooo/flashr/branches"
 )
 
+const cacheTTL = 5 * time.Minute
+
 var (
 	httpClient  = &http.Client{Timeout: 5 * time.Second}
 	yamlBlockRe = regexp.MustCompile("(?s)```yaml\n(.*?)```")
+
+	cacheMu      sync.Mutex
+	cachedResult []Release
+	cacheExpiry  time.Time
 )
 
 type Release struct {
@@ -37,11 +44,26 @@ func RegisterRoutes(rg *gin.RouterGroup, githubToken string) {
 }
 
 func handle(c *gin.Context, token string) {
+	cacheMu.Lock()
+	if time.Now().Before(cacheExpiry) {
+		result := cachedResult
+		cacheMu.Unlock()
+		c.JSON(http.StatusOK, result)
+		return
+	}
+	cacheMu.Unlock()
+
 	releases, err := load(token)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load announcements"})
 		return
 	}
+
+	cacheMu.Lock()
+	cachedResult = releases
+	cacheExpiry = time.Now().Add(cacheTTL)
+	cacheMu.Unlock()
+
 	c.JSON(http.StatusOK, releases)
 }
 
