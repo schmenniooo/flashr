@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Crown,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
+import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
 import "./Profile.css";
 
 export function Profile() {
@@ -55,11 +55,7 @@ export function Profile() {
     );
   }, [form, avatarPreview, currentUser]);
 
-  // Initialise from URL params so state is ready before first render (no effect needed).
-  const [checkoutSuccess, setCheckoutSuccess] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("checkout") === "success";
-  });
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -86,7 +82,8 @@ export function Profile() {
       }
       await billingApi.sync().catch(console.error);
       await auth.refreshUser();
-      if (fromCheckout) {
+      if (fromCheckout && selectNow(selectCurrentUser)?.plan === "pro") {
+        setCheckoutSuccess(true);
         setTimeout(() => setCheckoutSuccess(false), 5000);
       }
     })();
