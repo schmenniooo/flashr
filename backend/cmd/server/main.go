@@ -143,6 +143,7 @@ func main() {
 		ProPriceID:    cfg.StripeProPriceID,
 		FrontendURL:   cfg.FrontendURL,
 	})
+	authSvc.OnBeforeUserDelete(billingSvc.DeleteCustomer)
 	billingSvc.RegisterRoutes(
 		api.Group("", timeoutMiddleware(30*time.Second)),
 		authSvc.RequireUser(),

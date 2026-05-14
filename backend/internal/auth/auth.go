@@ -59,14 +59,21 @@ type TokenPair struct {
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 type Service struct {
-	pool          *pgxpool.Pool
-	secret        []byte
-	accessTTL     time.Duration
-	refreshTTL    time.Duration
-	SecureCookies bool
-	googleOAuth   *oauth2.Config
-	githubOAuth   *oauth2.Config
-	frontendURL   string
+	pool             *pgxpool.Pool
+	secret           []byte
+	accessTTL        time.Duration
+	refreshTTL       time.Duration
+	SecureCookies    bool
+	googleOAuth      *oauth2.Config
+	githubOAuth      *oauth2.Config
+	frontendURL      string
+	beforeDeleteHook func(ctx context.Context, userID string) error
+}
+
+// OnBeforeUserDelete registers a hook that is called before a user is deleted.
+// Use this to clean up external resources (e.g. Stripe customer data).
+func (s *Service) OnBeforeUserDelete(fn func(ctx context.Context, userID string) error) {
+	s.beforeDeleteHook = fn
 }
 
 type Config struct {

@@ -232,6 +232,42 @@ func (s *Service) SyncPlan(ctx context.Context, userID string) error {
 	return err
 }
 
+// DeleteCustomer cancels all active Stripe subscriptions and deletes the
+// Stripe customer for the given user. It is a no-op when the user has no
+// Stripe customer. Call this before deleting the user row from the DB.
+func (s *Service) DeleteCustomer(ctx context.Context, userID string) error {
+	cid, err := s.customerID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if cid == "" {
+		return nil // user never had a Stripe customer
+	}
+
+	// Cancel all active/trialing subscriptions before deleting the customer
+	// so Stripe fires the right cancellation events.
+	iter := subscription.List(&stripe.SubscriptionListParams{
+		Customer: stripe.String(cid),
+	})
+	for iter.Next() {
+		sub := iter.Subscription()
+		if sub.Status == stripe.SubscriptionStatusActive || sub.Status == stripe.SubscriptionStatusTrialing {
+			if _, err := subscription.Cancel(sub.ID, nil); err != nil {
+				return fmt.Errorf("stripe: cancel subscription %s: %w", sub.ID, err)
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("stripe: list subscriptions: %w", err)
+	}
+
+	if _, err := customer.Del(cid, nil); err != nil {
+		return fmt.Errorf("stripe: delete customer %s: %w", cid, err)
+	}
+	slog.Info("billing: stripe customer deleted", "user_id", userID, "customer_id", cid)
+	return nil
+}
+
 func (s *Service) ensureCustomer(ctx context.Context, userID, email string) (string, error) {
 	existing, err := s.customerID(ctx, userID)
 	if err != nil {

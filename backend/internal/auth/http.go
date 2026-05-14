@@ -241,6 +241,12 @@ func (s *Service) handleLogout(c *gin.Context) {
 
 func (s *Service) handleDeleteMe(c *gin.Context) {
 	userID := UserIDFromContext(c)
+	if s.beforeDeleteHook != nil {
+		if err := s.beforeDeleteHook(c.Request.Context(), userID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not clean up account data"})
+			return
+		}
+	}
 	if err := s.DeleteUser(c.Request.Context(), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not delete account"})
 		return
