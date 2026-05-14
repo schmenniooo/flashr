@@ -52,6 +52,7 @@ func main() {
 
 	authSvc, err := auth.NewService(pool, auth.Config{
 		Secret:             cfg.JWTSecret,
+		SecureCookies:      cfg.SecureCookies,
 		GoogleClientID:     cfg.GoogleClientID,
 		GoogleClientSecret: cfg.GoogleClientSecret,
 		GoogleRedirectURL:  cfg.BackendURL + "/api/auth/google/callback",
@@ -236,6 +237,7 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id")
+			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Max-Age", "43200")
 		}
 		if c.Request.Method == http.MethodOptions {

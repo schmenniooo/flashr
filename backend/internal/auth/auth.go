@@ -3,6 +3,9 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -20,17 +23,18 @@ import (
 // ─── Sentinel errors ─────────────────────────────────────────────────────────
 
 var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrEmailTaken         = errors.New("email already registered")
-	ErrWeakPassword       = errors.New("password must be at least 8 characters")
-	ErrInvalidEmail       = errors.New("invalid email address")
-	ErrInvalidToken       = errors.New("invalid or expired token")
-	ErrUserNotFound       = errors.New("user not found")
+	ErrInvalidCredentials  = errors.New("invalid email or password")
+	ErrEmailTaken          = errors.New("email already registered")
+	ErrWeakPassword        = errors.New("password must be at least 8 characters")
+	ErrInvalidEmail        = errors.New("invalid email address")
+	ErrInvalidToken        = errors.New("invalid or expired token")
+	ErrUserNotFound        = errors.New("user not found")
+	ErrRefreshTokenInvalid = errors.New("invalid or expired refresh token")
 )
 
 const minPasswordLength = 8
 
-// ─── Domain type ─────────────────────────────────────────────────────────────
+// ─── Domain types ─────────────────────────────────────────────────────────────
 
 type User struct {
 	ID            string     `json:"id"`
@@ -42,20 +46,35 @@ type User struct {
 	CreatedAt     time.Time  `json:"created_at"`
 }
 
+// TokenPair holds both tokens issued after a successful authentication.
+// AccessToken is short-lived (15 min) and sent in the Authorization header.
+// RefreshToken is long-lived (30 days) and stored in an http-only cookie.
+type TokenPair struct {
+	AccessToken   string
+	AccessExpiry  time.Time
+	RefreshToken  string
+	RefreshExpiry time.Time
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 type Service struct {
-	pool        *pgxpool.Pool
-	secret      []byte
-	tokenTTL    time.Duration
-	googleOAuth *oauth2.Config
-	githubOAuth *oauth2.Config
-	frontendURL string
+	pool          *pgxpool.Pool
+	secret        []byte
+	accessTTL     time.Duration
+	refreshTTL    time.Duration
+	SecureCookies bool
+	googleOAuth   *oauth2.Config
+	githubOAuth   *oauth2.Config
+	frontendURL   string
 }
 
 type Config struct {
-	Secret             string
-	TokenTTL           time.Duration // defaults to 24h
+	Secret        string
+	AccessTTL     time.Duration // defaults to 15 min
+	RefreshTTL    time.Duration // defaults to 30 days
+	SecureCookies bool
+
 	GoogleClientID     string
 	GoogleClientSecret string
 	GoogleRedirectURL  string
@@ -72,15 +91,21 @@ func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	if len(cfg.Secret) < 32 {
 		return nil, errors.New("auth: JWT secret must be at least 32 bytes")
 	}
-	ttl := cfg.TokenTTL
-	if ttl == 0 {
-		ttl = 24 * time.Hour
+	accessTTL := cfg.AccessTTL
+	if accessTTL == 0 {
+		accessTTL = 15 * time.Minute
+	}
+	refreshTTL := cfg.RefreshTTL
+	if refreshTTL == 0 {
+		refreshTTL = 30 * 24 * time.Hour
 	}
 	svc := &Service{
-		pool:        pool,
-		secret:      []byte(cfg.Secret),
-		tokenTTL:    ttl,
-		frontendURL: cfg.FrontendURL,
+		pool:          pool,
+		secret:        []byte(cfg.Secret),
+		accessTTL:     accessTTL,
+		refreshTTL:    refreshTTL,
+		SecureCookies: cfg.SecureCookies,
+		frontendURL:   cfg.FrontendURL,
 	}
 	if cfg.GoogleClientID != "" && cfg.GoogleClientSecret != "" {
 		svc.googleOAuth = &oauth2.Config{
@@ -105,20 +130,20 @@ func NewService(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 
 // ─── Core auth ───────────────────────────────────────────────────────────────
 
-// SignUp creates a new user with hashed credentials and returns a session token.
-func (s *Service) SignUp(ctx context.Context, email, password, name string) (User, string, time.Time, error) {
+// SignUp creates a new user with hashed credentials and issues a token pair.
+func (s *Service) SignUp(ctx context.Context, email, password, name string) (User, TokenPair, error) {
 	email = normaliseEmail(email)
 	if !validEmail(email) {
-		return User{}, "", time.Time{}, ErrInvalidEmail
+		return User{}, TokenPair{}, ErrInvalidEmail
 	}
 	if len(password) < minPasswordLength {
-		return User{}, "", time.Time{}, ErrWeakPassword
+		return User{}, TokenPair{}, ErrWeakPassword
 	}
 	name = strings.TrimSpace(name)
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("hash password: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("hash password: %w", err)
 	}
 
 	var u User
@@ -129,21 +154,21 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 	`, email, name, string(hash)).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return User{}, "", time.Time{}, ErrEmailTaken
+			return User{}, TokenPair{}, ErrEmailTaken
 		}
-		return User{}, "", time.Time{}, fmt.Errorf("insert user: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("insert user: %w", err)
 	}
 
-	token, expires, err := s.issueToken(u.ID, u.Plan)
+	pair, err := s.issueTokenPair(ctx, u.ID, u.Plan)
 	if err != nil {
-		return User{}, "", time.Time{}, err
+		return User{}, TokenPair{}, err
 	}
-	return u, token, expires, nil
+	return u, pair, nil
 }
 
-// Login verifies credentials and returns a session token. Returns
+// Login verifies credentials and issues a token pair. Returns
 // ErrInvalidCredentials for any failure to avoid user enumeration.
-func (s *Service) Login(ctx context.Context, email, password string) (User, string, time.Time, error) {
+func (s *Service) Login(ctx context.Context, email, password string) (User, TokenPair, error) {
 	email = normaliseEmail(email)
 
 	var (
@@ -158,23 +183,23 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, stri
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Dummy bcrypt compare to keep response timing constant (prevents enumeration).
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"), []byte(password))
-		return User{}, "", time.Time{}, ErrInvalidCredentials
+		return User{}, TokenPair{}, ErrInvalidCredentials
 	}
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("lookup user: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("lookup user: %w", err)
 	}
 	if hash == nil {
-		return User{}, "", time.Time{}, ErrInvalidCredentials
+		return User{}, TokenPair{}, ErrInvalidCredentials
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(*hash), []byte(password)); err != nil {
-		return User{}, "", time.Time{}, ErrInvalidCredentials
+		return User{}, TokenPair{}, ErrInvalidCredentials
 	}
 
-	token, expires, err := s.issueToken(u.ID, u.Plan)
+	pair, err := s.issueTokenPair(ctx, u.ID, u.Plan)
 	if err != nil {
-		return User{}, "", time.Time{}, err
+		return User{}, TokenPair{}, err
 	}
-	return u, token, expires, nil
+	return u, pair, nil
 }
 
 func (s *Service) DeleteUser(ctx context.Context, id string) error {
@@ -204,12 +229,51 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	return u, nil
 }
 
+// RotateRefreshToken validates the raw token, deletes the DB row atomically,
+// and issues a new token pair. Returns ErrRefreshTokenInvalid if the token is
+// not found or has expired — including the duplicate-use case where a stolen
+// token is presented after the legitimate client already rotated it.
+func (s *Service) RotateRefreshToken(ctx context.Context, rawToken string) (User, TokenPair, error) {
+	hash := hashToken(rawToken)
+
+	var userID string
+	err := s.pool.QueryRow(ctx, `
+		DELETE FROM refresh_tokens
+		WHERE token_hash = $1 AND expires_at > NOW()
+		RETURNING user_id
+	`, hash).Scan(&userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, TokenPair{}, ErrRefreshTokenInvalid
+	}
+	if err != nil {
+		return User{}, TokenPair{}, fmt.Errorf("rotate refresh token: %w", err)
+	}
+
+	user, err := s.UserByID(ctx, userID)
+	if err != nil {
+		return User{}, TokenPair{}, err
+	}
+
+	pair, err := s.issueTokenPair(ctx, userID, user.Plan)
+	if err != nil {
+		return User{}, TokenPair{}, err
+	}
+	return user, pair, nil
+}
+
+// RevokeRefreshToken deletes the token from the DB. No-op if already gone.
+func (s *Service) RevokeRefreshToken(ctx context.Context, rawToken string) error {
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM refresh_tokens WHERE token_hash = $1`,
+		hashToken(rawToken),
+	)
+	return err
+}
+
+// ─── JWT ─────────────────────────────────────────────────────────────────────
+
 // flashrClaims extends the standard JWT claims with the user's plan so that
 // plan-gating middleware can avoid a DB round-trip on every protected request.
-// The plan in the token reflects the value at sign-in time; it remains valid
-// for the token's lifetime (default 24 h). Subscription webhooks update the DB
-// immediately, but token-based enforcement has up to a 24-hour lag for upgrades
-// and downgrades — an accepted trade-off for this stage of the product.
 type flashrClaims struct {
 	jwt.RegisteredClaims
 	Plan string `json:"plan"`
@@ -230,9 +294,28 @@ func (s *Service) ParseToken(raw string) (userID, plan string, err error) {
 	return claims.Subject, claims.Plan, nil
 }
 
-func (s *Service) issueToken(userID, plan string) (string, time.Time, error) {
+// ─── Internal token helpers ──────────────────────────────────────────────────
+
+func (s *Service) issueTokenPair(ctx context.Context, userID, plan string) (TokenPair, error) {
+	access, accessExp, err := s.issueAccessToken(userID, plan)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	refresh, refreshExp, err := s.issueRefreshToken(ctx, userID)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	return TokenPair{
+		AccessToken:   access,
+		AccessExpiry:  accessExp,
+		RefreshToken:  refresh,
+		RefreshExpiry: refreshExp,
+	}, nil
+}
+
+func (s *Service) issueAccessToken(userID, plan string) (string, time.Time, error) {
 	now := time.Now().UTC()
-	expires := now.Add(s.tokenTTL)
+	expires := now.Add(s.accessTTL)
 	claims := flashrClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
@@ -247,6 +330,29 @@ func (s *Service) issueToken(userID, plan string) (string, time.Time, error) {
 		return "", time.Time{}, fmt.Errorf("sign token: %w", err)
 	}
 	return signed, expires, nil
+}
+
+func (s *Service) issueRefreshToken(ctx context.Context, userID string) (string, time.Time, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", time.Time{}, fmt.Errorf("generate refresh token: %w", err)
+	}
+	rawHex := hex.EncodeToString(raw)
+	expires := time.Now().UTC().Add(s.refreshTTL)
+
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, $3)`,
+		userID, hashToken(rawHex), expires,
+	)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("store refresh token: %w", err)
+	}
+	return rawHex, expires, nil
+}
+
+func hashToken(raw string) string {
+	h := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(h[:])
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -1,8 +1,20 @@
-import { api, ApiError, setToken } from "../api";
+import { api, ApiError, setToken, API_BASE } from "../api";
 import { state, setState, seedCollections, seedFolders } from "./db";
 import { collectionsApi } from "./collections";
 import type { StoredUser } from "./db";
 import type { LearnerType } from "../../types";
+
+// ─────────────────────────────────────────────────────────────
+// Session-expired event
+// Fired by api.ts when a token refresh fails mid-session.
+// ─────────────────────────────────────────────────────────────
+
+if (typeof window !== "undefined") {
+  window.addEventListener("flashr:logout", () => {
+    setToken(null);
+    setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
+  });
+}
 
 // ─────────────────────────────────────────────────────────────
 // Backend types
@@ -221,6 +233,8 @@ export const auth = {
   },
 
   signOut() {
+    // Fire-and-forget: revoke the refresh cookie server-side so it can't be reused.
+    fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     setToken(null);
     setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
   },
