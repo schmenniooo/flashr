@@ -151,8 +151,7 @@ func (s *Service) FulfillCheckout(ctx context.Context, sessionID, userID string)
 
 	// Fulfill paid sessions and trial sessions (no_payment_required while trialing).
 	if sess.Subscription == nil {
-		slog.Warn("billing: fulfill skipped — no subscription on session", "session_id", sessionID)
-		return nil
+		return fmt.Errorf("billing: checkout session has no subscription: %s", sessionID)
 	}
 	isPaid := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusPaid
 	isTrialing := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusNoPaymentRequired
