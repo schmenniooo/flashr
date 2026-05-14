@@ -33,6 +33,12 @@ type Config struct {
 	StripeWebhookSecret string
 	StripeProPriceID    string
 
+	// Storage (Railway Buckets / S3-compatible). All four must be set to enable.
+	StorageEndpoint        string
+	StorageAccessKeyID     string
+	StorageSecretAccessKey string
+	StorageBucket          string
+
 	// AllowedOrigins is the parsed list from ALLOWED_ORIGINS (comma-separated).
 	AllowedOrigins []string
 }
@@ -71,6 +77,11 @@ func Load() Config {
 		StripeSecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
 		StripeWebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
 		StripeProPriceID:    os.Getenv("STRIPE_PRO_PRICE_ID"),
+
+		StorageEndpoint:        os.Getenv("STORAGE_ENDPOINT"),
+		StorageAccessKeyID:     os.Getenv("STORAGE_ACCESS_KEY_ID"),
+		StorageSecretAccessKey: os.Getenv("STORAGE_SECRET_ACCESS_KEY"),
+		StorageBucket:          os.Getenv("STORAGE_BUCKET"),
 
 		AllowedOrigins: parseOrigins(os.Getenv("ALLOWED_ORIGINS")),
 	}

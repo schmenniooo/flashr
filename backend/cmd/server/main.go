@@ -22,6 +22,7 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/config"
 	"github.com/smithlabs/flashr/backend/pkg/db"
+	"github.com/smithlabs/flashr/backend/pkg/storage"
 )
 
 func main() {
@@ -119,7 +120,21 @@ func main() {
 	if cfg.OllamaURL != "" {
 		aiClient = ai.NewClient(cfg.OllamaURL, cfg.OllamaModel)
 	}
-	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
+
+	var store *storage.Client
+	if cfg.StorageEndpoint != "" && cfg.StorageAccessKeyID != "" &&
+		cfg.StorageSecretAccessKey != "" && cfg.StorageBucket != "" {
+		store = storage.New(cfg.StorageEndpoint, cfg.StorageAccessKeyID, cfg.StorageSecretAccessKey, cfg.StorageBucket)
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		if err := store.Ping(pingCtx); err != nil {
+			slog.Warn("storage bucket not reachable", "error", err)
+		} else {
+			slog.Info("storage bucket connected", "bucket", cfg.StorageBucket)
+		}
+	}
+
+	upload.NewService(aiClient, store).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
 
 	billingSvc := billing.NewService(pool, billing.Config{
 		SecretKey:     cfg.StripeSecretKey,

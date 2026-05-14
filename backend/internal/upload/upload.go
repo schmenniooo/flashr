@@ -3,27 +3,32 @@ package upload
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/ledongthuc/pdf"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
+	"github.com/smithlabs/flashr/backend/pkg/storage"
 )
 
 const maxFileSize = 20 << 20 // 20 MB
 
 // Service wires the upload endpoint to the AI client.
 type Service struct {
-	ai *ai.Client
+	ai      *ai.Client
+	storage *storage.Client // optional; nil → in-memory only, no persistence
 }
 
 // NewService creates a Service backed by the given AI client.
-func NewService(aiClient *ai.Client) *Service {
-	return &Service{ai: aiClient}
+// store may be nil, in which case uploads are processed fully in-memory.
+func NewService(aiClient *ai.Client, store *storage.Client) *Service {
+	return &Service{ai: aiClient, storage: store}
 }
 
 // RegisterRoutes mounts the upload endpoints under /api.
@@ -104,6 +109,17 @@ func (s *Service) handleUpload(c *gin.Context) {
 	if !isPDF(data) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF is supported right now"})
 		return
+	}
+
+	// Persist to bucket while processing. The deferred delete ensures cleanup
+	// regardless of whether extraction or AI generation succeeds or fails.
+	// Falls back to in-memory if storage is not configured.
+	if s.storage != nil {
+		key := "uploads/" + uuid.New().String() + ".pdf"
+		if putErr := s.storage.Put(c.Request.Context(), key, data, "application/pdf"); putErr == nil {
+			defer s.storage.MustDelete(context.Background(), key)
+		}
+		// If Put fails we log inside MustDelete's sibling; processing continues in-memory.
 	}
 
 	text, err := extractPDFText(data)

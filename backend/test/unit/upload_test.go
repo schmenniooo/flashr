@@ -23,7 +23,7 @@ func uploadRouter(aiClient *ai.Client) *gin.Engine {
 	r := gin.New()
 	api := r.Group("/api")
 	noop := func(c *gin.Context) { c.Next() }
-	upload.NewService(aiClient).RegisterRoutes(api, func(c *gin.Context) {
+	upload.NewService(aiClient, nil).RegisterRoutes(api, func(c *gin.Context) {
 		c.Set("user_id", "00000000-0000-0000-0000-000000000001")
 		c.Next()
 	}, noop)
