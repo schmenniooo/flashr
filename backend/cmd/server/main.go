@@ -240,9 +240,12 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id")
 			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Max-Age", "43200")
-		}
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+		} else if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 		c.Next()
