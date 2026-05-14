@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -115,7 +116,23 @@ func (s *Service) FulfillCheckout(ctx context.Context, sessionID, userID string)
 		return fmt.Errorf("stripe: get session: %w", err)
 	}
 
-	// Verify the session belongs to the authenticated user via customer ID.
+	subID := ""
+	if sess.Subscription != nil {
+		subID = sess.Subscription.ID
+	}
+	customerID := ""
+	if sess.Customer != nil {
+		customerID = sess.Customer.ID
+	}
+	slog.Info("billing: fulfill",
+		"session_id", sessionID,
+		"user_id", userID,
+		"payment_status", sess.PaymentStatus,
+		"session_status", sess.Status,
+		"customer_id", customerID,
+		"subscription_id", subID,
+	)
+
 	if sess.Customer == nil {
 		return fmt.Errorf("session has no customer")
 	}
@@ -124,28 +141,41 @@ func (s *Service) FulfillCheckout(ctx context.Context, sessionID, userID string)
 		return err
 	}
 	if storedCustomerID != sess.Customer.ID {
+		slog.Error("billing: customer mismatch",
+			"stored", storedCustomerID,
+			"session", sess.Customer.ID,
+			"user_id", userID,
+		)
 		return fmt.Errorf("session does not belong to current user")
 	}
 
 	// Fulfill paid sessions and trial sessions (no_payment_required while trialing).
 	if sess.Subscription == nil {
+		slog.Warn("billing: fulfill skipped — no subscription on session", "session_id", sessionID)
 		return nil
 	}
 	isPaid := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusPaid
 	isTrialing := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusNoPaymentRequired
 	if !isPaid && !isTrialing {
+		slog.Warn("billing: fulfill skipped — unexpected payment status",
+			"payment_status", sess.PaymentStatus,
+			"session_id", sessionID,
+		)
 		return nil
 	}
 
-	// Idempotent upsert — safe to call multiple times; webhook may also run.
-	_, err = s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = 'pro',
 		    stripe_subscription_id = $1,
 		    plan_expires_at = NULL
 		WHERE id = $2
 	`, sess.Subscription.ID, userID)
-	return err
+	if err != nil {
+		return fmt.Errorf("billing: update plan: %w", err)
+	}
+	slog.Info("billing: plan set to pro", "user_id", userID, "rows_affected", tag.RowsAffected())
+	return nil
 }
 
 // SyncPlan fetches the user's active subscriptions directly from Stripe and

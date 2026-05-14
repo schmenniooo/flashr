@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
+import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -177,14 +178,22 @@ export function Login() {
           <div className="auth__oauth">
             <button
               className="auth__oauth-btn"
-              onClick={() => { window.location.href = "/api/auth/google"; }}
+              onClick={() => {
+                if (mode === "signup" && wantsTrial)
+                  sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                window.location.href = "/api/auth/google";
+              }}
             >
               <GoogleIcon />
               Continue with Google
             </button>
             <button
               className="auth__oauth-btn"
-              onClick={() => { window.location.href = "/api/auth/github"; }}
+              onClick={() => {
+                if (mode === "signup" && wantsTrial)
+                  sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                window.location.href = "/api/auth/github";
+              }}
             >
               <GithubIcon />
               Continue with GitHub
