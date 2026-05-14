@@ -29,12 +29,12 @@ export function OAuthCallback() {
       }
       const user = selectNow(selectCurrentUser);
       const hasTrialIntent = sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
-      const hasProIntent = sessionStorage.getItem("checkout_intent") === "pro";
+      const hasProIntent = sessionStorage.getItem(STORAGE_KEYS.CHECKOUT_INTENT) === "pro";
       if (hasTrialIntent && user?.plan !== "pro") {
         sessionStorage.removeItem(STORAGE_KEYS.TRIAL_INTENT);
         await billingApi.checkout(user?.email ?? "", true);
       } else if (hasProIntent && user?.plan !== "pro") {
-        sessionStorage.removeItem("checkout_intent");
+        sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_INTENT);
         await billingApi.checkout(user?.email ?? "");
       } else {
         navigate(user?.onboardingCompleted ? "/app" : "/onboarding", { replace: true });

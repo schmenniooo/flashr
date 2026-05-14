@@ -40,10 +40,10 @@ export function Login() {
     password: "",
   });
 
-  const hasProIntent = () => sessionStorage.getItem("checkout_intent") === "pro";
+  const hasProIntent = () => sessionStorage.getItem(STORAGE_KEYS.CHECKOUT_INTENT) === "pro";
 
   function clearIntent() {
-    sessionStorage.removeItem("checkout_intent");
+    sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_INTENT);
   }
 
   async function redirectAfterAuth(defaultPath: string) {

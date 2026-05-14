@@ -155,6 +155,9 @@ func (s *Service) GithubCallback(ctx context.Context, code string) (User, TokenP
 // OAuthUpsert inserts or links a user by email for the given provider and issues
 // a token pair. Exported so integration tests can call it directly.
 func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string) (User, TokenPair, error) {
+	if email == "" {
+		return User{}, TokenPair{}, errors.New("oauth upsert: email is required")
+	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, oauth_provider)
