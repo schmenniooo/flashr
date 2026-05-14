@@ -39,6 +39,8 @@ export function OAuthCallback() {
       } else {
         navigate(user?.onboardingCompleted ? "/app" : "/onboarding", { replace: true });
       }
+    }).catch(() => {
+      navigate("/login?error=oauth_failed", { replace: true });
     });
   }, [navigate]);
 
