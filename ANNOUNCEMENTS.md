@@ -8,6 +8,14 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.2.1
+  date: 2026-05-14
+  title: Smarter AI cards based on your learning focus
+  description: >
+    The AI card generator now uses the learning focus you set during onboarding
+    (e.g. university, certifications, professional) to tailor the examples and
+    framing of generated cards — not just suggestions.
+
 - version: 1.2.0
   date: 2026-05-14
   title: 7-day Pro trial

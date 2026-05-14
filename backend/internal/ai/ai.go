@@ -49,8 +49,9 @@ func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, e
 
 // GenerateCardsFromTopic generates cards from a topic description (no source text).
 // level is one of "beginner", "intermediate", or "advanced".
-func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string) ([]CardDraft, error) {
-	return c.callOllama(ctx, buildTopicPrompt(topic, count, level))
+// learnerTypes is optional user context (e.g. ["university", "certifications"]).
+func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string) ([]CardDraft, error) {
+	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes))
 }
 
 func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, error) {
@@ -97,11 +98,15 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 	return cards, nil
 }
 
-func buildTopicPrompt(topic string, count int, level string) string {
+func buildTopicPrompt(topic string, count int, level string, learnerTypes []string) string {
+	var contextLine string
+	if len(learnerTypes) > 0 {
+		contextLine = "\nLearner context: " + strings.Join(learnerTypes, ", ") + " — calibrate examples and framing accordingly.\n"
+	}
 	return fmt.Sprintf(`You are a flashcard generator. Generate exactly %d %s-level flashcard question-answer pairs for the topic below. Output ONLY the JSON array — no explanation, no markdown, no code fences, no intro text.
 
 Topic: %s
-
+%s
 Rules:
 - Exactly %d cards
 - Calibrate difficulty and assumed prior knowledge to the %s level
@@ -110,7 +115,7 @@ Rules:
 - Vary types: definitions, mechanisms, comparisons, examples, applications
 
 Required output format (the entire response must be this and nothing else):
-[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, count, level)
+[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, contextLine, count, level)
 }
 
 func buildPrompt(text string) string {

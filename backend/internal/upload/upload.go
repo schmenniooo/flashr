@@ -55,9 +55,10 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	}
 
 	var req struct {
-		Prompt string `json:"prompt"`
-		Count  int    `json:"count"`
-		Level  string `json:"level"`
+		Prompt       string   `json:"prompt"`
+		Count        int      `json:"count"`
+		Level        string   `json:"level"`
+		LearnerTypes []string `json:"learnerTypes"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
@@ -68,7 +69,7 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	}
 	req.Level = validLevel(req.Level)
 
-	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level)
+	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level, req.LearnerTypes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
 		return
