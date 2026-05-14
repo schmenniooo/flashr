@@ -42,10 +42,12 @@ func NewService(pool *pgxpool.Pool, cfg Config) *Service {
 	}
 }
 
+const trialDays = 7
+
 // CreateCheckoutSession creates a Stripe Checkout Session for the Pro plan and
-// returns the hosted URL. If the user doesn't have a Stripe customer yet, one is
-// created and stored.
-func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail string) (string, error) {
+// returns the hosted URL. If withTrial is true, a 7-day free trial is attached —
+// the user enters payment info upfront but is not charged until the trial ends.
+func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail string, withTrial bool) (string, error) {
 	customerID, err := s.ensureCustomer(ctx, userID, userEmail)
 	if err != nil {
 		return "", err
@@ -65,6 +67,13 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail s
 		SuccessURL: stripe.String(s.frontendURL + "/app/profile?checkout=success&session_id={CHECKOUT_SESSION_ID}"),
 		CancelURL:  stripe.String(s.frontendURL + "/app"),
 	}
+
+	if withTrial {
+		params.SubscriptionData = &stripe.CheckoutSessionSubscriptionDataParams{
+			TrialPeriodDays: stripe.Int64(trialDays),
+		}
+	}
+
 	sess, err := checkoutsession.New(params)
 	if err != nil {
 		return "", fmt.Errorf("stripe: create checkout session: %w", err)
@@ -118,8 +127,13 @@ func (s *Service) FulfillCheckout(ctx context.Context, sessionID, userID string)
 		return fmt.Errorf("session does not belong to current user")
 	}
 
-	// Only fulfill paid sessions that created a subscription.
-	if sess.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid || sess.Subscription == nil {
+	// Fulfill paid sessions and trial sessions (no_payment_required while trialing).
+	if sess.Subscription == nil {
+		return nil
+	}
+	isPaid := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusPaid
+	isTrialing := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusNoPaymentRequired
+	if !isPaid && !isTrialing {
 		return nil
 	}
 

@@ -32,6 +32,7 @@ export function Login() {
     return code ? (OAUTH_ERRORS[code] ?? "Something went wrong — please try again.") : null;
   });
   const [submitting, setSubmitting] = useState(false);
+  const [wantsTrial, setWantsTrial] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -83,7 +84,11 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
-        await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+        if (mode === "signup" && wantsTrial) {
+          await billingApi.checkout(form.email, true);
+        } else {
+          await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+        }
       } else {
         setError(res.error);
       }
@@ -275,16 +280,32 @@ export function Login() {
             </label>
 
             {mode === "signup" && (
-              <label className="auth__check">
-                <input type="checkbox" required />
-                <span>
-                  I agree to the{" "}
-                  <Link to="/terms">Terms of Service</Link>{" "}
-                  and{" "}
-                  <Link to="/privacy">Privacy Policy</Link>
-                  .
-                </span>
-              </label>
+              <>
+                <label className="auth__check auth__check--trial">
+                  <input
+                    type="checkbox"
+                    checked={wantsTrial}
+                    onChange={(e) => setWantsTrial(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Start with a 7-day free Pro trial</strong>
+                    <span className="auth__check-sub">
+                      Enter payment details — no charge until the trial ends. Cancel any time.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="auth__check">
+                  <input type="checkbox" required />
+                  <span>
+                    I agree to the{" "}
+                    <Link to="/terms">Terms of Service</Link>{" "}
+                    and{" "}
+                    <Link to="/privacy">Privacy Policy</Link>
+                    .
+                  </span>
+                </label>
+              </>
             )}
 
             <button

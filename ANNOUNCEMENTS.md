@@ -8,6 +8,15 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.2.0
+  date: 2026-05-14
+  title: 7-day Pro trial
+  description: >
+    New users can now opt into a 7-day free Pro trial directly on the sign-up
+    page. Enter your payment details and get full Pro access immediately — no
+    charge until the trial ends. Cancel any time before day 7 and you won't
+    be billed.
+
 - version: 1.0.0
   date: 2026-05-10
   title: MVP
