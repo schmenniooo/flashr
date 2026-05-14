@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +17,7 @@ import (
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
 	"github.com/smithlabs/flashr/backend/internal/upload"
+	"github.com/smithlabs/flashr/backend/pkg/storage"
 )
 
 // uploadRouter creates a test Gin router for the upload service.
@@ -233,4 +236,95 @@ func TestUpload_ValidPDF_MockAI(t *testing.T) {
 		require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
 		assert.NotEmpty(t, resp.Cards)
 	}
+}
+
+// ── Storage integration ──────────────────────────────────────────────────────
+
+// uploadRouterWithStorage is like uploadRouter but wires a real storage.Client.
+func uploadRouterWithStorage(aiClient *ai.Client, store *storage.Client) *gin.Engine {
+	r := gin.New()
+	api := r.Group("/api")
+	noop := func(c *gin.Context) { c.Next() }
+	upload.NewService(aiClient, store).RegisterRoutes(api, func(c *gin.Context) {
+		c.Set("user_id", "00000000-0000-0000-0000-000000000001")
+		c.Next()
+	}, noop)
+	return r
+}
+
+// TestUpload_WithStorage_PutCalledAndCleanedUp verifies that when storage is
+// configured, every PDF upload triggers a Put followed by a deferred Delete —
+// regardless of whether text extraction or AI generation succeeds.
+func TestUpload_WithStorage_PutCalledAndCleanedUp(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	body, ct := multipartUpload(t, "notes.pdf", minimalPDF())
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every PDF upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".pdf")
+}
+
+// TestUpload_WithStorage_PutFails_ProcessingContinues verifies that a storage
+// Put failure is non-fatal: processing continues in-memory and Delete is not
+// attempted (since nothing was stored).
+func TestUpload_WithStorage_PutFails_ProcessingContinues(t *testing.T) {
+	var deleteCalled bool
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			// 403 is non-retriable — the SDK returns an error immediately.
+			w.Header().Set("Content-Type", "application/xml")
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>`)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	body, ct := multipartUpload(t, "notes.pdf", minimalPDF())
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.False(t, deleteCalled, "Delete must not be called when Put failed — nothing was stored")
+	assert.NotEqual(t, http.StatusInternalServerError, w.Code, "storage failure must not crash the handler")
 }
