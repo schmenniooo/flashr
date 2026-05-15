@@ -62,9 +62,9 @@ const (
 // ─── Request / response types ─────────────────────────────────────────────────
 
 type tokenResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expires_at"`
-	User      User   `json:"user"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	User      User      `json:"user"`
 }
 
 type signUpRequest struct {
@@ -175,7 +175,7 @@ func (s *Service) handleSignUp(c *gin.Context) {
 	s.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiry)
 	c.JSON(http.StatusCreated, tokenResponse{
 		Token:     pair.AccessToken,
-		ExpiresAt: pair.AccessExpiry.Unix(),
+		ExpiresAt: pair.AccessExpiry,
 		User:      user,
 	})
 }
@@ -200,7 +200,7 @@ func (s *Service) handleLogin(c *gin.Context) {
 	s.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiry)
 	c.JSON(http.StatusOK, tokenResponse{
 		Token:     pair.AccessToken,
-		ExpiresAt: pair.AccessExpiry.Unix(),
+		ExpiresAt: pair.AccessExpiry,
 		User:      user,
 	})
 }
@@ -224,7 +224,7 @@ func (s *Service) handleRefresh(c *gin.Context) {
 	s.setRefreshCookie(c, pair.RefreshToken, pair.RefreshExpiry)
 	c.JSON(http.StatusOK, tokenResponse{
 		Token:     pair.AccessToken,
-		ExpiresAt: pair.AccessExpiry.Unix(),
+		ExpiresAt: pair.AccessExpiry,
 		User:      user,
 	})
 }

@@ -32,7 +32,7 @@ type BackendUser = {
 
 type AuthResponse = {
   token: string;
-  expires_at: number;
+  expires_at: string;
   user: BackendUser;
 };
 
