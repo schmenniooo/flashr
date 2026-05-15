@@ -57,6 +57,7 @@ export function Profile() {
 
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -145,18 +146,22 @@ export function Profile() {
   async function handleUpgrade() {
     if (!currentUser) return;
     setBillingLoading(true);
+    setBillingError("");
     try {
       await billingApi.checkout(currentUser.email);
-    } finally {
+    } catch {
+      setBillingError("Could not start checkout — please try again.");
       setBillingLoading(false);
     }
   }
 
   async function handleManageSubscription() {
     setBillingLoading(true);
+    setBillingError("");
     try {
       await billingApi.portal();
-    } finally {
+    } catch {
+      setBillingError("Could not open billing portal — please try again.");
       setBillingLoading(false);
     }
   }
@@ -350,6 +355,9 @@ export function Profile() {
                   <Crown size={13} strokeWidth={2} />
                   {billingLoading ? "Redirecting…" : "Upgrade to Pro"}
                 </button>
+              )}
+              {billingError && (
+                <span className="prof__billing-error">{billingError}</span>
               )}
             </div>
           </div>
