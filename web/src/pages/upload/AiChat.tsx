@@ -18,6 +18,7 @@ import type { LearnerType } from "../../types";
 type ChatState = "idle" | "generating" | "results" | "regenerating";
 
 type ChatDraft = {
+  userId: string;
   prompt: string;
   count: number;
   level: Level;
@@ -25,10 +26,12 @@ type ChatDraft = {
   target: string;
 };
 
-function loadChatDraft(): Partial<ChatDraft> {
+function loadChatDraft(userId: string): Partial<ChatDraft> {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.AI_CHAT_DRAFT);
-    return raw ? (JSON.parse(raw) as ChatDraft) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as ChatDraft;
+    return parsed.userId === userId ? parsed : {};
   } catch {
     return {};
   }
@@ -121,7 +124,8 @@ export function AiChat({
   navigate: (to: string) => void;
 }) {
   const currentUser = useDb(selectCurrentUser);
-  const saved = loadChatDraft();
+  const userId = currentUser?.id ?? "";
+  const saved = loadChatDraft(userId);
   const [prompt, setPrompt] = useState(saved.prompt ?? "");
   const [count, setCount] = useState<number>(saved.count ?? 10);
   const [level, setLevel] = useState<Level>(saved.level ?? "intermediate");
@@ -134,8 +138,9 @@ export function AiChat({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    saveChatDraft({ prompt, count, level, drafts, target });
-  }, [prompt, count, level, drafts, target]);
+    if (!userId) return;
+    saveChatDraft({ userId, prompt, count, level, drafts, target });
+  }, [userId, prompt, count, level, drafts, target]);
 
   const isLoading = chatState === "generating" || chatState === "regenerating";
   const hasResults = chatState === "results" || chatState === "regenerating";

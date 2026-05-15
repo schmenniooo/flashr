@@ -1,6 +1,7 @@
 import { api, ApiError, setToken, API_BASE } from "../api";
 import { state, setState, seedCollections, seedFolders } from "./db";
 import { collectionsApi } from "./collections";
+import { STORAGE_KEYS } from "../storageKeys";
 import type { StoredUser } from "./db";
 import type { LearnerType } from "../../types";
 
@@ -12,6 +13,7 @@ import type { LearnerType } from "../../types";
 if (typeof window !== "undefined") {
   window.addEventListener("flashr:logout", () => {
     setToken(null);
+    localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
     setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
   });
 }
@@ -84,10 +86,15 @@ function adoptBackendUser(
     const user = existing
       ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
       : shadowFromBackend(bu, hint);
+    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
+      // Clear previous user's data when the active account changes so there is
+      // never a window where one user's session is paired with another's collections.
+      collections: switchingUser ? [] : db.collections,
+      folders: switchingUser ? [] : db.folders,
     };
   });
 }
@@ -236,6 +243,7 @@ export const auth = {
     // Fire-and-forget: revoke the refresh cookie server-side so it can't be reused.
     fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     setToken(null);
+    localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
     setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
   },
 
