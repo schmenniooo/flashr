@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
+import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Login.css";
@@ -185,7 +186,7 @@ export function Login() {
                 } catch {
                   // sessionStorage unavailable (e.g. private mode) — proceed anyway
                 }
-                window.location.href = "/api/auth/google";
+                window.location.href = `${API_BASE}/auth/google`;
               }}
             >
               <GoogleIcon />
@@ -200,7 +201,7 @@ export function Login() {
                 } catch {
                   // sessionStorage unavailable (e.g. private mode) — proceed anyway
                 }
-                window.location.href = "/api/auth/github";
+                window.location.href = `${API_BASE}/auth/github`;
               }}
             >
               <GithubIcon />
