@@ -107,6 +107,8 @@ export const collectionsApi = {
   },
 
   async update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>): Promise<void> {
+    const snapshot = state.collections.find(c => c.id === id);
+
     setState((db) => {
       const existing = db.collections.find(c => c.id === id);
       if (!existing) return db;
@@ -143,9 +145,14 @@ export const collectionsApi = {
           : db.folders;
         return { ...db, collections, folders: recountFolders(folders, collections) };
       });
-    } catch {
-      // Optimistic update already applied; backend sync failed silently.
-      // Errors here are non-fatal — the local state remains consistent.
+    } catch (err) {
+      if (snapshot) {
+        setState((db) => {
+          const collections = db.collections.map(c => c.id === id ? snapshot : c);
+          return { ...db, collections, folders: recountFolders(db.folders, collections) };
+        });
+      }
+      throw err;
     }
   },
 

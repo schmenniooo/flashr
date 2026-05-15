@@ -49,7 +49,7 @@ test.describe("auth", () => {
     await page.getByLabel(/your name/i).fill("Test User");
     await page.getByLabel(/^email$/i).fill(email);
     await page.locator(passwordInput("signup")).fill("testpass123");
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox", { name: /I agree to the Terms/i }).check();
     await page.getByRole("button", { name: "Create account", exact: true }).click();
 
     await page.waitForURL("**/onboarding");

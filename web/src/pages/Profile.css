@@ -370,6 +370,12 @@
   color: var(--color-accent);
 }
 
+.prof__billing-error {
+  font-size: 0.75rem;
+  color: var(--color-error, #e53e3e);
+  margin-top: var(--space-2);
+}
+
 /* ── Preferences ── */
 
 .prof__slider-row {

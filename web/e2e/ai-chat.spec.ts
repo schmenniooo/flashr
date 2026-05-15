@@ -53,8 +53,8 @@ test.describe("AI chat — generate cards from topic", () => {
 
   test("clicking an example chip populates the textarea and enables the button", async ({ page }) => {
     await page.getByRole("button", { name: "Describe a topic" }).click();
-    await page.getByRole("button", { name: /AWS S3 and IAM/i }).click();
-    await expect(page.locator(".up__chat-input")).toHaveValue(/AWS S3 and IAM/);
+    await page.getByRole("button", { name: /Macroeconomics/i }).click();
+    await expect(page.locator(".up__chat-input")).toHaveValue(/Macroeconomics/);
     await expect(page.getByRole("button", { name: /generate cards/i })).toBeEnabled();
   });
 

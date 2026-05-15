@@ -25,11 +25,12 @@ func (s *Service) handleCheckout(c *gin.Context) {
 	userID := auth.UserIDFromContext(c)
 
 	var body struct {
-		Email string `json:"email"`
+		Email     string `json:"email"`
+		WithTrial bool   `json:"with_trial"`
 	}
 	_ = c.ShouldBindJSON(&body)
 
-	url, err := s.CreateCheckoutSession(c.Request.Context(), userID, body.Email)
+	url, err := s.CreateCheckoutSession(c.Request.Context(), userID, body.Email, body.WithTrial)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create checkout session"})
 		return

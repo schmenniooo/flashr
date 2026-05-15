@@ -16,7 +16,7 @@ export function PrivacyPolicy() {
 
       <main className="legal-content">
         <h1 className="legal-title">Privacy Policy</h1>
-        <p className="legal-meta">Last updated: May 2026</p>
+        <p className="legal-meta">Last updated: May 14, 2026</p>
 
         <section className="legal-section">
           <h2>1. Controller</h2>
@@ -57,10 +57,12 @@ export function PrivacyPolicy() {
             folders, and documents you upload for AI-powered card generation.
           </p>
           <p>
-            Uploaded documents are processed exclusively by an <strong>AI model hosted locally
-            on our own servers</strong> (Ollama, llama3.2). Your content is never sent to
-            third-party AI services such as OpenAI or Anthropic. After card generation, uploaded
-            raw files are not permanently stored — only the flashcards you explicitly save are
+            Uploaded documents are processed exclusively by an <strong>AI model hosted on our
+            own infrastructure</strong> (Ollama, llama3.2). Your content is never sent to
+            third-party AI services such as OpenAI or Anthropic. During processing, uploaded
+            files are temporarily stored in a <strong>Railway Bucket</strong> (object storage
+            provided by Railway Corp., San Francisco, USA) and are automatically deleted as
+            soon as card generation is complete. Only the flashcards you explicitly save are
             retained in our database.
           </p>
           <p>
@@ -139,8 +141,10 @@ export function PrivacyPolicy() {
           <h2>3. Hosting and Infrastructure</h2>
           <p>
             flashr is hosted on <strong>Railway</strong> (Railway Corp., San Francisco, USA).
-            Data transfers to the USA are covered by the European Commission's Standard
-            Contractual Clauses. For more information, see the{" "}
+            This includes our application servers, database, and object storage (Railway Buckets),
+            where uploaded files are held temporarily during AI processing. Data transfers to the
+            USA are covered by the European Commission's Standard Contractual Clauses. For more
+            information, see the{" "}
             <a href="https://railway.com/legal/privacy" target="_blank" rel="noopener noreferrer">
               Railway Privacy Policy
             </a>.
@@ -158,6 +162,7 @@ export function PrivacyPolicy() {
           <ul>
             <li>Account data: until account deletion or upon request</li>
             <li>User content (cards, collections): until account deletion</li>
+            <li>Uploaded files (PDFs): deleted immediately after AI card generation</li>
             <li>Payment data (Stripe reference): up to 10 years per statutory commercial and tax requirements</li>
             <li>Server logs: 7 days</li>
           </ul>

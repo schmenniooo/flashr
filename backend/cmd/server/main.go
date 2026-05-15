@@ -22,6 +22,7 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/config"
 	"github.com/smithlabs/flashr/backend/pkg/db"
+	"github.com/smithlabs/flashr/backend/pkg/storage"
 )
 
 func main() {
@@ -51,6 +52,7 @@ func main() {
 
 	authSvc, err := auth.NewService(pool, auth.Config{
 		Secret:             cfg.JWTSecret,
+		SecureCookies:      cfg.SecureCookies,
 		GoogleClientID:     cfg.GoogleClientID,
 		GoogleClientSecret: cfg.GoogleClientSecret,
 		GoogleRedirectURL:  cfg.BackendURL + "/api/auth/google/callback",
@@ -104,7 +106,7 @@ func main() {
 	// Route groups with per-group request timeouts.
 	// Auth + collections: 15 s is generous for DB-only work.
 	// Billing: 30 s allows for Stripe API latency.
-	// AI: no deadline here — the Ollama client enforces a 2-minute HTTP timeout.
+	// AI: no deadline here — the Ollama client enforces a 5-minute HTTP timeout.
 	announcements.RegisterRoutes(api, cfg.GithubToken)
 
 	authSvc.RegisterRoutes(api.Group("/auth", timeoutMiddleware(15*time.Second)))
@@ -119,7 +121,21 @@ func main() {
 	if cfg.OllamaURL != "" {
 		aiClient = ai.NewClient(cfg.OllamaURL, cfg.OllamaModel)
 	}
-	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
+
+	var store *storage.Client
+	if cfg.StorageEndpoint != "" && cfg.StorageAccessKeyID != "" &&
+		cfg.StorageSecretAccessKey != "" && cfg.StorageBucket != "" {
+		store = storage.New(cfg.StorageEndpoint, cfg.StorageAccessKeyID, cfg.StorageSecretAccessKey, cfg.StorageBucket)
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		if err := store.Ping(pingCtx); err != nil {
+			slog.Warn("storage bucket not reachable", "error", err)
+		} else {
+			slog.Info("storage bucket connected", "bucket", cfg.StorageBucket)
+		}
+	}
+
+	upload.NewService(aiClient, store).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
 
 	billingSvc := billing.NewService(pool, billing.Config{
 		SecretKey:     cfg.StripeSecretKey,
@@ -127,6 +143,7 @@ func main() {
 		ProPriceID:    cfg.StripeProPriceID,
 		FrontendURL:   cfg.FrontendURL,
 	})
+	authSvc.OnBeforeUserDelete(billingSvc.DeleteCustomer)
 	billingSvc.RegisterRoutes(
 		api.Group("", timeoutMiddleware(30*time.Second)),
 		authSvc.RequireUser(),
@@ -221,10 +238,14 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id")
+			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Max-Age", "43200")
-		}
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+		} else if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 		c.Next()

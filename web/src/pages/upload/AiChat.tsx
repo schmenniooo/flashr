@@ -7,16 +7,18 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { cardsApi, collectionsApi } from "../../lib/store";
+import { cardsApi, collectionsApi, useDb, selectCurrentUser } from "../../lib/store";
 import { api, ApiError } from "../../lib/api";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
 import { UpgradePrompt } from "../../components/UpgradePrompt";
 import { DraftCardItem } from "./DraftCardItem";
 import type { DraftCard, Level } from "./types";
+import type { LearnerType } from "../../types";
 
 type ChatState = "idle" | "generating" | "results" | "regenerating";
 
 type ChatDraft = {
+  userId: string;
   prompt: string;
   count: number;
   level: Level;
@@ -24,10 +26,12 @@ type ChatDraft = {
   target: string;
 };
 
-function loadChatDraft(): Partial<ChatDraft> {
+function loadChatDraft(userId: string): Partial<ChatDraft> {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.AI_CHAT_DRAFT);
-    return raw ? (JSON.parse(raw) as ChatDraft) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as ChatDraft;
+    return parsed.userId === userId ? parsed : {};
   } catch {
     return {};
   }
@@ -45,12 +49,72 @@ function clearChatDraft() {
   localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
 }
 
-const EXAMPLE_PROMPTS = [
+const PROMPTS_BY_TYPE: Record<LearnerType, string[]> = {
+  university: [
+    "The French Revolution — causes, key events, and legacy",
+    "Macroeconomics: GDP, inflation, and monetary vs fiscal policy",
+    "Cell biology: organelles, mitosis, and protein synthesis",
+    "Kant's Critique of Pure Reason — key concepts and arguments",
+  ],
+  certifications: [
+    "AWS S3 and IAM for the Cloud Practitioner exam",
+    "PMP exam: project phases, PMBOK knowledge areas, and ITTOs",
+    "CFA Level 1: time value of money and portfolio theory",
+    "IELTS Academic — task types, scoring criteria, and timing",
+  ],
+  school: [
+    "The water cycle — evaporation, condensation, and precipitation",
+    "World War II — causes, major battles, and turning points",
+    "Algebra fundamentals: equations, inequalities, and functions",
+    "Photosynthesis vs cellular respiration — inputs and outputs",
+  ],
+  professional: [
+    "HTTP vs HTTPS, TCP/IP, and DNS fundamentals",
+    "SQL joins: INNER, LEFT, RIGHT, FULL OUTER with examples",
+    "Agile and Scrum: ceremonies, roles, and sprint workflow",
+    "Negotiation tactics — BATNA, anchoring, and active listening",
+  ],
+  "self-study": [
+    "React hooks: useState, useEffect, useCallback, useMemo",
+    "Spanish A1 vocabulary: greetings, numbers, and common verbs",
+    "Stoicism — core principles and how to apply them daily",
+    "Investing basics: stocks, bonds, ETFs, and compound interest",
+  ],
+  other: [
+    "AWS S3 and IAM for the Cloud Practitioner exam",
+    "The French Revolution — causes, key events, and legacy",
+    "React hooks: useState, useEffect, useCallback, useMemo",
+    "Stoicism — core principles and how to apply them daily",
+  ],
+};
+
+const DEFAULT_PROMPTS = [
   "AWS S3 and IAM for the Cloud Practitioner exam",
   "The French Revolution — causes, key events, and legacy",
   "HTTP vs HTTPS, TCP/IP, and DNS fundamentals",
   "React hooks: useState, useEffect, useCallback, useMemo",
 ];
+
+function getExamplePrompts(learnerTypes: LearnerType[]): string[] {
+  if (learnerTypes.length === 0) return DEFAULT_PROMPTS;
+  if (learnerTypes.length === 1 && learnerTypes[0] === "other") return PROMPTS_BY_TYPE.other;
+  const seen = new Set<string>();
+  const result: string[] = [];
+  let round = 0;
+  while (result.length < 4) {
+    for (const type of learnerTypes) {
+      const pool = PROMPTS_BY_TYPE[type] ?? [];
+      if (round < pool.length && !seen.has(pool[round])) {
+        seen.add(pool[round]);
+        result.push(pool[round]);
+        if (result.length === 4) break;
+      }
+    }
+    round++;
+    if (round > 3) break;
+  }
+  return result;
+}
 
 export function AiChat({
   collections,
@@ -59,7 +123,9 @@ export function AiChat({
   collections: { id: string; emoji: string; name: string }[];
   navigate: (to: string) => void;
 }) {
-  const saved = loadChatDraft();
+  const currentUser = useDb(selectCurrentUser);
+  const userId = currentUser?.id ?? "";
+  const saved = loadChatDraft(userId);
   const [prompt, setPrompt] = useState(saved.prompt ?? "");
   const [count, setCount] = useState<number>(saved.count ?? 10);
   const [level, setLevel] = useState<Level>(saved.level ?? "intermediate");
@@ -72,8 +138,9 @@ export function AiChat({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    saveChatDraft({ prompt, count, level, drafts, target });
-  }, [prompt, count, level, drafts, target]);
+    if (!userId) return;
+    saveChatDraft({ userId, prompt, count, level, drafts, target });
+  }, [userId, prompt, count, level, drafts, target]);
 
   const isLoading = chatState === "generating" || chatState === "regenerating";
   const hasResults = chatState === "results" || chatState === "regenerating";
@@ -87,7 +154,7 @@ export function AiChat({
     try {
       const result = await api<{ cards: { question: string; answer: string }[] }>(
         "/ai/generate",
-        { method: "POST", body: JSON.stringify({ prompt: prompt.trim(), count, level }) }
+        { method: "POST", body: JSON.stringify({ prompt: prompt.trim(), count, level, learnerTypes: currentUser?.learnerTypes ?? [] }) }
       );
       setDrafts(result.cards.map((c, i) => ({ id: `d${i}`, question: c.question, answer: c.answer, keep: true })));
       setChatState("results");
@@ -195,7 +262,7 @@ export function AiChat({
             Describe your topic and flashr builds a tailored deck — no notes needed.
           </p>
           <div className="up__chips">
-            {EXAMPLE_PROMPTS.map((ex) => (
+            {getExamplePrompts(currentUser?.learnerTypes ?? []).map((ex) => (
               <button key={ex} className="up__chip" onClick={() => setPrompt(ex)} type="button">
                 {ex}
               </button>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -42,10 +43,12 @@ func NewService(pool *pgxpool.Pool, cfg Config) *Service {
 	}
 }
 
+const trialDays = 7
+
 // CreateCheckoutSession creates a Stripe Checkout Session for the Pro plan and
-// returns the hosted URL. If the user doesn't have a Stripe customer yet, one is
-// created and stored.
-func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail string) (string, error) {
+// returns the hosted URL. If withTrial is true, a 7-day free trial is attached —
+// the user enters payment info upfront but is not charged until the trial ends.
+func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail string, withTrial bool) (string, error) {
 	customerID, err := s.ensureCustomer(ctx, userID, userEmail)
 	if err != nil {
 		return "", err
@@ -65,6 +68,13 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail s
 		SuccessURL: stripe.String(s.frontendURL + "/app/profile?checkout=success&session_id={CHECKOUT_SESSION_ID}"),
 		CancelURL:  stripe.String(s.frontendURL + "/app"),
 	}
+
+	if withTrial {
+		params.SubscriptionData = &stripe.CheckoutSessionSubscriptionDataParams{
+			TrialPeriodDays: stripe.Int64(trialDays),
+		}
+	}
+
 	sess, err := checkoutsession.New(params)
 	if err != nil {
 		return "", fmt.Errorf("stripe: create checkout session: %w", err)
@@ -106,7 +116,23 @@ func (s *Service) FulfillCheckout(ctx context.Context, sessionID, userID string)
 		return fmt.Errorf("stripe: get session: %w", err)
 	}
 
-	// Verify the session belongs to the authenticated user via customer ID.
+	subID := ""
+	if sess.Subscription != nil {
+		subID = sess.Subscription.ID
+	}
+	customerID := ""
+	if sess.Customer != nil {
+		customerID = sess.Customer.ID
+	}
+	slog.Info("billing: fulfill",
+		"session_id", sessionID,
+		"user_id", userID,
+		"payment_status", sess.PaymentStatus,
+		"session_status", sess.Status,
+		"customer_id", customerID,
+		"subscription_id", subID,
+	)
+
 	if sess.Customer == nil {
 		return fmt.Errorf("session has no customer")
 	}
@@ -115,23 +141,40 @@ func (s *Service) FulfillCheckout(ctx context.Context, sessionID, userID string)
 		return err
 	}
 	if storedCustomerID != sess.Customer.ID {
+		slog.Error("billing: customer mismatch",
+			"stored", storedCustomerID,
+			"session", sess.Customer.ID,
+			"user_id", userID,
+		)
 		return fmt.Errorf("session does not belong to current user")
 	}
 
-	// Only fulfill paid sessions that created a subscription.
-	if sess.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid || sess.Subscription == nil {
+	// Fulfill paid sessions and trial sessions (no_payment_required while trialing).
+	if sess.Subscription == nil {
+		return fmt.Errorf("billing: checkout session has no subscription: %s", sessionID)
+	}
+	isPaid := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusPaid
+	isTrialing := sess.PaymentStatus == stripe.CheckoutSessionPaymentStatusNoPaymentRequired
+	if !isPaid && !isTrialing {
+		slog.Warn("billing: fulfill skipped — unexpected payment status",
+			"payment_status", sess.PaymentStatus,
+			"session_id", sessionID,
+		)
 		return nil
 	}
 
-	// Idempotent upsert — safe to call multiple times; webhook may also run.
-	_, err = s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = 'pro',
 		    stripe_subscription_id = $1,
 		    plan_expires_at = NULL
 		WHERE id = $2
 	`, sess.Subscription.ID, userID)
-	return err
+	if err != nil {
+		return fmt.Errorf("billing: update plan: %w", err)
+	}
+	slog.Info("billing: plan set to pro", "user_id", userID, "rows_affected", tag.RowsAffected())
+	return nil
 }
 
 // SyncPlan fetches the user's active subscriptions directly from Stripe and
@@ -186,6 +229,42 @@ func (s *Service) SyncPlan(ctx context.Context, userID string) error {
 		WHERE id = $4
 	`, plan, subIDPtr, expiresAt, userID)
 	return err
+}
+
+// DeleteCustomer cancels all active Stripe subscriptions and deletes the
+// Stripe customer for the given user. It is a no-op when the user has no
+// Stripe customer. Call this before deleting the user row from the DB.
+func (s *Service) DeleteCustomer(ctx context.Context, userID string) error {
+	cid, err := s.customerID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if cid == "" {
+		return nil // user never had a Stripe customer
+	}
+
+	// Cancel all active/trialing subscriptions before deleting the customer
+	// so Stripe fires the right cancellation events.
+	iter := subscription.List(&stripe.SubscriptionListParams{
+		Customer: stripe.String(cid),
+	})
+	for iter.Next() {
+		sub := iter.Subscription()
+		if sub.Status == stripe.SubscriptionStatusActive || sub.Status == stripe.SubscriptionStatusTrialing {
+			if _, err := subscription.Cancel(sub.ID, nil); err != nil {
+				return fmt.Errorf("stripe: cancel subscription %s: %w", sub.ID, err)
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("stripe: list subscriptions: %w", err)
+	}
+
+	if _, err := customer.Del(cid, nil); err != nil {
+		return fmt.Errorf("stripe: delete customer %s: %w", cid, err)
+	}
+	slog.Info("billing: stripe customer deleted", "user_id", userID, "customer_id", cid)
+	return nil
 }
 
 func (s *Service) ensureCustomer(ctx context.Context, userID, email string) (string, error) {

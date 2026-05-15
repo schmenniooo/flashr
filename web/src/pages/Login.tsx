@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
+import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -32,16 +33,17 @@ export function Login() {
     return code ? (OAUTH_ERRORS[code] ?? "Something went wrong — please try again.") : null;
   });
   const [submitting, setSubmitting] = useState(false);
+  const [wantsTrial, setWantsTrial] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
   });
 
-  const hasProIntent = () => sessionStorage.getItem("checkout_intent") === "pro";
+  const hasProIntent = () => sessionStorage.getItem(STORAGE_KEYS.CHECKOUT_INTENT) === "pro";
 
   function clearIntent() {
-    sessionStorage.removeItem("checkout_intent");
+    sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_INTENT);
   }
 
   async function redirectAfterAuth(defaultPath: string) {
@@ -83,7 +85,11 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
-        await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+        if (mode === "signup" && wantsTrial) {
+          await billingApi.checkout(form.email, true);
+        } else {
+          await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+        }
       } else {
         setError(res.error);
       }
@@ -172,14 +178,30 @@ export function Login() {
           <div className="auth__oauth">
             <button
               className="auth__oauth-btn"
-              onClick={() => { window.location.href = "/api/auth/google"; }}
+              onClick={() => {
+                try {
+                  if (mode === "signup" && wantsTrial)
+                    sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                } catch {
+                  // sessionStorage unavailable (e.g. private mode) — proceed anyway
+                }
+                window.location.href = "/api/auth/google";
+              }}
             >
               <GoogleIcon />
               Continue with Google
             </button>
             <button
               className="auth__oauth-btn"
-              onClick={() => { window.location.href = "/api/auth/github"; }}
+              onClick={() => {
+                try {
+                  if (mode === "signup" && wantsTrial)
+                    sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                } catch {
+                  // sessionStorage unavailable (e.g. private mode) — proceed anyway
+                }
+                window.location.href = "/api/auth/github";
+              }}
             >
               <GithubIcon />
               Continue with GitHub
@@ -275,16 +297,32 @@ export function Login() {
             </label>
 
             {mode === "signup" && (
-              <label className="auth__check">
-                <input type="checkbox" required />
-                <span>
-                  I agree to the{" "}
-                  <Link to="/terms">Terms of Service</Link>{" "}
-                  and{" "}
-                  <Link to="/privacy">Privacy Policy</Link>
-                  .
-                </span>
-              </label>
+              <>
+                <label className="auth__check auth__check--trial">
+                  <input
+                    type="checkbox"
+                    checked={wantsTrial}
+                    onChange={(e) => setWantsTrial(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Start with a 7-day free Pro trial</strong>
+                    <span className="auth__check-sub">
+                      Enter payment details — no charge until the trial ends. Cancel any time.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="auth__check">
+                  <input type="checkbox" required />
+                  <span>
+                    I agree to the{" "}
+                    <Link to="/terms">Terms of Service</Link>{" "}
+                    and{" "}
+                    <Link to="/privacy">Privacy Policy</Link>
+                    .
+                  </span>
+                </label>
+              </>
             )}
 
             <button

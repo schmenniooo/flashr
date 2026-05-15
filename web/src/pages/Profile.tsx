@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Crown,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
+import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
 import "./Profile.css";
 
 export function Profile() {
@@ -55,12 +55,9 @@ export function Profile() {
     );
   }, [form, avatarPreview, currentUser]);
 
-  // Initialise from URL params so state is ready before first render (no effect needed).
-  const [checkoutSuccess, setCheckoutSuccess] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("checkout") === "success";
-  });
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -74,27 +71,23 @@ export function Profile() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    if (fromCheckout) {
-      // Verify the Stripe Checkout Session directly so the plan is updated
-      // immediately — without waiting for the webhook to arrive.
-      const sessionId = params.get("session_id");
-      void (async () => {
-        if (sessionId) await billingApi.fulfill(sessionId).catch(() => {});
-        await auth.refreshUser();
+    // Always sync plan from Stripe on every profile mount.
+    // SyncPlan is a no-op for users with no Stripe customer (single DB query,
+    // no external call). For users with a subscription it catches any state
+    // that webhooks or FulfillCheckout may have missed — including trialing
+    // subscriptions where payment_status is no_payment_required.
+    void (async () => {
+      if (fromCheckout) {
+        const sessionId = params.get("session_id");
+        if (sessionId) await billingApi.fulfill(sessionId).catch(console.error);
+      }
+      await billingApi.sync().catch(console.error);
+      await auth.refreshUser();
+      if (fromCheckout && selectNow(selectCurrentUser)?.plan === "pro") {
+        setCheckoutSuccess(true);
         setTimeout(() => setCheckoutSuccess(false), 5000);
-      })();
-    } else if (fromPortal) {
-      // Sync plan from Stripe's live subscription state so cancellations and
-      // upgrades are reflected immediately — without waiting for the webhook.
-      void (async () => {
-        await billingApi.sync().catch(() => {});
-        await auth.refreshUser();
-      })();
-    } else {
-      // Always refresh plan on profile mount so any changes are reflected
-      // without a full page reload.
-      void auth.refreshUser();
-    }
+      }
+    })();
   }, []);
 
   const handleDeleteAccount = useCallback(async () => {
@@ -153,18 +146,22 @@ export function Profile() {
   async function handleUpgrade() {
     if (!currentUser) return;
     setBillingLoading(true);
+    setBillingError("");
     try {
       await billingApi.checkout(currentUser.email);
-    } finally {
+    } catch {
+      setBillingError("Could not start checkout — please try again.");
       setBillingLoading(false);
     }
   }
 
   async function handleManageSubscription() {
     setBillingLoading(true);
+    setBillingError("");
     try {
       await billingApi.portal();
-    } finally {
+    } catch {
+      setBillingError("Could not open billing portal — please try again.");
       setBillingLoading(false);
     }
   }
@@ -358,6 +355,9 @@ export function Profile() {
                   <Crown size={13} strokeWidth={2} />
                   {billingLoading ? "Redirecting…" : "Upgrade to Pro"}
                 </button>
+              )}
+              {billingError && (
+                <span className="prof__billing-error">{billingError}</span>
               )}
             </div>
           </div>

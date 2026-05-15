@@ -1,8 +1,22 @@
-import { api, ApiError, setToken } from "../api";
+import { api, ApiError, setToken, API_BASE } from "../api";
 import { state, setState, seedCollections, seedFolders } from "./db";
 import { collectionsApi } from "./collections";
+import { STORAGE_KEYS } from "../storageKeys";
 import type { StoredUser } from "./db";
 import type { LearnerType } from "../../types";
+
+// ─────────────────────────────────────────────────────────────
+// Session-expired event
+// Fired by api.ts when a token refresh fails mid-session.
+// ─────────────────────────────────────────────────────────────
+
+if (typeof window !== "undefined") {
+  window.addEventListener("flashr:logout", () => {
+    setToken(null);
+    localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
+    setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
+  });
+}
 
 // ─────────────────────────────────────────────────────────────
 // Backend types
@@ -20,7 +34,7 @@ type BackendUser = {
 
 type AuthResponse = {
   token: string;
-  expires_at: number;
+  expires_at: string;
   user: BackendUser;
 };
 
@@ -51,7 +65,7 @@ function shadowFromBackend(
     }),
     avatarUrl: null,
     bio: "",
-    timezone: "Europe/Berlin",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     language: "English",
     dailyGoal: 20,
     emailReminders: true,
@@ -72,10 +86,15 @@ function adoptBackendUser(
     const user = existing
       ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
       : shadowFromBackend(bu, hint);
+    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
+      // Clear previous user's data when the active account changes so there is
+      // never a window where one user's session is paired with another's collections.
+      collections: switchingUser ? [] : db.collections,
+      folders: switchingUser ? [] : db.folders,
     };
   });
 }
@@ -151,6 +170,20 @@ export const auth = {
   async bootstrap(): Promise<void> {
     try {
       if (!state.session) return;
+
+      // Fulfill a pending Stripe checkout before any routing happens.
+      // Profile.tsx normally does this, but new users get redirected to
+      // /onboarding by RequireOnboarded before Profile ever mounts, which
+      // drops the session_id from the URL and leaves the plan as free.
+      const urlParams = new URLSearchParams(window.location.search);
+      const checkoutSessionId = urlParams.get("session_id");
+      if (urlParams.get("checkout") === "success" && checkoutSessionId) {
+        await api("/billing/fulfill", {
+          method: "POST",
+          body: JSON.stringify({ session_id: checkoutSessionId }),
+        }).catch(() => {});
+      }
+
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
       await collectionsApi.load();
@@ -221,7 +254,10 @@ export const auth = {
   },
 
   signOut() {
+    // Fire-and-forget: revoke the refresh cookie server-side so it can't be reused.
+    fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     setToken(null);
+    localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
     setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
   },
 

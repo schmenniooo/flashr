@@ -106,19 +106,8 @@ upload_jobs (
 
 Loading Google Fonts via Google CDN transmits the user's IP address to US servers without consent. This was ruled a DSGVO violation by LG München in 2022 (Az. 3 O 17493/20).
 
-- [ ] Download DM Sans from [google-webfonts-helper.herokuapp.com](https://google-webfonts-helper.herokuapp.com)
-- [ ] Place font files in `/web/public/fonts/`
-- [ ] Remove the Google Fonts `<link>` tag from `index.html`
-- [ ] Add local `@font-face` declaration to `tokens.css`:
-
-```css
-@font-face {
-  font-family: 'DM Sans';
-  src: url('/fonts/dm-sans.woff2') format('woff2');
-  font-weight: 400 700;
-  font-display: swap;
-}
-```
+- [x] Remove Google Fonts `<link>` tags from `index.html`
+- [x] Self-host DM Sans via `@fontsource/dm-sans` (npm package, bundled by Vite) — weights 400, 600, 700 imported in `main.tsx`. No external font requests at runtime.
 
 ### Railway — Auftragsverarbeitungsvertrag (AVV)
 
