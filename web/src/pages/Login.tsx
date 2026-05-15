@@ -179,8 +179,10 @@ export function Login() {
             <button
               className="auth__oauth-btn"
               onClick={() => {
-                if (mode === "signup" && wantsTrial)
-                  sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                try {
+                  if (mode === "signup" && wantsTrial)
+                    sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                } catch {}
                 window.location.href = "/api/auth/google";
               }}
             >
@@ -190,8 +192,10 @@ export function Login() {
             <button
               className="auth__oauth-btn"
               onClick={() => {
-                if (mode === "signup" && wantsTrial)
-                  sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                try {
+                  if (mode === "signup" && wantsTrial)
+                    sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                } catch {}
                 window.location.href = "/api/auth/github";
               }}
             >
