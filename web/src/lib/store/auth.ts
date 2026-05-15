@@ -63,7 +63,7 @@ function shadowFromBackend(
     }),
     avatarUrl: null,
     bio: "",
-    timezone: "Europe/Berlin",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     language: "English",
     dailyGoal: 20,
     emailReminders: true,
