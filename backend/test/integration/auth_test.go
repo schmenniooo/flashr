@@ -258,7 +258,9 @@ func TestHTTP_Refresh_Success(t *testing.T) {
 	}, "")
 	mustStatus(t, w, http.StatusCreated)
 
-	var firstResp struct{ Token string `json:"token"` }
+	var firstResp struct {
+		Token string `json:"token"`
+	}
 	decode(t, w, &firstResp)
 
 	var refreshCookieValue string

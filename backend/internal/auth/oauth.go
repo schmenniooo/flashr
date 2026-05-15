@@ -16,7 +16,7 @@ import (
 
 // ─── OAuth state (stateless HMAC token) ──────────────────────────────────────
 
-func (s *Service) GenerateState() string { return generateState(s.secret) }
+func (s *Service) GenerateState() string          { return generateState(s.secret) }
 func (s *Service) VerifyState(state string) error { return verifyState(s.secret, state) }
 
 func generateState(secret []byte) string {
@@ -49,7 +49,7 @@ func VerifyStateForTest(secret []byte, s string) error { return verifyState(secr
 
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 
-func (s *Service) GoogleEnabled() bool { return s.googleOAuth != nil }
+func (s *Service) GoogleEnabled() bool               { return s.googleOAuth != nil }
 func (s *Service) GoogleAuthURL(state string) string { return s.googleOAuth.AuthCodeURL(state) }
 
 type googleUserInfo struct {
@@ -85,7 +85,7 @@ func (s *Service) GoogleCallback(ctx context.Context, code string) (User, TokenP
 
 // ─── GitHub OAuth ─────────────────────────────────────────────────────────────
 
-func (s *Service) GithubEnabled() bool { return s.githubOAuth != nil }
+func (s *Service) GithubEnabled() bool               { return s.githubOAuth != nil }
 func (s *Service) GithubAuthURL(state string) string { return s.githubOAuth.AuthCodeURL(state) }
 
 type githubUserInfo struct {

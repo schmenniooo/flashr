@@ -182,7 +182,9 @@ export function Login() {
                 try {
                   if (mode === "signup" && wantsTrial)
                     sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
-                } catch {}
+                } catch {
+                  // sessionStorage unavailable (e.g. private mode) — proceed anyway
+                }
                 window.location.href = "/api/auth/google";
               }}
             >
@@ -195,7 +197,9 @@ export function Login() {
                 try {
                   if (mode === "signup" && wantsTrial)
                     sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
-                } catch {}
+                } catch {
+                  // sessionStorage unavailable (e.g. private mode) — proceed anyway
+                }
                 window.location.href = "/api/auth/github";
               }}
             >
