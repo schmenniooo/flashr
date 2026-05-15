@@ -89,12 +89,12 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/me", s.RequireUser(), s.handleMe)
 	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	if s.GoogleEnabled() {
-		rg.GET("/google", s.handleGoogleRedirect)
-		rg.GET("/google/callback", s.handleGoogleCallback)
+		rg.GET("/google", authRateLimiter, s.handleGoogleRedirect)
+		rg.GET("/google/callback", authRateLimiter, s.handleGoogleCallback)
 	}
 	if s.GithubEnabled() {
-		rg.GET("/github", s.handleGithubRedirect)
-		rg.GET("/github/callback", s.handleGithubCallback)
+		rg.GET("/github", authRateLimiter, s.handleGithubRedirect)
+		rg.GET("/github/callback", authRateLimiter, s.handleGithubCallback)
 	}
 }
 
