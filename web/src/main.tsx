@@ -10,6 +10,11 @@ import { auth } from './lib/store'
 
 void auth.bootstrap()
 
+if (typeof window !== "undefined") {
+  (window as unknown as { flashrSignInAsDemo(): void }).flashrSignInAsDemo =
+    () => auth.signInAsDemo();
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
