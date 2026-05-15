@@ -26,12 +26,14 @@ export { billingApi } from "./billing";
 // Domain types (single import point for the whole app)
 export type { Card, Collection, Folder, LearnerType, Suggestion, User } from "../../types";
 
-// Dev helper exposed on window for browser console access.
+// Dev helpers exposed on window for browser console access.
 import { auth as _auth } from "./auth";
 import { resetLocalDb } from "./db";
 if (typeof window !== "undefined") {
   const w = window as unknown as Record<string, unknown>;
-  w.flashrSignInAsDemo = () => _auth.signInAsDemo();
-  w.flashrResetDb = resetLocalDb;
+  w.__flashr__ = {
+    signInAsDemo: () => _auth.signInAsDemo(),
+    resetDb: resetLocalDb,
+  };
 }
 

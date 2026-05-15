@@ -9,13 +9,10 @@ export function OAuthCallback() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Token is in the URL fragment (#token=…) on current deployments so it
-    // never appears in server logs or the Referer header. Fall back to the
-    // query string for backwards-compatibility during rolling deploys where
-    // the frontend is updated before the backend.
+    // Token is in the URL fragment (#token=…) so it never appears in server
+    // logs or the Referer header.
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    const searchParams = new URLSearchParams(window.location.search);
-    const token = hashParams.get("token") ?? searchParams.get("token");
+    const token = hashParams.get("token");
 
     if (!token) {
       navigate("/login?error=oauth_failed", { replace: true });
