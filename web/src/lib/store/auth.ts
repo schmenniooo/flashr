@@ -170,6 +170,20 @@ export const auth = {
   async bootstrap(): Promise<void> {
     try {
       if (!state.session) return;
+
+      // Fulfill a pending Stripe checkout before any routing happens.
+      // Profile.tsx normally does this, but new users get redirected to
+      // /onboarding by RequireOnboarded before Profile ever mounts, which
+      // drops the session_id from the URL and leaves the plan as free.
+      const urlParams = new URLSearchParams(window.location.search);
+      const checkoutSessionId = urlParams.get("session_id");
+      if (urlParams.get("checkout") === "success" && checkoutSessionId) {
+        await api("/billing/fulfill", {
+          method: "POST",
+          body: JSON.stringify({ session_id: checkoutSessionId }),
+        }).catch(() => {});
+      }
+
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
       await collectionsApi.load();
