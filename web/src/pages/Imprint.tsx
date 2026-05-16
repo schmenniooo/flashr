@@ -22,8 +22,8 @@ export function Imprint() {
           <h2>Service Provider</h2>
           <p>
             Ennio Schmidt<br />
-            [Street Address]<br />
-            [Postal Code, City]<br />
+            Welserstraße 3<br />
+            87463 Dietmannsried<br />
             Germany
           </p>
         </section>
@@ -33,7 +33,7 @@ export function Imprint() {
         <section className="legal-section">
           <h2>Contact</h2>
           <p>
-            Email: <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
+            Email: <a href="mailto:support@flashr.io">support@flashr.io</a>
           </p>
         </section>
 
@@ -43,8 +43,8 @@ export function Imprint() {
           <h2>Responsible for Content pursuant to § 55(2) RStV</h2>
           <p>
             Ennio Schmidt<br />
-            [Street Address]<br />
-            [Postal Code, City]
+            Welserstraße 3<br />
+            87463 Dietmannsried
           </p>
         </section>
 

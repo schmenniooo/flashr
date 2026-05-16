@@ -26,10 +26,10 @@ export function PrivacyPolicy() {
           </p>
           <p>
             Ennio Schmidt<br />
-            [Street Address]<br />
-            [Postal Code, City]<br />
+            Welserstraße 3<br />
+            87463 Dietmannsried<br />
             Germany<br />
-            Email: <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
+            Email: <a href="mailto:support@flashr.io">support@flashr.io</a>
           </p>
         </section>
 
@@ -198,7 +198,7 @@ export function PrivacyPolicy() {
           </ul>
           <p>
             To exercise your rights, contact us at:{" "}
-            <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
+            <a href="mailto:support@flashr.io">support@flashr.io</a>
           </p>
           <p>
             You can also exercise your <strong>right to erasure</strong> (Art. 17 GDPR) directly
