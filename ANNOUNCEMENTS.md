@@ -8,6 +8,13 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.3.1
+  date: 2026-05-16
+  title: Promo codes at checkout
+  description: >
+    You can now enter a promo code directly on the upgrade checkout page
+    to redeem discounts or special offers.
+
 - version: 1.3.0
   date: 2026-05-14
   title: Smarter AI cards based on your learning focus
