@@ -55,9 +55,9 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail s
 	}
 
 	params := &stripe.CheckoutSessionParams{
-		Customer:             stripe.String(customerID),
-		Mode:                 stripe.String(string(stripe.CheckoutSessionModeSubscription)),
-		AllowPromotionCodes:  stripe.Bool(true),
+		Customer:            stripe.String(customerID),
+		Mode:                stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		AllowPromotionCodes: stripe.Bool(true),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
 				Price:    stripe.String(s.proPriceID),
@@ -68,6 +68,16 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail s
 		// so the frontend can call /billing/fulfill immediately on redirect.
 		SuccessURL: stripe.String(s.frontendURL + "/app/profile?checkout=success&session_id={CHECKOUT_SESSION_ID}"),
 		CancelURL:  stripe.String(s.frontendURL + "/app"),
+		TaxIDCollection: &stripe.CheckoutSessionTaxIDCollectionParams{
+			Enabled: stripe.Bool(true),
+		},
+		CustomerUpdate: &stripe.CheckoutSessionCustomerUpdateParams{
+			Address: stripe.String("auto"),
+			Name:    stripe.String("auto"),
+		},
+		InvoiceCreation: &stripe.CheckoutSessionInvoiceCreationParams{
+			Enabled: stripe.Bool(true),
+		},
 	}
 
 	if withTrial {
