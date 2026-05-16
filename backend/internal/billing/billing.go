@@ -75,9 +75,6 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, userID, userEmail s
 			Address: stripe.String("auto"),
 			Name:    stripe.String("auto"),
 		},
-		InvoiceCreation: &stripe.CheckoutSessionInvoiceCreationParams{
-			Enabled: stripe.Bool(true),
-		},
 	}
 
 	if withTrial {
