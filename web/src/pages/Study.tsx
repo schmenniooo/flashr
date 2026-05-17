@@ -93,7 +93,7 @@ export function Study() {
           </div>
           <span className="text-meta">Session complete</span>
           <h1 className="text-display" style={{ maxWidth: 560 }}>
-            Nice work, Ennio. You made it through {total} cards.
+            Nice work, {currentUser?.firstName}. You made it through {total} cards.
           </h1>
           <div className="study__done-stats">
             <div><strong>{known}</strong><span>got it</span></div>
