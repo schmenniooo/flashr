@@ -8,6 +8,13 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.3.2
+  date: 2026-05-17
+  title: Study completion screen shows your name
+  description: >
+    The "session complete" screen after finishing a collection now correctly
+    shows your own first name instead of a hardcoded placeholder.
+
 - version: 1.3.1
   date: 2026-05-16
   title: Promo codes at checkout
