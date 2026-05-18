@@ -851,6 +851,28 @@
   opacity: 1;
 }
 
+.landing-footer-social {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.landing-footer-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.landing-footer-social-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
 /* ─── Scroll animations ───────────────────────────────────── */
 
 [data-animate] {
