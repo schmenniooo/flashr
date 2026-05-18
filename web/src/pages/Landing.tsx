@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X } from "lucide-react";
+import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import "./Landing.css";
 
@@ -131,6 +131,15 @@ export function Landing() {
                 Spaced repetition built in. Study on desktop or mobile — your cards sync everywhere.
               </p>
             </div>
+            <div className="landing-feature-card" data-animate>
+              <div className="landing-feature-icon landing-feature-icon--accent">
+                <MessageSquare size={22} strokeWidth={1.5} />
+              </div>
+              <h3 className="landing-feature-title">Chat to Generate</h3>
+              <p className="landing-feature-desc">
+                No file? No problem. Just describe a topic and flashr's AI will generate a full deck through conversation.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -186,8 +195,8 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 50 cards per collection</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI card generation</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI chat — generate by topic</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> PDF upload</li>
-                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> App integrations</li>
               </ul>
             </div>
 
@@ -215,8 +224,8 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited cards</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI card generation</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI chat — generate by topic</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> PDF upload</li>
-                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> App integrations</li>
               </ul>
             </div>
 
@@ -285,6 +294,34 @@ export function Landing() {
             <a href="#faq" className="landing-footer-link">FAQ</a>
             <Link to="/login" className="landing-footer-link">Log in</Link>
           </nav>
+          <div className="landing-footer-social">
+            <a
+              href="https://www.linkedin.com/company/115812262"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="landing-footer-social-link"
+              aria-label="flashr on LinkedIn"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                <rect x="2" y="9" width="4" height="12"/>
+                <circle cx="4" cy="4" r="2"/>
+              </svg>
+            </a>
+            <a
+              href="https://www.instagram.com/flashr.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="landing-footer-social-link"
+              aria-label="flashr on Instagram"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </a>
+          </div>
         </div>
         <div className="landing-footer-sub">
           <p className="landing-footer-copy">© {new Date().getFullYear()} flashr</p>
