@@ -33,6 +33,7 @@ type BackendUser = {
   onboarding_completed: boolean;
   age?: number | null;
   learner_types?: string[];
+  avatar_url?: string | null;
 };
 
 type AuthResponse = {
@@ -66,7 +67,7 @@ function shadowFromBackend(
       month: "long",
       year: "numeric",
     }),
-    avatarUrl: null,
+    avatarUrl: bu.avatar_url ?? null,
     bio: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     language: "English",
@@ -100,6 +101,7 @@ function adoptBackendUser(
         onboardingCompleted: bu.onboarding_completed,
         age: bu.age ?? existing.age,
         learnerTypes: bu.learner_types ?? existing.learnerTypes,
+        avatarUrl: bu.avatar_url ?? null,
         ...(fallbackName
           ? { firstName: first || existing.firstName, lastName: rest.join(" ") }
           : {}),
@@ -247,6 +249,21 @@ export const auth = {
         age: input.age,
         learner_types: input.learnerTypes,
       }),
+    });
+    adoptBackendUser(res.user);
+  },
+
+  async saveAvatar(dataUrl: string): Promise<void> {
+    const res = await api<{ user: BackendUser }>("/auth/avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatar_url: dataUrl }),
+    });
+    adoptBackendUser(res.user);
+  },
+
+  async removeAvatar(): Promise<void> {
+    const res = await api<{ user: BackendUser }>("/auth/avatar", {
+      method: "DELETE",
     });
     adoptBackendUser(res.user);
   },

@@ -8,6 +8,14 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.4.1
+  date: 2026-05-18
+  title: Profile picture syncs across devices
+  description: >
+    Your avatar is now stored in your account rather than the browser, so it
+    shows up on every device you sign into. Photos are resized to 400 px before
+    upload to keep things snappy.
+
 - version: 1.4.0
   date: 2026-05-18
   title: Onboarding now syncs across devices

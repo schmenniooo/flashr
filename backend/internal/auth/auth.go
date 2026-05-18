@@ -47,6 +47,7 @@ type User struct {
 	OnboardingCompleted bool       `json:"onboarding_completed"`
 	Age                 *int       `json:"age,omitempty"`
 	LearnerTypes        []string   `json:"learner_types"`
+	AvatarURL           *string    `json:"avatar_url,omitempty"`
 }
 
 // TokenPair holds both tokens issued after a successful authentication.
@@ -161,10 +162,10 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, NULLIF($2, ''), $3)
 		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
-		          onboarding_completed, age, learner_types
+		          onboarding_completed, age, learner_types, avatar_url
 	`, email, name, string(hash)).Scan(
 		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
-		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -191,12 +192,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, Toke
 	)
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
-		       onboarding_completed, age, learner_types, password_hash
+		       onboarding_completed, age, learner_types, avatar_url, password_hash
 		FROM users
 		WHERE LOWER(email) = $1
 	`, email).Scan(
 		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
-		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &hash,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &hash,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Dummy bcrypt compare to keep response timing constant (prevents enumeration).
@@ -235,12 +236,12 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
-		       onboarding_completed, age, learner_types
+		       onboarding_completed, age, learner_types, avatar_url
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
 		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
-		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUserNotFound
@@ -249,6 +250,15 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 		return User{}, fmt.Errorf("lookup user: %w", err)
 	}
 	return u, nil
+}
+
+// UpdateAvatar sets or clears the user's avatar URL. Pass nil to remove it.
+func (s *Service) UpdateAvatar(ctx context.Context, userID string, avatarURL *string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET avatar_url = $2 WHERE id = $1`,
+		userID, avatarURL,
+	)
+	return err
 }
 
 // CompleteOnboarding persists the name, age, and learner types collected during

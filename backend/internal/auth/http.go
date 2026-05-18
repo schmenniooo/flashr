@@ -89,6 +89,8 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.GET("/me", s.RequireUser(), s.handleMe)
 	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	rg.POST("/onboarding", s.RequireUser(), s.handleCompleteOnboarding)
+	rg.POST("/avatar", s.RequireUser(), s.handleUploadAvatar)
+	rg.DELETE("/avatar", s.RequireUser(), s.handleDeleteAvatar)
 	if s.GoogleEnabled() {
 		rg.GET("/google", authRateLimiter, s.handleGoogleRedirect)
 		rg.GET("/google/callback", authRateLimiter, s.handleGoogleCallback)
@@ -238,6 +240,50 @@ func (s *Service) handleLogout(c *gin.Context) {
 	}
 	s.clearRefreshCookie(c)
 	c.Status(http.StatusNoContent)
+}
+
+func (s *Service) handleUploadAvatar(c *gin.Context) {
+	userID := UserIDFromContext(c)
+	var req struct {
+		AvatarURL string `json:"avatar_url"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.AvatarURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "avatar_url is required"})
+		return
+	}
+	if !strings.HasPrefix(req.AvatarURL, "data:image/") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid image format"})
+		return
+	}
+	// ~2 MB of base64 ≈ 1.5 MB raw image, enough for an avatar
+	if len(req.AvatarURL) > 2*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "image too large — max 1.5 MB"})
+		return
+	}
+	if err := s.UpdateAvatar(c.Request.Context(), userID, &req.AvatarURL); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save avatar"})
+		return
+	}
+	user, err := s.UserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (s *Service) handleDeleteAvatar(c *gin.Context) {
+	userID := UserIDFromContext(c)
+	if err := s.UpdateAvatar(c.Request.Context(), userID, nil); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not remove avatar"})
+		return
+	}
+	user, err := s.UserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
 func (s *Service) handleCompleteOnboarding(c *gin.Context) {
