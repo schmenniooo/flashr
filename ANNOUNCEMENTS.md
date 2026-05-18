@@ -8,6 +8,32 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.4.1
+  date: 2026-05-18
+  title: Profile picture syncs across devices
+  description: >
+    Your avatar is now stored in your account rather than the browser, so it
+    shows up on every device you sign into. Photos are resized to 400 px before
+    upload to keep things snappy.
+
+- version: 1.4.0
+  date: 2026-05-18
+  title: Onboarding now syncs across devices
+  description: >
+    Completing the welcome flow on one device now carries over to all your
+    other devices. Your name, age, and learner type are saved to your account
+    instead of just the browser, so you'll never be asked to set them up twice.
+
+- version: 1.3.3
+  date: 2026-05-18
+  title: Fixed AI card generation failing
+  description: >
+    Card generation via topic or PDF upload was returning an error for all users.
+    The root cause was inputs that pushed Ollama's context window past its limit,
+    causing the model runner to crash after 60–90 seconds. Input lengths are now
+    capped (PDF text: 4 KB, topic: 500 chars) and the context window is explicitly
+    set to 2048 tokens so the model always has headroom to respond.
+
 - version: 1.3.2
   date: 2026-05-17
   title: Study completion screen shows your name

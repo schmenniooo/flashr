@@ -36,7 +36,7 @@ func NewClient(baseURL, model string) *Client {
 
 // GenerateCards sends text to Ollama and returns a list of flashcard drafts.
 func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, error) {
-	const maxBytes = 8000
+	const maxBytes = 4000
 	if len(text) > maxBytes {
 		// Truncate at a valid UTF-8 boundary so we never split a multi-byte rune.
 		text = text[:maxBytes]
@@ -51,6 +51,13 @@ func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, e
 // level is one of "beginner", "intermediate", or "advanced".
 // learnerTypes is optional user context (e.g. ["university", "certifications"]).
 func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string) ([]CardDraft, error) {
+	const maxTopicBytes = 500
+	if len(topic) > maxTopicBytes {
+		topic = topic[:maxTopicBytes]
+		for !utf8.ValidString(topic) {
+			topic = topic[:len(topic)-1]
+		}
+	}
 	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes))
 }
 
@@ -61,6 +68,7 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 		"stream": false,
 		"options": map[string]any{
 			"temperature": 0.3,
+			"num_ctx":     2048,
 		},
 	})
 	if err != nil {

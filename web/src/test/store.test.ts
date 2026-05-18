@@ -218,3 +218,80 @@ describe("selectFolders", () => {
     expect(selectFolders(makeDb({ folders }))).toBe(folders);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Onboarding flag
+// ─────────────────────────────────────────────────────────────
+
+describe("onboardingCompleted", () => {
+  it("selectCurrentUser returns user with onboardingCompleted = false", () => {
+    const user = makeUser({ id: "u1", onboardingCompleted: false });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.onboardingCompleted).toBe(false);
+  });
+
+  it("selectCurrentUser returns user with onboardingCompleted = true", () => {
+    const user = makeUser({ id: "u1", onboardingCompleted: true });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.onboardingCompleted).toBe(true);
+  });
+
+  it("onboardingCompleted does not affect selectTotalCards", () => {
+    const user = makeUser({ id: "u1", onboardingCompleted: false });
+    const db = makeDb({
+      users: [user],
+      session: { userId: "u1" },
+      collections: [makeCollection({ cards: [makeCard(), makeCard()] })],
+    });
+    expect(selectTotalCards(db)).toBe(2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Avatar URL
+// ─────────────────────────────────────────────────────────────
+
+describe("avatarUrl", () => {
+  it("selectCurrentUser returns user with avatarUrl set", () => {
+    const dataUrl = "data:image/jpeg;base64,/9j/fakedata";
+    const user = makeUser({ id: "u1", avatarUrl: dataUrl });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.avatarUrl).toBe(dataUrl);
+  });
+
+  it("selectCurrentUser returns null avatarUrl when unset", () => {
+    const user = makeUser({ id: "u1", avatarUrl: null });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.avatarUrl).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Learner types and age (onboarding fields)
+// ─────────────────────────────────────────────────────────────
+
+describe("onboarding profile fields", () => {
+  it("selectCurrentUser returns learnerTypes from user", () => {
+    const user = makeUser({ id: "u1", learnerTypes: ["university", "certifications"] });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.learnerTypes).toEqual(["university", "certifications"]);
+  });
+
+  it("selectCurrentUser returns empty learnerTypes by default", () => {
+    const user = makeUser({ id: "u1", learnerTypes: [] });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.learnerTypes).toEqual([]);
+  });
+
+  it("selectCurrentUser returns age when set", () => {
+    const user = makeUser({ id: "u1", age: 25 });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.age).toBe(25);
+  });
+
+  it("selectCurrentUser returns null age when unset", () => {
+    const user = makeUser({ id: "u1", age: null });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.age).toBeNull();
+  });
+});

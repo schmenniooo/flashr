@@ -37,13 +37,17 @@ const minPasswordLength = 8
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 type User struct {
-	ID            string     `json:"id"`
-	Email         string     `json:"email"`
-	Name          string     `json:"name,omitempty"`
-	Streak        int        `json:"streak"`
-	Plan          string     `json:"plan"`
-	PlanExpiresAt *time.Time `json:"plan_expires_at,omitempty"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ID                  string     `json:"id"`
+	Email               string     `json:"email"`
+	Name                string     `json:"name,omitempty"`
+	Streak              int        `json:"streak"`
+	Plan                string     `json:"plan"`
+	PlanExpiresAt       *time.Time `json:"plan_expires_at,omitempty"`
+	CreatedAt           time.Time  `json:"created_at"`
+	OnboardingCompleted bool       `json:"onboarding_completed"`
+	Age                 *int       `json:"age,omitempty"`
+	LearnerTypes        []string   `json:"learner_types"`
+	AvatarURL           *string    `json:"avatar_url,omitempty"`
 }
 
 // TokenPair holds both tokens issued after a successful authentication.
@@ -157,8 +161,12 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, NULLIF($2, ''), $3)
-		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at
-	`, email, name, string(hash)).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
+		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
+		          onboarding_completed, age, learner_types, avatar_url
+	`, email, name, string(hash)).Scan(
+		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
+	)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return User{}, TokenPair{}, ErrEmailTaken
@@ -183,10 +191,14 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, Toke
 		hash *string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at, password_hash
+		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
+		       onboarding_completed, age, learner_types, avatar_url, password_hash
 		FROM users
 		WHERE LOWER(email) = $1
-	`, email).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt, &hash)
+	`, email).Scan(
+		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &hash,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Dummy bcrypt compare to keep response timing constant (prevents enumeration).
 		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"), []byte(password))
@@ -223,10 +235,14 @@ func (s *Service) DeleteUser(ctx context.Context, id string) error {
 func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at
+		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
+		       onboarding_completed, age, learner_types, avatar_url
 		FROM users
 		WHERE id = $1
-	`, id).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
+	`, id).Scan(
+		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUserNotFound
 	}
@@ -234,6 +250,30 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 		return User{}, fmt.Errorf("lookup user: %w", err)
 	}
 	return u, nil
+}
+
+// UpdateAvatar sets or clears the user's avatar URL. Pass nil to remove it.
+func (s *Service) UpdateAvatar(ctx context.Context, userID string, avatarURL *string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET avatar_url = $2 WHERE id = $1`,
+		userID, avatarURL,
+	)
+	return err
+}
+
+// CompleteOnboarding persists the name, age, and learner types collected during
+// the onboarding flow and marks the user as onboarded. Subsequent calls are
+// idempotent — users can update their profile later via the same endpoint.
+func (s *Service) CompleteOnboarding(ctx context.Context, userID, name string, age *int, learnerTypes []string) error {
+	if learnerTypes == nil {
+		learnerTypes = []string{}
+	}
+	_, err := s.pool.Exec(ctx, `
+		UPDATE users
+		SET name = NULLIF($2, ''), age = $3, learner_types = $4, onboarding_completed = TRUE
+		WHERE id = $1
+	`, userID, name, age, learnerTypes)
+	return err
 }
 
 // RotateRefreshToken validates the raw token, deletes the DB row atomically,

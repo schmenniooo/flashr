@@ -18,6 +18,24 @@ import {
 import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
 import "./Profile.css";
 
+function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
 export function Profile() {
   const navigate = useNavigate();
   const currentUser = useDb(selectCurrentUser);
@@ -29,6 +47,9 @@ export function Profile() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
     currentUser?.avatarUrl ?? null,
   );
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [prevUserId, setPrevUserId] = useState(currentUser?.id);
@@ -116,6 +137,7 @@ export function Profile() {
   function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatarPreview(reader.result as string);
     reader.readAsDataURL(file);
@@ -125,22 +147,42 @@ export function Profile() {
     if (!currentUser) return;
     setForm(currentUser);
     setAvatarPreview(currentUser.avatarUrl);
+    setAvatarFile(null);
+    setSaveError(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form) return;
-    auth.updateProfile({
-      firstName: form.firstName,
-      lastName: form.lastName,
-      username: form.username,
-      bio: form.bio,
-      timezone: form.timezone,
-      dailyGoal: form.dailyGoal,
-      emailReminders: form.emailReminders,
-      weeklyDigest: form.weeklyDigest,
-      avatarUrl: avatarPreview,
-    });
+    setSaveLoading(true);
+    setSaveError(null);
+    try {
+      if (avatarPreview !== currentUser?.avatarUrl) {
+        if (avatarPreview === null) {
+          await auth.removeAvatar();
+        } else if (avatarFile) {
+          const resized = await resizeImage(avatarFile);
+          await auth.saveAvatar(resized);
+          setAvatarPreview(resized);
+          setAvatarFile(null);
+          if (fileRef.current) fileRef.current.value = "";
+        }
+      }
+      auth.updateProfile({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        username: form.username,
+        bio: form.bio,
+        timezone: form.timezone,
+        dailyGoal: form.dailyGoal,
+        emailReminders: form.emailReminders,
+        weeklyDigest: form.weeklyDigest,
+      });
+    } catch {
+      setSaveError("Could not save avatar — please try again.");
+    } finally {
+      setSaveLoading(false);
+    }
   }
 
   async function handleUpgrade() {
@@ -540,19 +582,19 @@ export function Profile() {
       )}
 
       {/* ── Sticky save bar ── */}
-      {dirty && (
+      {(dirty || saveError) && (
         <div className="prof__savebar fade-in">
           <div className="prof__savebar-summary">
             <span className="prof__savebar-dot" />
-            Unsaved changes
+            {saveError ?? "Unsaved changes"}
           </div>
           <div className="prof__savebar-actions">
-            <button className="btn-ghost" onClick={handleDiscard}>
+            <button className="btn-ghost" onClick={handleDiscard} disabled={saveLoading}>
               Discard
             </button>
-            <button className="btn-primary" onClick={handleSave}>
+            <button className="btn-primary" onClick={handleSave} disabled={saveLoading || !dirty}>
               <CheckCircle2 size={14} strokeWidth={2} />
-              Save changes
+              {saveLoading ? "Saving…" : "Save changes"}
             </button>
           </div>
         </div>

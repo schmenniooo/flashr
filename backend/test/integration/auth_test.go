@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -539,4 +540,232 @@ func TestHTTP_Login_UnknownUser(t *testing.T) {
 		"email": "ghost@example.com", "password": "anything",
 	}, "")
 	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+
+func TestSignUp_OnboardingCompletedIsFalse(t *testing.T) {
+	testutil.Truncate(t, testPool)
+
+	u, _, err := testAuthSvc.SignUp(context.Background(), "new_user@example.com", "password123", "New")
+	require.NoError(t, err)
+	assert.False(t, u.OnboardingCompleted, "new users must start with onboarding_completed = false")
+}
+
+func TestCompleteOnboarding_PersistsFields(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	ctx := context.Background()
+
+	u, _, err := testAuthSvc.SignUp(ctx, "onb@example.com", "password123", "Before")
+	require.NoError(t, err)
+	require.False(t, u.OnboardingCompleted)
+
+	age := 25
+	err = testAuthSvc.CompleteOnboarding(ctx, u.ID, "Jordan Smith", &age, []string{"university", "certifications"})
+	require.NoError(t, err)
+
+	updated, err := testAuthSvc.UserByID(ctx, u.ID)
+	require.NoError(t, err)
+	assert.True(t, updated.OnboardingCompleted)
+	assert.Equal(t, "Jordan Smith", updated.Name)
+	require.NotNil(t, updated.Age)
+	assert.Equal(t, 25, *updated.Age)
+	assert.Equal(t, []string{"university", "certifications"}, updated.LearnerTypes)
+}
+
+func TestCompleteOnboarding_Idempotent(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	ctx := context.Background()
+
+	u, _, err := testAuthSvc.SignUp(ctx, "idem@example.com", "password123", "")
+	require.NoError(t, err)
+
+	age1 := 20
+	require.NoError(t, testAuthSvc.CompleteOnboarding(ctx, u.ID, "First Name", &age1, []string{"school"}))
+
+	age2 := 21
+	require.NoError(t, testAuthSvc.CompleteOnboarding(ctx, u.ID, "Updated Name", &age2, []string{"university"}))
+
+	u2, err := testAuthSvc.UserByID(ctx, u.ID)
+	require.NoError(t, err)
+	assert.True(t, u2.OnboardingCompleted)
+	assert.Equal(t, "Updated Name", u2.Name)
+	require.NotNil(t, u2.Age)
+	assert.Equal(t, 21, *u2.Age)
+	assert.Equal(t, []string{"university"}, u2.LearnerTypes)
+}
+
+func TestCompleteOnboarding_NilLearnerTypes(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	ctx := context.Background()
+
+	u, _, err := testAuthSvc.SignUp(ctx, "nil_lt@example.com", "password123", "")
+	require.NoError(t, err)
+
+	age := 30
+	err = testAuthSvc.CompleteOnboarding(ctx, u.ID, "Test", &age, nil)
+	require.NoError(t, err)
+
+	updated, err := testAuthSvc.UserByID(ctx, u.ID)
+	require.NoError(t, err)
+	assert.True(t, updated.OnboardingCompleted)
+	assert.NotNil(t, updated.LearnerTypes, "learner_types must never be nil (empty slice)")
+	assert.Empty(t, updated.LearnerTypes)
+}
+
+func TestHTTP_Onboarding_Success(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("onb_http"))
+
+	w := do(t, http.MethodPost, "/api/auth/onboarding", map[string]any{
+		"name": "Jordan Smith", "age": 22, "learner_types": []string{"university"},
+	}, tok)
+	mustStatus(t, w, http.StatusOK)
+
+	var resp struct {
+		User auth.User `json:"user"`
+	}
+	decode(t, w, &resp)
+	assert.True(t, resp.User.OnboardingCompleted)
+	assert.Equal(t, "Jordan Smith", resp.User.Name)
+	require.NotNil(t, resp.User.Age)
+	assert.Equal(t, 22, *resp.User.Age)
+	assert.Equal(t, []string{"university"}, resp.User.LearnerTypes)
+}
+
+func TestHTTP_Onboarding_Unauthenticated(t *testing.T) {
+	w := do(t, http.MethodPost, "/api/auth/onboarding", map[string]any{
+		"name": "Ghost", "age": 30, "learner_types": []string{},
+	}, "")
+	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestHTTP_Onboarding_EmptyBodyIsAccepted(t *testing.T) {
+	// Empty body (no name/age/learner_types) must not 400 — all fields are optional.
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("onb_empty"))
+
+	w := do(t, http.MethodPost, "/api/auth/onboarding", map[string]any{}, tok)
+	mustStatus(t, w, http.StatusOK)
+
+	var resp struct {
+		User auth.User `json:"user"`
+	}
+	decode(t, w, &resp)
+	assert.True(t, resp.User.OnboardingCompleted)
+}
+
+// ── Avatar ────────────────────────────────────────────────────────────────────
+
+func TestUpdateAvatar_SetAndClear(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	ctx := context.Background()
+
+	u, _, err := testAuthSvc.SignUp(ctx, "avatar_svc@example.com", "password123", "Av")
+	require.NoError(t, err)
+	assert.Nil(t, u.AvatarURL, "new users must have no avatar")
+
+	dataURL := "data:image/jpeg;base64,/9j/fakedata"
+	require.NoError(t, testAuthSvc.UpdateAvatar(ctx, u.ID, &dataURL))
+
+	withAvatar, err := testAuthSvc.UserByID(ctx, u.ID)
+	require.NoError(t, err)
+	require.NotNil(t, withAvatar.AvatarURL)
+	assert.Equal(t, dataURL, *withAvatar.AvatarURL)
+
+	require.NoError(t, testAuthSvc.UpdateAvatar(ctx, u.ID, nil))
+
+	cleared, err := testAuthSvc.UserByID(ctx, u.ID)
+	require.NoError(t, err)
+	assert.Nil(t, cleared.AvatarURL)
+}
+
+func TestHTTP_Avatar_Upload_Success(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("avatar_upload"))
+
+	const dataURL = "data:image/jpeg;base64,/9j/validfakedata"
+	w := do(t, http.MethodPost, "/api/auth/avatar", map[string]string{
+		"avatar_url": dataURL,
+	}, tok)
+	mustStatus(t, w, http.StatusOK)
+
+	var resp struct {
+		User auth.User `json:"user"`
+	}
+	decode(t, w, &resp)
+	require.NotNil(t, resp.User.AvatarURL)
+	assert.Equal(t, dataURL, *resp.User.AvatarURL)
+}
+
+func TestHTTP_Avatar_Upload_InvalidFormat(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("avatar_invalid"))
+
+	// Must reject non-data-URL strings (external URLs, plain text, etc.)
+	w := do(t, http.MethodPost, "/api/auth/avatar", map[string]string{
+		"avatar_url": "https://external.com/photo.jpg",
+	}, tok)
+	mustStatus(t, w, http.StatusBadRequest)
+}
+
+func TestHTTP_Avatar_Upload_TooLarge(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("avatar_large"))
+
+	// Build a data:image/ URL that just exceeds the 2 MB limit.
+	oversized := "data:image/jpeg;base64," + strings.Repeat("A", 2*1024*1024+1)
+	w := do(t, http.MethodPost, "/api/auth/avatar", map[string]string{
+		"avatar_url": oversized,
+	}, tok)
+	mustStatus(t, w, http.StatusBadRequest)
+}
+
+func TestHTTP_Avatar_Upload_MissingField(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("avatar_missing"))
+
+	w := do(t, http.MethodPost, "/api/auth/avatar", map[string]string{}, tok)
+	mustStatus(t, w, http.StatusBadRequest)
+}
+
+func TestHTTP_Avatar_Upload_Unauthenticated(t *testing.T) {
+	w := do(t, http.MethodPost, "/api/auth/avatar", map[string]string{
+		"avatar_url": "data:image/jpeg;base64,abc",
+	}, "")
+	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestHTTP_Avatar_Delete_Success(t *testing.T) {
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("avatar_del"))
+
+	// Set an avatar first.
+	do(t, http.MethodPost, "/api/auth/avatar", map[string]string{
+		"avatar_url": "data:image/png;base64,abc123",
+	}, tok)
+
+	// Delete it.
+	w := do(t, http.MethodDelete, "/api/auth/avatar", nil, tok)
+	mustStatus(t, w, http.StatusOK)
+
+	var resp struct {
+		User auth.User `json:"user"`
+	}
+	decode(t, w, &resp)
+	assert.Nil(t, resp.User.AvatarURL)
+}
+
+func TestHTTP_Avatar_Delete_Unauthenticated(t *testing.T) {
+	w := do(t, http.MethodDelete, "/api/auth/avatar", nil, "")
+	mustStatus(t, w, http.StatusUnauthorized)
+}
+
+func TestHTTP_Avatar_DeleteWhenNoneSet_IsNoOp(t *testing.T) {
+	// Deleting an avatar that was never set must succeed without error.
+	testutil.Truncate(t, testPool)
+	_, tok := signUp(t, uniqueEmail("avatar_del_noop"))
+
+	w := do(t, http.MethodDelete, "/api/auth/avatar", nil, tok)
+	mustStatus(t, w, http.StatusOK)
 }

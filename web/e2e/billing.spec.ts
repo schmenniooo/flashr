@@ -62,6 +62,7 @@ async function mockBackend(
           plan,
           plan_expires_at: null,
           created_at: new Date().toISOString(),
+          onboarding_completed: true,
         },
       }),
     })
@@ -134,6 +135,7 @@ test.describe("profile — plan badge", () => {
             plan: "pro",
             plan_expires_at: expiryDate,
             created_at: new Date().toISOString(),
+            onboarding_completed: true,
           },
         }),
       })
@@ -203,6 +205,7 @@ test.describe("post-checkout success", () => {
             plan: "pro",
             plan_expires_at: null,
             created_at: new Date().toISOString(),
+            onboarding_completed: true,
           },
         }),
       })

@@ -30,6 +30,10 @@ type BackendUser = {
   plan: "free" | "pro";
   plan_expires_at?: string | null;
   created_at: string;
+  onboarding_completed: boolean;
+  age?: number | null;
+  learner_types?: string[];
+  avatar_url?: string | null;
 };
 
 type AuthResponse = {
@@ -63,16 +67,16 @@ function shadowFromBackend(
       month: "long",
       year: "numeric",
     }),
-    avatarUrl: null,
+    avatarUrl: bu.avatar_url ?? null,
     bio: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     language: "English",
     dailyGoal: 20,
     emailReminders: true,
     weeklyDigest: false,
-    age: null,
-    learnerTypes: [],
-    onboardingCompleted: false,
+    age: bu.age ?? null,
+    learnerTypes: (bu.learner_types ?? []) as LearnerType[],
+    onboardingCompleted: bu.onboarding_completed,
     dismissedSuggestions: [],
   };
 }
@@ -83,9 +87,27 @@ function adoptBackendUser(
 ) {
   setState((db) => {
     const existing = db.users.find((u) => u.id === bu.id);
-    const user = existing
-      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
-      : shadowFromBackend(bu, hint);
+    let user: StoredUser;
+    if (existing) {
+      const fallbackName = (bu.name ?? "").trim();
+      const [first, ...rest] = fallbackName ? fallbackName.split(/\s+/) : [];
+      user = {
+        ...existing,
+        email: bu.email,
+        streak: bu.streak ?? existing.streak,
+        plan: bu.plan ?? existing.plan,
+        planExpiresAt: bu.plan_expires_at ?? null,
+        onboardingCompleted: bu.onboarding_completed,
+        age: bu.age ?? existing.age,
+        learnerTypes: (bu.learner_types as LearnerType[]) ?? existing.learnerTypes,
+        avatarUrl: bu.avatar_url ?? null,
+        ...(fallbackName
+          ? { firstName: first || existing.firstName, lastName: rest.join(" ") }
+          : {}),
+      };
+    } else {
+      user = shadowFromBackend(bu, hint);
+    }
     const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
@@ -208,29 +230,41 @@ export const auth = {
     }));
   },
 
-  completeOnboarding(input: {
+  async completeOnboarding(input: {
     firstName: string;
     lastName?: string;
     age: number;
     learnerTypes: LearnerType[];
-  }) {
-    const session = state.session;
-    if (!session) return;
-    setState((db) => ({
-      ...db,
-      users: db.users.map((u) =>
-        u.id === session.userId
-          ? {
-              ...u,
-              firstName: input.firstName,
-              lastName: input.lastName ?? u.lastName,
-              age: input.age,
-              learnerTypes: input.learnerTypes,
-              onboardingCompleted: true,
-            }
-          : u,
-      ),
-    }));
+  }): Promise<void> {
+    if (!state.session) return;
+    const fullName = [input.firstName, input.lastName ?? ""]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" ");
+    const res = await api<{ user: BackendUser }>("/auth/onboarding", {
+      method: "POST",
+      body: JSON.stringify({
+        name: fullName,
+        age: input.age,
+        learner_types: input.learnerTypes,
+      }),
+    });
+    adoptBackendUser(res.user);
+  },
+
+  async saveAvatar(dataUrl: string): Promise<void> {
+    const res = await api<{ user: BackendUser }>("/auth/avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatar_url: dataUrl }),
+    });
+    adoptBackendUser(res.user);
+  },
+
+  async removeAvatar(): Promise<void> {
+    const res = await api<{ user: BackendUser }>("/auth/avatar", {
+      method: "DELETE",
+    });
+    adoptBackendUser(res.user);
   },
 
   async refreshUser(): Promise<void> {

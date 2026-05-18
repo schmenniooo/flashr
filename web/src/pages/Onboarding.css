@@ -118,6 +118,13 @@
   margin: 0;
 }
 
+.onb__error {
+  font-size: 13px;
+  color: var(--color-error, #e53e3e);
+  margin: 0 0 var(--space-2);
+  text-align: center;
+}
+
 .onb__choices {
   display: grid;
   grid-template-columns: 1fr 1fr;
