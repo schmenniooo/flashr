@@ -187,7 +187,6 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI card generation</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> PDF upload</li>
-                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> App integrations</li>
               </ul>
             </div>
 
@@ -216,7 +215,6 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI card generation</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> PDF upload</li>
-                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> App integrations</li>
               </ul>
             </div>
 
