@@ -88,6 +88,7 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/logout", s.handleLogout)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
 	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
+	rg.POST("/onboarding", s.RequireUser(), s.handleCompleteOnboarding)
 	if s.GoogleEnabled() {
 		rg.GET("/google", authRateLimiter, s.handleGoogleRedirect)
 		rg.GET("/google/callback", authRateLimiter, s.handleGoogleCallback)
@@ -237,6 +238,29 @@ func (s *Service) handleLogout(c *gin.Context) {
 	}
 	s.clearRefreshCookie(c)
 	c.Status(http.StatusNoContent)
+}
+
+func (s *Service) handleCompleteOnboarding(c *gin.Context) {
+	userID := UserIDFromContext(c)
+	var req struct {
+		Name         string   `json:"name"`
+		Age          *int     `json:"age"`
+		LearnerTypes []string `json:"learner_types"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+	if err := s.CompleteOnboarding(c.Request.Context(), userID, req.Name, req.Age, req.LearnerTypes); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not complete onboarding"})
+		return
+	}
+	user, err := s.UserByID(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
 }
 
 func (s *Service) handleDeleteMe(c *gin.Context) {
