@@ -74,9 +74,8 @@ function shadowFromBackend(
     dailyGoal: 20,
     emailReminders: true,
     weeklyDigest: false,
-    age: null,
-    learnerTypes: bu.learner_types ?? [],
     age: bu.age ?? null,
+    learnerTypes: (bu.learner_types ?? []) as LearnerType[],
     onboardingCompleted: bu.onboarding_completed,
     dismissedSuggestions: [],
   };
@@ -100,7 +99,7 @@ function adoptBackendUser(
         planExpiresAt: bu.plan_expires_at ?? null,
         onboardingCompleted: bu.onboarding_completed,
         age: bu.age ?? existing.age,
-        learnerTypes: bu.learner_types ?? existing.learnerTypes,
+        learnerTypes: (bu.learner_types as LearnerType[]) ?? existing.learnerTypes,
         avatarUrl: bu.avatar_url ?? null,
         ...(fallbackName
           ? { firstName: first || existing.firstName, lastName: rest.join(" ") }
