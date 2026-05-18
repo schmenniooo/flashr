@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X } from "lucide-react";
+import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import "./Landing.css";
 
@@ -131,6 +131,15 @@ export function Landing() {
                 Spaced repetition built in. Study on desktop or mobile — your cards sync everywhere.
               </p>
             </div>
+            <div className="landing-feature-card" data-animate>
+              <div className="landing-feature-icon landing-feature-icon--accent">
+                <MessageSquare size={22} strokeWidth={1.5} />
+              </div>
+              <h3 className="landing-feature-title">Chat to Generate</h3>
+              <p className="landing-feature-desc">
+                No file? No problem. Just describe a topic and flashr's AI will generate a full deck through conversation.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -186,6 +195,7 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 50 cards per collection</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI card generation</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI chat — generate by topic</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> PDF upload</li>
               </ul>
             </div>
@@ -214,6 +224,7 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited cards</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI card generation</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI chat — generate by topic</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> PDF upload</li>
               </ul>
             </div>
