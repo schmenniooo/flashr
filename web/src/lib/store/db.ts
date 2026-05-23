@@ -32,6 +32,7 @@ export type Db = {
   masteryMap: Record<string, Card["mastery"]>;
   // transient — never persisted, always resets to true on load
   bootstrapping: boolean;
+  collectionsLoading: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ function freshDb(): Db {
     folders: [],
     masteryMap: {},
     bootstrapping: true,
+    collectionsLoading: false,
   };
 }
 
@@ -89,6 +91,7 @@ function readDb(): Db {
       users: parsed.users.map(migrateUser),
       masteryMap: parsed.masteryMap ?? {},
       bootstrapping: true,
+      collectionsLoading: false,
     };
   } catch {
     const fresh = freshDb();
@@ -160,6 +163,7 @@ export function selectNow<T>(selector: (db: Db) => T): T {
 // ─────────────────────────────────────────────────────────────
 
 export const selectBootstrapping = (db: Db) => db.bootstrapping;
+export const selectCollectionsLoading = (db: Db) => db.collectionsLoading;
 export const selectSession = (db: Db) => db.session;
 export const selectCurrentUser = (db: Db): StoredUser | null => {
   if (!db.session) return null;

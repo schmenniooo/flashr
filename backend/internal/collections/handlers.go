@@ -159,8 +159,9 @@ func (s *Service) createCard(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var body struct {
-		Question string `json:"question" binding:"required"`
-		Answer   string `json:"answer" binding:"required"`
+		Question    string `json:"question" binding:"required"`
+		Answer      string `json:"answer" binding:"required"`
+		AIGenerated bool   `json:"ai_generated"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "question and answer are required"})
@@ -208,10 +209,10 @@ func (s *Service) createCard(c *gin.Context) {
 
 	var card Card
 	err = tx.QueryRow(ctx, `
-		INSERT INTO cards (collection_id, question, answer)
-		VALUES ($1, $2, $3)
+		INSERT INTO cards (collection_id, question, answer, ai_generated)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, question, answer, ai_generated, created_at
-	`, colID, body.Question, body.Answer).Scan(
+	`, colID, body.Question, body.Answer, body.AIGenerated).Scan(
 		&card.ID, &card.Question, &card.Answer, &card.AIGenerated, &card.CreatedAt,
 	)
 	if err != nil {

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { toast } from "../lib/toast";
 import { Link, useNavigate } from "react-router-dom";
 import {
   UploadCloud,
@@ -75,14 +76,19 @@ export function Upload() {
   async function handleSave() {
     const kept = drafts.filter((d) => d.keep);
     if (kept.length === 0) return;
-    let collectionId = target;
-    if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-      const name = fileName ? fileName.replace(/\.pdf$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
-      const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
-      collectionId = created.id;
+    try {
+      let collectionId = target;
+      if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
+        const name = fileName ? fileName.replace(/\.pdf$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
+        const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
+        collectionId = created.id;
+      }
+      await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+      toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
+      navigate(`/app/c/${collectionId}`);
+    } catch {
+      // toast already shown by store
     }
-    await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer })));
-    navigate(`/app/c/${collectionId}`);
   }
 
   const keepCount = drafts.filter((d) => d.keep).length;

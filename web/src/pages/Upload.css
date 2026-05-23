@@ -837,6 +837,45 @@
   }
 }
 
+@media (max-width: 500px) {
+  .up__chat-input {
+    resize: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .up__review-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .up__review-target {
+    min-width: 0;
+    width: 100%;
+  }
+  .up__select {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .up__save-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  .up__save-actions {
+    justify-content: flex-end;
+  }
+  .up__sample {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .up__regen-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}
+
 .up__title         { margin-top: var(--space-2); }
 .up__subtitle      { margin-top: var(--space-1); max-width: 560px; }
 .up__file-input    { display: none; }
@@ -844,5 +883,6 @@
 .up__review-icon   { vertical-align: -2px; margin-right: 6px; }
 .up__chat-subtitle { margin-top: var(--space-1); max-width: 460px; }
 .up__generating-label { margin-top: var(--space-3); }
+.up__cancel-btn { margin-top: var(--space-4); }
 .up__draft-answer-label { margin-top: var(--space-2); }
 .up__draft-done    { margin-top: var(--space-2); align-self: flex-end; }

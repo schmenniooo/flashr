@@ -97,7 +97,7 @@ func TestGenerateCardsFromTopic_ValidJSON(t *testing.T) {
 	srv := ollamaServer(t, `[{"question":"What is S3?","answer":"Object storage service by AWS"},{"question":"What is IAM?","answer":"Identity and Access Management"}]`)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCardsFromTopic(context.Background(), "AWS Cloud Practitioner", 2, "intermediate", nil)
+	cards, err := client.GenerateCardsFromTopic(context.Background(), "AWS Cloud Practitioner", 2, "intermediate", nil, nil)
 	require.NoError(t, err)
 	assert.Len(t, cards, 2)
 	assert.Equal(t, "What is S3?", cards[0].Question)
@@ -108,7 +108,7 @@ func TestGenerateCardsFromTopic_JSONWrappedInText(t *testing.T) {
 	srv := ollamaServer(t, "Sure! Here are your cards:\n[{\"question\":\"Q1\",\"answer\":\"A1\"}]\nHope that helps!")
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCardsFromTopic(context.Background(), "some topic", 1, "beginner", nil)
+	cards, err := client.GenerateCardsFromTopic(context.Background(), "some topic", 1, "beginner", nil, nil)
 	require.NoError(t, err)
 	require.Len(t, cards, 1)
 	assert.Equal(t, "Q1", cards[0].Question)
@@ -118,7 +118,7 @@ func TestGenerateCardsFromTopic_NoArrayInResponse(t *testing.T) {
 	srv := ollamaServer(t, "Let me tell you about the French Revolution...")
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil, nil)
 	assert.Error(t, err)
 }
 
@@ -127,7 +127,7 @@ func TestGenerateCardsFromTopic_PromptContainsTopic(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -139,7 +139,7 @@ func TestGenerateCardsFromTopic_PromptContainsCount(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 7, "intermediate", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 7, "intermediate", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -151,7 +151,7 @@ func TestGenerateCardsFromTopic_PromptContainsLevel(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 5, "advanced", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 5, "advanced", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -234,7 +234,7 @@ func TestGenerateCardsFromTopic_LongTopicIsTruncated(t *testing.T) {
 	client := ai.NewClient(srv.URL, "test-model")
 
 	longTopic := strings.Repeat("t", 600) // 600 bytes — over the 500-byte cap
-	_, err := client.GenerateCardsFromTopic(context.Background(), longTopic, 5, "intermediate", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), longTopic, 5, "intermediate", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -250,7 +250,7 @@ func TestGenerateCardsFromTopic_ShortTopicNotTruncated(t *testing.T) {
 	client := ai.NewClient(srv.URL, "test-model")
 
 	topic := "React hooks and state management"
-	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 5, "intermediate", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 5, "intermediate", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -271,7 +271,7 @@ func TestGenerateCardsFromTopic_TopicUTF8TruncationIsSafe(t *testing.T) {
 	}
 	topic := string(prefix) + "€€€€" // each € is 3 bytes
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 3, "beginner", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 3, "beginner", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -285,7 +285,7 @@ func TestGenerateCardsFromTopic_TopicUTF8TruncationIsSafe(t *testing.T) {
 // ── num_ctx option ───────────────────────────────────────────────────────────
 
 // TestCallOllama_SendsNumCtxOption verifies that every generate call includes
-// num_ctx: 2048 in the options map, preventing context-overflow crashes.
+// num_ctx: 4096 in the options map, giving the prompt enough context headroom.
 func TestCallOllama_SendsNumCtxOption(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
@@ -297,7 +297,7 @@ func TestCallOllama_SendsNumCtxOption(t *testing.T) {
 	opts, _ := captured["options"].(map[string]any)
 	require.NotNil(t, opts, "options map must be present in the Ollama request")
 	numCtx, _ := opts["num_ctx"].(float64) // JSON numbers unmarshal as float64
-	assert.Equal(t, float64(2048), numCtx, "num_ctx must be 2048")
+	assert.Equal(t, float64(4096), numCtx, "num_ctx must be 4096")
 }
 
 // TestCallOllama_TopicSendNumCtxOption verifies the topic path also sends num_ctx.
@@ -306,11 +306,11 @@ func TestCallOllama_TopicSendsNumCtxOption(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "Biology", 5, "intermediate", nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "Biology", 5, "intermediate", nil, nil)
 	require.NoError(t, err)
 
 	opts, _ := captured["options"].(map[string]any)
 	require.NotNil(t, opts)
 	numCtx, _ := opts["num_ctx"].(float64)
-	assert.Equal(t, float64(2048), numCtx)
+	assert.Equal(t, float64(4096), numCtx)
 }

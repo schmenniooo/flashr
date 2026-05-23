@@ -2,6 +2,9 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { RequireAuth, RequireOnboarded } from "./components/RequireAuth";
+import { AppLoader } from "./components/AppLoader";
+import { Toaster } from "./components/Toaster";
+import { useDb, selectCollectionsLoading, selectSession } from "./lib/store";
 
 // Core pages — eagerly loaded. They're always accessed post-login and
 // their combined weight is small; lazy-loading them only adds a Suspense
@@ -64,8 +67,23 @@ const router = createBrowserRouter([
   },
 ]);
 
+function GlobalLoader() {
+  const session = useDb(selectSession);
+  const collectionsLoading = useDb(selectCollectionsLoading);
+  // Show when a logged-in user is waiting for their collections to arrive.
+  // The bootstrap+no-session case is handled by RequireAuth.
+  if (!session || !collectionsLoading) return null;
+  return <AppLoader />;
+}
+
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <GlobalLoader />
+      <RouterProvider router={router} />
+      <Toaster />
+    </>
+  );
 }
 
 export default App;

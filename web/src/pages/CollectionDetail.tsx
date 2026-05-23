@@ -50,13 +50,13 @@ export function CollectionDetail() {
   };
 
   function handleDelete() {
-    collectionsApi.remove(collection!.id);
+    void collectionsApi.remove(collection!.id).catch(() => {});
     navigate("/app/collections");
   }
 
   function handleDeleteCard(cardId: string) {
     if (!window.confirm("Delete this card? This can't be undone.")) return;
-    void cardsApi.remove(collection!.id, cardId);
+    void cardsApi.remove(collection!.id, cardId).catch(() => {});
   }
 
   return (

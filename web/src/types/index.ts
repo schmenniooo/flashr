@@ -63,4 +63,5 @@ export type Suggestion = {
   description: string;
   folder: string;
   folderEmoji: string;
+  cards?: { question: string; answer: string }[];
 };

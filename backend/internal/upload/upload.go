@@ -4,6 +4,7 @@ package upload
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +38,7 @@ func (s *Service) RegisterRoutes(api *gin.RouterGroup, authMW gin.HandlerFunc, r
 	g := api.Group("/ai", authMW, requirePro)
 	g.POST("/upload", s.handleUpload)
 	g.POST("/generate", s.handleGenerate)
+	g.POST("/generate/stream", s.handleGenerateStream)
 }
 
 func validLevel(l string) string {
@@ -55,10 +57,11 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	}
 
 	var req struct {
-		Prompt       string   `json:"prompt"`
-		Count        int      `json:"count"`
-		Level        string   `json:"level"`
-		LearnerTypes []string `json:"learnerTypes"`
+		Prompt        string         `json:"prompt"`
+		Count         int            `json:"count"`
+		Level         string         `json:"level"`
+		LearnerTypes  []string       `json:"learnerTypes"`
+		ExistingCards []ai.CardDraft `json:"existingCards"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
@@ -69,13 +72,59 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	}
 	req.Level = validLevel(req.Level)
 
-	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level, req.LearnerTypes)
+	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level, req.LearnerTypes, req.ExistingCards)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"cards": cards})
+}
+
+func (s *Service) handleGenerateStream(c *gin.Context) {
+	if s.ai == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI generation is not configured — OLLAMA_URL is missing"})
+		return
+	}
+
+	var req struct {
+		Prompt        string         `json:"prompt"`
+		Count         int            `json:"count"`
+		Level         string         `json:"level"`
+		LearnerTypes  []string       `json:"learnerTypes"`
+		ExistingCards []ai.CardDraft `json:"existingCards"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
+		return
+	}
+	if req.Count <= 0 || req.Count > 20 {
+		req.Count = 10
+	}
+	req.Level = validLevel(req.Level)
+
+	c.Header("Content-Type", "text/event-stream")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
+	c.Header("X-Accel-Buffering", "no")
+
+	err := s.ai.GenerateCardsFromTopicStream(
+		c.Request.Context(),
+		req.Prompt, req.Count, req.Level, req.LearnerTypes, req.ExistingCards,
+		func(card ai.CardDraft) {
+			c.SSEvent("card", card)
+			c.Writer.Flush()
+		},
+	)
+
+	if err != nil && !errors.Is(err, context.Canceled) {
+		c.SSEvent("error", gin.H{"error": "AI generation failed: " + err.Error()})
+		c.Writer.Flush()
+		return
+	}
+
+	c.SSEvent("done", gin.H{})
+	c.Writer.Flush()
 }
 
 func (s *Service) handleUpload(c *gin.Context) {

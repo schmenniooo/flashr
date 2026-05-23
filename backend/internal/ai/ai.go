@@ -2,6 +2,7 @@
 package ai
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -50,7 +51,8 @@ func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, e
 // GenerateCardsFromTopic generates cards from a topic description (no source text).
 // level is one of "beginner", "intermediate", or "advanced".
 // learnerTypes is optional user context (e.g. ["university", "certifications"]).
-func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string) ([]CardDraft, error) {
+// existingCards is the current deck — the AI will avoid duplicating them.
+func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string, existingCards []CardDraft) ([]CardDraft, error) {
 	const maxTopicBytes = 500
 	if len(topic) > maxTopicBytes {
 		topic = topic[:maxTopicBytes]
@@ -58,7 +60,132 @@ func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count
 			topic = topic[:len(topic)-1]
 		}
 	}
-	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes))
+	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes, existingCards))
+}
+
+// GenerateCardsFromTopicStream is the streaming variant of GenerateCardsFromTopic.
+// It calls Ollama with stream:true and invokes onCard each time a complete
+// question/answer pair is parsed out of the token stream.
+// existingCards is the current deck — the AI will avoid duplicating them.
+func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string, count int, level string, learnerTypes []string, existingCards []CardDraft, onCard func(CardDraft)) error {
+	const maxTopicBytes = 500
+	if len(topic) > maxTopicBytes {
+		topic = topic[:maxTopicBytes]
+		for !utf8.ValidString(topic) {
+			topic = topic[:len(topic)-1]
+		}
+	}
+	return c.callOllamaStream(ctx, buildTopicPrompt(topic, count, level, learnerTypes, existingCards), onCard)
+}
+
+func (c *Client) callOllamaStream(ctx context.Context, prompt string, onCard func(CardDraft)) error {
+	reqBody, err := json.Marshal(map[string]any{
+		"model":  c.model,
+		"prompt": prompt,
+		"stream": true,
+		"options": map[string]any{
+			"temperature": 0.3,
+			"num_ctx":     4096,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/api/generate", bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("ollama request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("ollama: HTTP %d", resp.StatusCode)
+	}
+
+	var buf string
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var chunk struct {
+			Response string `json:"response"`
+			Done     bool   `json:"done"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
+		}
+		buf += chunk.Response
+
+		// Extract any complete card objects from the accumulated buffer.
+		for {
+			card, remaining, found := extractNextCard(buf)
+			if !found {
+				break
+			}
+			buf = remaining
+			if card != nil {
+				onCard(*card)
+			}
+		}
+
+		if chunk.Done {
+			break
+		}
+	}
+	return scanner.Err()
+}
+
+// extractNextCard finds the first complete JSON object in buf using bracket
+// matching. Returns the parsed card (nil if malformed), the remaining string
+// after the closing brace, and found=true when a complete object was located.
+func extractNextCard(buf string) (card *CardDraft, remaining string, found bool) {
+	start := strings.Index(buf, "{")
+	if start == -1 {
+		return nil, buf, false
+	}
+
+	depth := 0
+	inString := false
+	escape := false
+
+	for i := start; i < len(buf); i++ {
+		ch := buf[i]
+		if escape {
+			escape = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escape = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch ch {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				var c CardDraft
+				if err := json.Unmarshal([]byte(buf[start:i+1]), &c); err == nil &&
+					strings.TrimSpace(c.Question) != "" && strings.TrimSpace(c.Answer) != "" {
+					return &c, buf[i+1:], true
+				}
+				return nil, buf[i+1:], true
+			}
+		}
+	}
+	return nil, buf, false
 }
 
 func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, error) {
@@ -68,7 +195,7 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 		"stream": false,
 		"options": map[string]any{
 			"temperature": 0.3,
-			"num_ctx":     2048,
+			"num_ctx":     4096,
 		},
 	})
 	if err != nil {
@@ -106,15 +233,33 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 	return cards, nil
 }
 
-func buildTopicPrompt(topic string, count int, level string, learnerTypes []string) string {
+func buildTopicPrompt(topic string, count int, level string, learnerTypes []string, existingCards []CardDraft) string {
 	var contextLine string
 	if len(learnerTypes) > 0 {
 		contextLine = "\nLearner context: " + strings.Join(learnerTypes, ", ") + " — calibrate examples and framing accordingly.\n"
 	}
+
+	var existingSection string
+	if len(existingCards) > 0 {
+		const maxExisting = 40
+		cards := existingCards
+		if len(cards) > maxExisting {
+			cards = cards[:maxExisting]
+		}
+		var sb strings.Builder
+		sb.WriteString("\nThe collection already contains these cards — do NOT duplicate or rephrase any of them:\n")
+		for i, c := range cards {
+			q := strings.ReplaceAll(c.Question, "\n", " ")
+			a := strings.ReplaceAll(c.Answer, "\n", " ")
+			fmt.Fprintf(&sb, "%d. Q: %s | A: %s\n", i+1, q, a)
+		}
+		existingSection = sb.String()
+	}
+
 	return fmt.Sprintf(`You are a flashcard generator. Generate exactly %d %s-level flashcard question-answer pairs for the topic below. Output ONLY the JSON array — no explanation, no markdown, no code fences, no intro text.
 
 Topic: %s
-%s
+%s%s
 Rules:
 - Exactly %d cards
 - Calibrate difficulty and assumed prior knowledge to the %s level
@@ -123,7 +268,7 @@ Rules:
 - Vary types: definitions, mechanisms, comparisons, examples, applications
 
 Required output format (the entire response must be this and nothing else):
-[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, contextLine, count, level)
+[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, contextLine, existingSection, count, level)
 }
 
 func buildPrompt(text string) string {

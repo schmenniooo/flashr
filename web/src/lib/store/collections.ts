@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { state, setState, recalcProgress, recountFolders } from "./db";
+import { toast } from "../toast";
 import type { Collection, Card } from "../../types";
 
 // ─────────────────────────────────────────────────────────────
@@ -62,21 +63,27 @@ export function mapCollection(bc: BackendCollection, masteryMap: Record<string, 
 
 export const collectionsApi = {
   async load(): Promise<void> {
-    const res = await api<{ collections: BackendCollection[] }>("/collections");
-    setState((db) => {
-      const collections = res.collections.map((bc) =>
-        mapCollection(bc, db.masteryMap, db.collections.find((c) => c.id === bc.id))
-      );
-      const known = new Set(db.folders.map((f) => f.name));
-      const merged = [...db.folders];
-      for (const c of collections) {
-        if (c.folder && !known.has(c.folder)) {
-          merged.push({ name: c.folder, emoji: "📁", count: 0 });
-          known.add(c.folder);
+    setState((db) => ({ ...db, collectionsLoading: true }));
+    try {
+      const res = await api<{ collections: BackendCollection[] }>("/collections");
+      setState((db) => {
+        const collections = res.collections.map((bc) =>
+          mapCollection(bc, db.masteryMap, db.collections.find((c) => c.id === bc.id))
+        );
+        const known = new Set(db.folders.map((f) => f.name));
+        const merged = [...db.folders];
+        for (const c of collections) {
+          if (c.folder && !known.has(c.folder)) {
+            merged.push({ name: c.folder, emoji: "📁", count: 0 });
+            known.add(c.folder);
+          }
         }
-      }
-      return { ...db, collections, folders: recountFolders(merged, collections) };
-    });
+        return { ...db, collections, folders: recountFolders(merged, collections), collectionsLoading: false };
+      });
+    } catch (err) {
+      setState((db) => ({ ...db, collectionsLoading: false }));
+      throw err;
+    }
   },
 
   async create(input: {
@@ -85,25 +92,31 @@ export const collectionsApi = {
     emoji?: string;
     description?: string;
   }): Promise<Collection> {
-    const bc = await api<BackendCollection>("/collections", {
-      method: "POST",
-      body: JSON.stringify({
-        name: input.name,
-        folder: input.folder === "Uncategorized" ? "" : input.folder,
-        emoji: input.emoji || "📚",
-        description: input.description || "",
-      }),
-    });
-    const col = mapCollection(bc, state.masteryMap);
-    setState((db) => {
-      const collections = [col, ...db.collections];
-      const known = new Set(db.folders.map((f) => f.name));
-      const folders = col.folder && !known.has(col.folder)
-        ? [...db.folders, { name: col.folder, emoji: "📁", count: 0 }]
-        : db.folders;
-      return { ...db, collections, folders: recountFolders(folders, collections) };
-    });
-    return col;
+    try {
+      const bc = await api<BackendCollection>("/collections", {
+        method: "POST",
+        body: JSON.stringify({
+          name: input.name,
+          folder: input.folder === "Uncategorized" ? "" : input.folder,
+          emoji: input.emoji || "📚",
+          description: input.description || "",
+        }),
+      });
+      const col = mapCollection(bc, state.masteryMap);
+      setState((db) => {
+        const collections = [col, ...db.collections];
+        const known = new Set(db.folders.map((f) => f.name));
+        const folders = col.folder && !known.has(col.folder)
+          ? [...db.folders, { name: col.folder, emoji: "📁", count: 0 }]
+          : db.folders;
+        return { ...db, collections, folders: recountFolders(folders, collections) };
+      });
+      toast.success(`Collection "${col.name}" created`);
+      return col;
+    } catch (err) {
+      toast.error("Failed to create collection");
+      throw err;
+    }
   },
 
   async update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>): Promise<void> {
@@ -145,6 +158,7 @@ export const collectionsApi = {
           : db.folders;
         return { ...db, collections, folders: recountFolders(folders, collections) };
       });
+    toast.success("Collection updated");
     } catch (err) {
       if (snapshot) {
         setState((db) => {
@@ -152,16 +166,24 @@ export const collectionsApi = {
           return { ...db, collections, folders: recountFolders(db.folders, collections) };
         });
       }
+      toast.error("Failed to update collection");
       throw err;
     }
   },
 
   async remove(id: string): Promise<void> {
-    await api(`/collections/${id}`, { method: "DELETE" });
-    setState((db) => {
-      const collections = db.collections.filter((c) => c.id !== id);
-      return { ...db, collections, folders: recountFolders(db.folders, collections) };
-    });
+    const name = state.collections.find((c) => c.id === id)?.name;
+    try {
+      await api(`/collections/${id}`, { method: "DELETE" });
+      setState((db) => {
+        const collections = db.collections.filter((c) => c.id !== id);
+        return { ...db, collections, folders: recountFolders(db.folders, collections) };
+      });
+      toast.success(name ? `"${name}" deleted` : "Collection deleted");
+    } catch (err) {
+      toast.error("Failed to delete collection");
+      throw err;
+    }
   },
 
   touch(id: string) {

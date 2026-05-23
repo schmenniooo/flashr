@@ -34,13 +34,17 @@ export function CreateCollectionModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    const col = await collectionsApi.create({
-      name: name.trim(),
-      folder,
-      emoji: emoji || "📚",
-      description: description.trim(),
-    });
-    onCreated(col.id);
+    try {
+      const col = await collectionsApi.create({
+        name: name.trim(),
+        folder,
+        emoji: emoji || "📚",
+        description: description.trim(),
+      });
+      onCreated(col.id);
+    } catch {
+      // toast already shown by store
+    }
   }
 
   return (
