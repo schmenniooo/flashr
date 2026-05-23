@@ -314,4 +314,3 @@ func TestCallOllama_TopicSendsNumCtxOption(t *testing.T) {
 	numCtx, _ := opts["num_ctx"].(float64)
 	assert.Equal(t, float64(4096), numCtx)
 }
-
