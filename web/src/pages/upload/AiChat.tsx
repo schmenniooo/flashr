@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { cardsApi, collectionsApi, useDb, selectCurrentUser } from "../../lib/store";
+import { cardsApi, collectionsApi, useDb, selectCurrentUser, selectCollections } from "../../lib/store";
 import { API_BASE, getToken } from "../../lib/api";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
 import { UpgradePrompt } from "../../components/UpgradePrompt";
@@ -125,6 +125,7 @@ export function AiChat({
   navigate: (to: string) => void;
 }) {
   const currentUser = useDb(selectCurrentUser);
+  const allCollections = useDb(selectCollections);
   const userId = currentUser?.id ?? "";
   const saved = loadChatDraft(userId);
   const [prompt, setPrompt] = useState(saved.prompt ?? "");
@@ -162,6 +163,10 @@ export function AiChat({
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
+    const existingCards = target !== "__new"
+      ? (allCollections.find((c) => c.id === target)?.cards ?? []).map((c) => ({ question: c.question, answer: c.answer }))
+      : [];
+
     let resp: Response;
     try {
       resp = await fetch(`${API_BASE}/ai/generate/stream`, {
@@ -169,7 +174,7 @@ export function AiChat({
         headers,
         credentials: "include",
         signal: abort.signal,
-        body: JSON.stringify({ prompt: prompt.trim(), count, level, learnerTypes: currentUser?.learnerTypes ?? [] }),
+        body: JSON.stringify({ prompt: prompt.trim(), count, level, learnerTypes: currentUser?.learnerTypes ?? [], existingCards }),
       });
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
