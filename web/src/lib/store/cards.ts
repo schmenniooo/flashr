@@ -1,6 +1,7 @@
 import { api } from "../api";
 import { state, setState, recalcProgress } from "./db";
 import { mapCard } from "./collections";
+import { toast } from "../toast";
 import type { Card } from "../../types";
 
 export const cardsApi = {
@@ -18,6 +19,7 @@ export const cardsApi = {
           : c,
       ),
     }));
+    if (!input.aiGenerated) toast.success("Card added");
     return card;
   },
 
@@ -39,6 +41,7 @@ export const cardsApi = {
           : c,
       ),
     }));
+    toast.success("Card updated");
   },
 
   async remove(collectionId: string, cardId: string): Promise<void> {
@@ -51,6 +54,7 @@ export const cardsApi = {
           : c,
       ),
     }));
+    toast.success("Card deleted");
   },
 
   async move(fromCollectionId: string, cardId: string, toCollectionId: string): Promise<void> {
@@ -70,6 +74,8 @@ export const cardsApi = {
         return c;
       }),
     }));
+    const toName = state.collections.find((c) => c.id === toCollectionId)?.name;
+    toast.success(toName ? `Card moved to "${toName}"` : "Card moved");
   },
 
   setMastery(collectionId: string, cardId: string, mastery: Card["mastery"]) {

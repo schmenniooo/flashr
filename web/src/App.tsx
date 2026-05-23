@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { RequireAuth, RequireOnboarded } from "./components/RequireAuth";
 import { AppLoader } from "./components/AppLoader";
+import { Toaster } from "./components/Toaster";
 import { useDb, selectCollectionsLoading, selectSession } from "./lib/store";
 
 // Core pages — eagerly loaded. They're always accessed post-login and
@@ -80,6 +81,7 @@ function App() {
     <>
       <GlobalLoader />
       <RouterProvider router={router} />
+      <Toaster />
     </>
   );
 }

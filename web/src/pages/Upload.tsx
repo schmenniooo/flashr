@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { toast } from "../lib/toast";
 import { Link, useNavigate } from "react-router-dom";
 import {
   UploadCloud,
@@ -82,6 +83,7 @@ export function Upload() {
       collectionId = created.id;
     }
     await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+    toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
     navigate(`/app/c/${collectionId}`);
   }
 

@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { state, setState, recalcProgress, recountFolders } from "./db";
+import { toast } from "../toast";
 import type { Collection, Card } from "../../types";
 
 // ─────────────────────────────────────────────────────────────
@@ -109,6 +110,7 @@ export const collectionsApi = {
         : db.folders;
       return { ...db, collections, folders: recountFolders(folders, collections) };
     });
+    toast.success(`Collection "${col.name}" created`);
     return col;
   },
 
@@ -151,6 +153,7 @@ export const collectionsApi = {
           : db.folders;
         return { ...db, collections, folders: recountFolders(folders, collections) };
       });
+    toast.success("Collection updated");
     } catch (err) {
       if (snapshot) {
         setState((db) => {
@@ -163,11 +166,13 @@ export const collectionsApi = {
   },
 
   async remove(id: string): Promise<void> {
+    const name = state.collections.find((c) => c.id === id)?.name;
     await api(`/collections/${id}`, { method: "DELETE" });
     setState((db) => {
       const collections = db.collections.filter((c) => c.id !== id);
       return { ...db, collections, folders: recountFolders(db.folders, collections) };
     });
+    toast.success(name ? `"${name}" deleted` : "Collection deleted");
   },
 
   touch(id: string) {

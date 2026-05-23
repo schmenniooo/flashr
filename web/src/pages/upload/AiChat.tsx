@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "../../lib/toast";
 import {
   Sparkles,
   Loader2,
@@ -182,6 +183,7 @@ export function AiChat({
       collectionId = created.id;
     }
     await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+    toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
     clearChatDraft();
     navigate(`/app/c/${collectionId}`);
   }
