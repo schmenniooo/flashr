@@ -837,6 +837,12 @@
   }
 }
 
+@media (max-width: 500px) {
+  .up__chat-input {
+    resize: none;
+  }
+}
+
 @media (max-width: 600px) {
   .up__review-bar {
     flex-direction: column;
