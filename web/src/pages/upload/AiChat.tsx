@@ -235,7 +235,7 @@ export function AiChat({
       if ((err as Error).name === "AbortError") return;
     }
 
-    setChatState((s) => s === "generating" ? "idle" : "results");
+    setChatState(cardIndex > 0 ? "results" : "idle");
   }
 
   function handleDiscard() {
@@ -249,6 +249,8 @@ export function AiChat({
   }
 
   async function handleSave() {
+    abortRef.current?.abort();
+    abortRef.current = null;
     const kept = drafts.filter((d) => d.keep);
     if (kept.length === 0) return;
     try {
