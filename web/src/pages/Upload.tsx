@@ -81,7 +81,7 @@ export function Upload() {
       const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
       collectionId = created.id;
     }
-    await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer })));
+    await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
     navigate(`/app/c/${collectionId}`);
   }
 

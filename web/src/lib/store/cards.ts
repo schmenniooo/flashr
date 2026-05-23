@@ -4,10 +4,10 @@ import { mapCard } from "./collections";
 import type { Card } from "../../types";
 
 export const cardsApi = {
-  async add(collectionId: string, input: { question: string; answer: string }): Promise<Card> {
+  async add(collectionId: string, input: { question: string; answer: string; aiGenerated?: boolean }): Promise<Card> {
     const bc = await api<{ id: string; question: string; answer: string; ai_generated: boolean; created_at: string }>(
       `/collections/${collectionId}/cards`,
-      { method: "POST", body: JSON.stringify({ question: input.question, answer: input.answer }) },
+      { method: "POST", body: JSON.stringify({ question: input.question, answer: input.answer, ai_generated: input.aiGenerated ?? false }) },
     );
     const card = mapCard(bc, state.masteryMap);
     setState((db) => ({

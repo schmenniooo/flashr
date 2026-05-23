@@ -181,7 +181,7 @@ export function AiChat({
       });
       collectionId = created.id;
     }
-    await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer })));
+    await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
     clearChatDraft();
     navigate(`/app/c/${collectionId}`);
   }
