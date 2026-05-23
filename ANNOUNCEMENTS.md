@@ -8,6 +8,22 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.5.0
+  date: 2026-05-23
+  title: Smarter AI generation — streaming cards, no duplicates, and a full reset flow
+  description: >
+    A batch of improvements to the AI card generation experience.
+    Cards now appear one by one as the AI generates them, so you see
+    results immediately instead of waiting for the full batch.
+    A Cancel button lets you stop mid-generation at any time.
+    When adding cards to an existing collection, flashr passes your
+    current deck to the AI so it won't produce duplicates or near-duplicates —
+    every new card genuinely extends your knowledge.
+    Suggestion decks on the dashboard now include real starter cards when
+    you add them.
+    You can also fully discard a generation in progress and start fresh
+    from the same page, with no leftover state.
+
 - version: 1.4.1
   date: 2026-05-18
   title: Profile picture syncs across devices
