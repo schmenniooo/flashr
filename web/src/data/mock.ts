@@ -300,6 +300,13 @@ export const suggestions: Suggestion[] = [
     description: "Foundational concepts for the CLF-C02 exam — services, pricing, security.",
     folder: "Certifications",
     folderEmoji: "📜",
+    cards: [
+      { question: "What does the AWS Shared Responsibility Model describe?", answer: "AWS is responsible for security *of* the cloud (hardware, network, facilities). The customer is responsible for security *in* the cloud (data, configs, IAM, patching)." },
+      { question: "What is the difference between S3 Standard and S3 Glacier?", answer: "S3 Standard: frequent access, millisecond latency, higher cost. Glacier: archival storage, minutes-to-hours retrieval, very cheap. Use Glacier for compliance data you rarely access." },
+      { question: "What are the three AWS cloud deployment models?", answer: "Public cloud (AWS-managed), private cloud (on-premises), and hybrid cloud (combination of both connected via VPN or Direct Connect)." },
+      { question: "What is an AWS Availability Zone?", answer: "One or more discrete data centers with redundant power, networking, and connectivity within a Region. Multiple AZs allow high availability through redundancy." },
+      { question: "What is the AWS Free Tier?", answer: "A set of services available at no cost for 12 months after account creation (e.g. 750 hrs EC2 t2.micro/month) plus some always-free limits (e.g. 1M Lambda requests/month)." },
+    ],
   },
   {
     id: "cert-cfa-1-ethics",
@@ -309,6 +316,13 @@ export const suggestions: Suggestion[] = [
     description: "Code of Ethics and Standards of Professional Conduct.",
     folder: "Certifications",
     folderEmoji: "📜",
+    cards: [
+      { question: "What is the CFA Institute Code of Ethics' first principle?", answer: "Act with integrity, competence, diligence, and respect, and in an ethical manner with the public, clients, prospective clients, employers, employees, colleagues, and other participants in the global capital markets." },
+      { question: "What does Standard I(A) — Knowledge of the Law require?", answer: "Members must understand and comply with all laws, rules, and regulations governing their professional activities. In case of conflict, comply with the stricter law/regulation." },
+      { question: "What is the definition of 'material nonpublic information'?", answer: "Information that is not public and would affect an investor's decision to buy or sell a security (i.e., likely to impact price). Trading on it violates Standard II(A)." },
+      { question: "What does Standard III(A) — Loyalty, Prudence and Care require?", answer: "Members must act for the benefit of clients and place their interests before the employer's or their own. The duty of loyalty runs to clients first." },
+      { question: "What is 'front-running' and which Standard does it violate?", answer: "Trading in a security for one's own account ahead of a client order for the same security. Violates Standard VI(B) — Priority of Transactions." },
+    ],
   },
   {
     id: "cert-pmp",
@@ -318,6 +332,13 @@ export const suggestions: Suggestion[] = [
     description: "Initiating, planning, executing, monitoring, and closing.",
     folder: "Certifications",
     folderEmoji: "📜",
+    cards: [
+      { question: "What are the five PMBOK Process Groups in order?", answer: "Initiating → Planning → Executing → Monitoring & Controlling → Closing. Note: Monitoring & Controlling runs in parallel with all other groups." },
+      { question: "What is the Project Charter and which Process Group produces it?", answer: "A document that formally authorizes the project and grants the PM authority to apply resources. It is produced in the Initiating Process Group." },
+      { question: "What is a Work Breakdown Structure (WBS)?", answer: "A hierarchical decomposition of the total scope of work into smaller, manageable components (work packages). Each level provides increasingly detailed definition of the project work." },
+      { question: "What is the difference between quality assurance and quality control?", answer: "Quality Assurance (QA): process-oriented, proactive — audits processes to ensure standards are followed. Quality Control (QC): product-oriented, reactive — inspects outputs to identify defects." },
+      { question: "What is Earned Value (EV)?", answer: "The budgeted cost of work actually performed. EV = % Complete × Budget at Completion (BAC). Used to calculate Schedule Variance (SV = EV − PV) and Cost Variance (CV = EV − AC)." },
+    ],
   },
   {
     id: "cert-ielts",
@@ -327,6 +348,13 @@ export const suggestions: Suggestion[] = [
     description: "Band 7+ words for academic writing and speaking.",
     folder: "Certifications",
     folderEmoji: "📜",
+    cards: [
+      { question: "What does 'ubiquitous' mean? Use it in a sentence.", answer: "Present, appearing, or found everywhere. Example: 'Smartphones have become ubiquitous in modern society, fundamentally altering the way people communicate.'" },
+      { question: "What does 'juxtapose' mean and why is it useful in academic writing?", answer: "To place two things close together for contrasting effect. Useful for comparing ideas or data: 'Juxtaposing the GDP growth of both nations reveals a stark disparity.'" },
+      { question: "What is the difference between 'infer' and 'imply'?", answer: "'Imply' = the speaker/writer suggests something indirectly. 'Infer' = the reader/listener draws a conclusion. Writers imply; readers infer." },
+      { question: "What does 'corroborate' mean?", answer: "To confirm or support a statement, theory, or finding with evidence. 'The experimental data corroborated the researcher's hypothesis.'" },
+      { question: "What is an 'ameliorate' and when would you use it?", answer: "To make something bad or unsatisfactory better. Use it in policy or problem-solution essays: 'Several measures could ameliorate the effects of urban poverty.'" },
+    ],
   },
 
   // ── University ──────────────────────────────────────────────
@@ -338,6 +366,13 @@ export const suggestions: Suggestion[] = [
     description: "Vectors, matrices, eigenvalues — the must-knows.",
     folder: "University",
     folderEmoji: "🎓",
+    cards: [
+      { question: "What is a vector space?", answer: "A set V with operations of addition and scalar multiplication that satisfy eight axioms (closure, commutativity, associativity, identity, inverse, distributivity). Examples: ℝⁿ, polynomials, matrices." },
+      { question: "What is an eigenvalue and eigenvector?", answer: "For a matrix A, a scalar λ is an eigenvalue and v a corresponding eigenvector if Av = λv. Eigenvalues are found by solving det(A − λI) = 0." },
+      { question: "What does it mean for a set of vectors to be linearly independent?", answer: "No vector in the set can be written as a linear combination of the others. Equivalently, c₁v₁ + … + cₙvₙ = 0 implies all cᵢ = 0." },
+      { question: "What is the rank of a matrix?", answer: "The dimension of the column space (equivalently, the row space). Rank equals the number of pivot positions after row reduction. rank(A) + nullity(A) = n (number of columns)." },
+      { question: "What is the dot product and what does it tell you geometrically?", answer: "a · b = |a||b|cos θ. If a · b = 0, the vectors are orthogonal. The dot product projects one vector onto another, measuring how much they align." },
+    ],
   },
   {
     id: "uni-orgchem-mechanisms",
@@ -347,6 +382,13 @@ export const suggestions: Suggestion[] = [
     description: "SN1, SN2, E1, E2 with worked examples.",
     folder: "University",
     folderEmoji: "🎓",
+    cards: [
+      { question: "What are the key features of an SN2 reaction?", answer: "Bimolecular nucleophilic substitution: one-step concerted mechanism, backside attack, inversion of configuration (Walden inversion). Favoured by: strong nucleophile, primary substrate, polar aprotic solvent." },
+      { question: "What are the key features of an SN1 reaction?", answer: "Unimolecular, two-step: 1) ionisation to carbocation, 2) nucleophilic attack. Gives racemisation. Favoured by: tertiary substrate, weak nucleophile, polar protic solvent, stable carbocation." },
+      { question: "How does E2 elimination differ from E1?", answer: "E2: one concerted step — base abstracts β-H while leaving group departs; requires anti-periplanar geometry; second-order kinetics. E1: two steps (carbocation then deprotonation); first-order, not stereospecific." },
+      { question: "What is Zaitsev's rule?", answer: "In elimination reactions, the major product is the more substituted (more stable) alkene. Named after Alexander Zaitsev. Sterically hindered bases give the less substituted (Hofmann) product instead." },
+      { question: "What determines whether a reaction proceeds via SN1/E1 or SN2/E2?", answer: "Substrate: primary → SN2/E2; tertiary → SN1/E1. Nucleophile/base strength: strong → SN2/E2; weak → SN1/E1. Solvent: polar aprotic → SN2; polar protic → SN1. Temperature: higher temp favours elimination." },
+    ],
   },
   {
     id: "uni-macroecon",
@@ -356,6 +398,13 @@ export const suggestions: Suggestion[] = [
     description: "GDP, inflation, monetary vs fiscal policy.",
     folder: "University",
     folderEmoji: "🎓",
+    cards: [
+      { question: "What is GDP and how is it calculated (expenditure approach)?", answer: "Gross Domestic Product: the total market value of all final goods and services produced in a country in a given period. GDP = C + I + G + (X − M): consumption + investment + government spending + net exports." },
+      { question: "What is the difference between monetary and fiscal policy?", answer: "Monetary policy: managed by the central bank — controls money supply and interest rates (e.g. raising rates to fight inflation). Fiscal policy: managed by government — adjusts taxes and spending to influence aggregate demand." },
+      { question: "What is the Phillips Curve?", answer: "The inverse short-run relationship between inflation and unemployment: lower unemployment tends to accompany higher inflation, and vice versa. The long-run Phillips Curve is vertical at the natural rate of unemployment." },
+      { question: "What is the money multiplier?", answer: "The ratio of the change in money supply to the change in the monetary base. If the reserve requirement is r, the multiplier ≈ 1/r. A 10% reserve requirement theoretically creates a 10× multiplier." },
+      { question: "What causes demand-pull vs cost-push inflation?", answer: "Demand-pull: aggregate demand exceeds aggregate supply — 'too much money chasing too few goods'. Cost-push: rising production costs (e.g. oil prices, wages) reduce supply and push prices up." },
+    ],
   },
   {
     id: "uni-data-structures",
@@ -365,6 +414,13 @@ export const suggestions: Suggestion[] = [
     description: "Arrays, hashmaps, trees, graphs — interview-ready.",
     folder: "University",
     folderEmoji: "🎓",
+    cards: [
+      { question: "What is the time complexity of lookup, insert, and delete in a hash map (average case)?", answer: "O(1) for all three on average, assuming a good hash function and low load factor. Worst case O(n) due to hash collisions." },
+      { question: "What is the difference between a stack and a queue?", answer: "Stack: LIFO (Last In, First Out) — push/pop from the same end. Used for undo, call stack. Queue: FIFO (First In, First Out) — enqueue at back, dequeue from front. Used for BFS, task scheduling." },
+      { question: "What is a binary search tree (BST) and what is its average-case complexity for search?", answer: "A BST is a binary tree where left child < parent < right child for all nodes. Average search: O(log n). Worst case (degenerate/skewed tree): O(n). Balanced BSTs (AVL, Red-Black) guarantee O(log n)." },
+      { question: "What is the difference between BFS and DFS?", answer: "BFS (Breadth-First Search): explores level by level using a queue — finds shortest path in unweighted graphs. DFS (Depth-First Search): explores as deep as possible using a stack/recursion — used for cycle detection, topological sort." },
+      { question: "What is a heap and when would you use one?", answer: "A complete binary tree satisfying the heap property (max-heap: parent ≥ children; min-heap: parent ≤ children). Use for priority queues, heap sort, and finding the k-th largest/smallest element. Insert/delete: O(log n)." },
+    ],
   },
 
   // ── School ──────────────────────────────────────────────────
@@ -376,6 +432,13 @@ export const suggestions: Suggestion[] = [
     description: "From 1776 to today, the dates teachers love to ask about.",
     folder: "School",
     folderEmoji: "🏫",
+    cards: [
+      { question: "When was the Declaration of Independence signed?", answer: "July 4, 1776. It declared the thirteen American colonies independent from British rule and was primarily authored by Thomas Jefferson." },
+      { question: "When did the US Civil War begin and end?", answer: "April 12, 1861 (Confederate attack on Fort Sumter) to April 9, 1865 (Lee's surrender at Appomattox Court House). It resulted in the abolition of slavery and preservation of the Union." },
+      { question: "What happened on December 7, 1941?", answer: "Japan launched a surprise military attack on the US naval base at Pearl Harbor, Hawaii, killing 2,403 Americans. This led the US to declare war on Japan the next day and enter World War II." },
+      { question: "When did the US land on the Moon?", answer: "July 20, 1969. Apollo 11 astronauts Neil Armstrong and Buzz Aldrin became the first humans to walk on the Moon." },
+      { question: "What year did the US Constitution take effect?", answer: "1789. It was ratified by the required nine states in 1788 and took effect on March 4, 1789, when the first Congress met. George Washington was inaugurated as first president on April 30, 1789." },
+    ],
   },
   {
     id: "school-spanish-100",
@@ -385,6 +448,13 @@ export const suggestions: Suggestion[] = [
     description: "The vocabulary that unlocks half of everyday Spanish.",
     folder: "School",
     folderEmoji: "🏫",
+    cards: [
+      { question: "¿Cómo se dice 'hello' y 'goodbye' en español?", answer: "Hello = Hola. Goodbye = Adiós (formal) or Hasta luego (see you later)." },
+      { question: "What are the Spanish numbers 1–10?", answer: "uno, dos, tres, cuatro, cinco, seis, siete, ocho, nueve, diez." },
+      { question: "How do you say 'I want', 'I have', and 'I am' in Spanish?", answer: "I want = Quiero. I have = Tengo. I am = Soy (permanent) / Estoy (temporary/location)." },
+      { question: "What is the difference between 'ser' and 'estar'?", answer: "Both mean 'to be'. Ser = permanent or inherent qualities (identity, nationality, profession). Estar = temporary states, emotions, location, and ongoing actions." },
+      { question: "How do you ask 'Where is…?' and 'How much does it cost?' in Spanish?", answer: "Where is…? = ¿Dónde está…? How much does it cost? = ¿Cuánto cuesta?" },
+    ],
   },
   {
     id: "school-biology-cell",
@@ -394,6 +464,13 @@ export const suggestions: Suggestion[] = [
     description: "Organelles, membranes, mitosis vs meiosis.",
     folder: "School",
     folderEmoji: "🏫",
+    cards: [
+      { question: "What is the function of the mitochondria?", answer: "The 'powerhouse of the cell' — produces ATP via cellular respiration (specifically oxidative phosphorylation). Has its own DNA and double membrane (outer and inner with cristae)." },
+      { question: "What does the cell membrane do?", answer: "Controls what enters and exits the cell (selective permeability). Made of a phospholipid bilayer with embedded proteins. Maintains concentration gradients essential for cell function." },
+      { question: "What is the difference between mitosis and meiosis?", answer: "Mitosis: produces 2 genetically identical diploid daughter cells — used for growth and repair. Meiosis: produces 4 genetically unique haploid cells (gametes) — used for sexual reproduction. Meiosis has two division rounds." },
+      { question: "What is the role of the ribosome?", answer: "Site of protein synthesis — reads mRNA and assembles amino acids into polypeptide chains (translation). Found free in cytoplasm or attached to rough ER. Made of rRNA and proteins." },
+      { question: "What distinguishes prokaryotic from eukaryotic cells?", answer: "Prokaryotes (bacteria, archaea): no nucleus or membrane-bound organelles, circular DNA, smaller (1–10 µm). Eukaryotes (plants, animals, fungi, protists): nucleus, membrane-bound organelles, linear DNA, larger (10–100 µm)." },
+    ],
   },
 
   // ── Professional ────────────────────────────────────────────
@@ -405,6 +482,13 @@ export const suggestions: Suggestion[] = [
     description: "Singleton to Observer — when and why to reach for each.",
     folder: "Professional",
     folderEmoji: "💼",
+    cards: [
+      { question: "What is the Singleton pattern and when should you avoid it?", answer: "Ensures a class has only one instance and provides a global access point. Avoid it when it creates hidden dependencies, makes testing hard (hard to mock), or when global state is the wrong model." },
+      { question: "What problem does the Observer pattern solve?", answer: "Decouples objects so that when one object (subject) changes state, all dependents (observers) are notified automatically. Used in event systems, MVC/MVVM, and reactive frameworks." },
+      { question: "What is the difference between a Factory Method and an Abstract Factory?", answer: "Factory Method: defines an interface for creating one product; subclasses decide the concrete type. Abstract Factory: creates families of related products without specifying concrete classes — a factory of factories." },
+      { question: "What does the Decorator pattern do?", answer: "Attaches additional responsibilities to an object dynamically. An alternative to subclassing for extending functionality. Example: wrapping an HTTP client with logging, retry, and caching decorators." },
+      { question: "When would you use the Strategy pattern?", answer: "When you want to define a family of algorithms, encapsulate each one, and make them interchangeable. Lets the algorithm vary independently from clients that use it. Example: sorting strategies, payment methods." },
+    ],
   },
   {
     id: "pro-negotiation",
@@ -414,6 +498,13 @@ export const suggestions: Suggestion[] = [
     description: "BATNA, anchoring, and how to ask for the raise.",
     folder: "Professional",
     folderEmoji: "💼",
+    cards: [
+      { question: "What is BATNA and why does it matter?", answer: "Best Alternative To a Negotiated Agreement — what you'll do if talks fail. A strong BATNA gives you power; knowing the other side's weak BATNA lets you push harder. Never accept a deal worse than your BATNA." },
+      { question: "What is the anchoring effect in negotiation?", answer: "The first number stated in a negotiation sets a reference point (anchor) that disproportionately influences the final outcome. Make the first offer when you have good information; counter aggressively when anchored low." },
+      { question: "What is the 'door in the face' technique?", answer: "Start with a large, unreasonable request that will likely be refused, then follow with the smaller request you actually want. The contrast makes the second request seem more reasonable." },
+      { question: "What is active listening in a negotiation context?", answer: "Fully concentrating on what the other party says — paraphrasing, asking clarifying questions, and reflecting feelings. It builds trust, uncovers interests behind positions, and reveals concession opportunities." },
+      { question: "What is the difference between positions and interests in negotiation?", answer: "Position: what someone says they want. Interest: why they want it. Focusing on interests (not positions) opens creative solutions — two parties can have incompatible positions but compatible underlying interests." },
+    ],
   },
   {
     id: "pro-sql-recipes",
@@ -423,6 +514,13 @@ export const suggestions: Suggestion[] = [
     description: "Joins, window functions, CTEs that actually show up at work.",
     folder: "Professional",
     folderEmoji: "💼",
+    cards: [
+      { question: "What is the difference between INNER JOIN, LEFT JOIN, and FULL OUTER JOIN?", answer: "INNER JOIN: only rows with matching values in both tables. LEFT JOIN: all rows from left table + matched rows from right (NULLs for non-matches). FULL OUTER JOIN: all rows from both tables, NULLs where no match." },
+      { question: "What is a window function and how does it differ from GROUP BY?", answer: "Window functions (ROW_NUMBER, RANK, SUM OVER, etc.) compute a value for each row based on a 'window' of related rows — without collapsing rows like GROUP BY does. The original row count is preserved." },
+      { question: "What is a CTE (Common Table Expression)?", answer: "A named temporary result set defined with WITH clause, used to simplify complex queries. CTEs improve readability, can be recursive, and can be referenced multiple times in the same query." },
+      { question: "What does COALESCE do?", answer: "Returns the first non-NULL value from a list of arguments. Useful for handling NULLs: COALESCE(column, 'default') returns 'default' if column is NULL." },
+      { question: "What is the difference between WHERE and HAVING?", answer: "WHERE filters rows before grouping (cannot use aggregate functions). HAVING filters groups after GROUP BY (can use aggregates like COUNT, SUM). Use HAVING to filter on aggregated values." },
+    ],
   },
 
   // ── Self-study ──────────────────────────────────────────────
@@ -434,6 +532,13 @@ export const suggestions: Suggestion[] = [
     description: "Marcus Aurelius, Seneca, and the dichotomy of control.",
     folder: "Self-study",
     folderEmoji: "🌱",
+    cards: [
+      { question: "What is the Stoic 'dichotomy of control'?", answer: "The Stoic principle (Epictetus, Enchiridion §1) that some things are 'up to us' (judgments, desires, actions) and some are not (body, reputation, property). Wisdom is focusing only on what you control." },
+      { question: "What did Marcus Aurelius mean by 'the obstacle is the way'?", answer: "From Meditations 5.20: the impediment to action advances action — what stands in the way becomes the way. Obstacles are opportunities to practice virtue (courage, patience, wisdom)." },
+      { question: "What is 'memento mori' and how did Stoics use it?", answer: "'Remember that you will die.' Stoics used this reflection not to create despair but to appreciate the present, act virtuously, and avoid wasting time on trivial concerns." },
+      { question: "What is 'negative visualisation' (premeditatio malorum)?", answer: "Deliberately imagining the loss of things you value — relationships, health, possessions. Stoics used it to counteract hedonic adaptation and cultivate gratitude for what you already have." },
+      { question: "What are the four Stoic virtues?", answer: "Wisdom (sophia): knowing what is good/bad/indifferent. Courage (andreia): doing right despite fear. Justice (dikaiosyne): acting fairly toward others. Temperance (sophrosyne): self-discipline and moderation." },
+    ],
   },
   {
     id: "self-japanese-hiragana",
@@ -443,6 +548,13 @@ export const suggestions: Suggestion[] = [
     description: "All 46 characters in two weeks.",
     folder: "Self-study",
     folderEmoji: "🌱",
+    cards: [
+      { question: "What are the five Japanese vowels in hiragana?", answer: "あ (a), い (i), う (u), え (e), お (o). These sounds are the foundation of all hiragana syllables." },
+      { question: "Write the hiragana for ka, ki, ku, ke, ko.", answer: "か (ka), き (ki), く (ku), け (ke), こ (ko). The k-row is one of the most common in Japanese." },
+      { question: "What is the difference between hiragana, katakana, and kanji?", answer: "Hiragana: phonetic syllabary for native Japanese words and grammar. Katakana: phonetic syllabary for foreign loanwords. Kanji: Chinese-derived logographic characters representing meaning." },
+      { question: "Write the hiragana for sa, shi, su, se, so.", answer: "さ (sa), し (shi), す (su), せ (se), そ (so). Note: the 's' sound becomes 'sh' before i." },
+      { question: "How is the hiragana っ (small tsu) used?", answer: "It doubles the following consonant. Example: きって (kitte, postage stamp) — the tt is written as っ + て. It represents a short pause/geminate consonant in pronunciation." },
+    ],
   },
   {
     id: "self-pottery-glaze",
@@ -452,6 +564,13 @@ export const suggestions: Suggestion[] = [
     description: "Cone temperatures, oxide colorants, food-safe finishes.",
     folder: "Self-study",
     folderEmoji: "🌱",
+    cards: [
+      { question: "What is a 'cone' in pottery firing?", answer: "A measure of heat work (temperature × time) rather than just temperature. Cone 6 (mid-fire, ~1240°C) and Cone 10 (high-fire, ~1305°C) are common. Lower cones = lower temps (earthenware at Cone 06–04)." },
+      { question: "What role does silica (SiO₂) play in a glaze?", answer: "The glass-former — the primary network-building oxide. Higher silica = harder, more durable, less prone to crazing. Too little silica → unstable, runs, or crawls." },
+      { question: "What makes iron oxide produce different colors in glazes?", answer: "In reduction firing: iron gives celadons (grey-green) and tenmoku (dark brown/black). In oxidation firing: tan, amber, and rust tones. The kiln atmosphere (O₂ level) determines the iron's oxidation state." },
+      { question: "What makes a glaze food-safe?", answer: "It must be fully melted (no pinholes or crawling), non-toxic colorants, stable in acidic environments (no lead, barium, or raw lithium in the recipe), and fired to the manufacturer's recommended cone." },
+      { question: "What is crazing and what causes it?", answer: "A network of fine cracks in the glaze surface. Caused by a mismatch between the thermal expansion coefficients of the glaze and the clay body — the glaze contracts more than the clay on cooling. Fix: increase silica or alumina in the glaze." },
+    ],
   },
 
   // ── Other ───────────────────────────────────────────────────
@@ -463,5 +582,12 @@ export const suggestions: Suggestion[] = [
     description: "Build your first method-of-loci system.",
     folder: "Uncategorized",
     folderEmoji: "📁",
+    cards: [
+      { question: "What is the Method of Loci (memory palace)?", answer: "An ancient mnemonic technique where you mentally place information at specific locations along a familiar route or space. To recall, you mentally 'walk' the route and retrieve each item." },
+      { question: "What makes a good memory palace?", answer: "Highly familiar (your home, school route), spatially distinct locations, vivid and navigable in your mind. The more sensory detail and emotional charge you can attach, the stronger the encoding." },
+      { question: "What is the 'bizarre image' principle in memory techniques?", answer: "Unusual, exaggerated, or emotionally charged images are far more memorable than ordinary ones. When placing information in a memory palace, make the mental image as vivid and absurd as possible." },
+      { question: "How do you use a memory palace to memorise a list?", answer: "1) Choose a familiar place. 2) Identify distinct locations (loci) in a fixed order. 3) At each locus, place a vivid mental image representing the item. 4) To recall, walk the route and 'see' each image." },
+      { question: "What is spaced repetition and how does it complement the memory palace?", answer: "Spaced repetition schedules reviews at increasing intervals (1 day, 3 days, 1 week…) based on recall difficulty. The memory palace builds a vivid initial encoding; spaced repetition consolidates it into long-term memory." },
+    ],
   },
 ];
