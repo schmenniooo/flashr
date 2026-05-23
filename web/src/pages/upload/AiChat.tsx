@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "../../lib/toast";
 import {
   Sparkles,
@@ -9,14 +9,14 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cardsApi, collectionsApi, useDb, selectCurrentUser } from "../../lib/store";
-import { api, ApiError } from "../../lib/api";
+import { API_BASE, getToken } from "../../lib/api";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
 import { UpgradePrompt } from "../../components/UpgradePrompt";
 import { DraftCardItem } from "./DraftCardItem";
 import type { DraftCard, Level } from "./types";
 import type { LearnerType } from "../../types";
 
-type ChatState = "idle" | "generating" | "results" | "regenerating";
+type ChatState = "idle" | "generating" | "results";
 
 type ChatDraft = {
   userId: string;
@@ -137,39 +137,110 @@ export function AiChat({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [target, setTarget] = useState(saved.target ?? collections[0]?.id ?? "__new");
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!userId) return;
     saveChatDraft({ userId, prompt, count, level, drafts, target });
   }, [userId, prompt, count, level, drafts, target]);
 
-  const isLoading = chatState === "generating" || chatState === "regenerating";
-  const hasResults = chatState === "results" || chatState === "regenerating";
+  const isLoading = chatState === "generating";
+  const hasResults = drafts.length > 0;
   const keepCount = drafts.filter((d) => d.keep).length;
   const truncatedPrompt = prompt.length > 40 ? prompt.slice(0, 40) + "…" : prompt;
 
   async function handleGenerate() {
     if (!prompt.trim() || isLoading) return;
-    setChatState(drafts.length > 0 ? "regenerating" : "generating");
+    setChatState("generating");
+    setDrafts([]);
     setError(null);
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    let resp: Response;
     try {
-      const result = await api<{ cards: { question: string; answer: string }[] }>(
-        "/ai/generate",
-        { method: "POST", body: JSON.stringify({ prompt: prompt.trim(), count, level, learnerTypes: currentUser?.learnerTypes ?? [] }) }
-      );
-      setDrafts(result.cards.map((c, i) => ({ id: `d${i}`, question: c.question, answer: c.answer, keep: true })));
-      setChatState("results");
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 403) {
-        setError("__pro__");
-      } else {
-        setError(err instanceof Error ? err.message : "Something went wrong.");
-      }
-      setChatState(drafts.length > 0 ? "results" : "idle");
+      resp = await fetch(`${API_BASE}/ai/generate/stream`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        signal: abort.signal,
+        body: JSON.stringify({ prompt: prompt.trim(), count, level, learnerTypes: currentUser?.learnerTypes ?? [] }),
+      });
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setError("Connection failed.");
+      setChatState("idle");
+      return;
     }
+
+    if (!resp.ok) {
+      if (resp.status === 403) setError("__pro__");
+      else setError(`AI generation failed (${resp.status}).`);
+      setChatState("idle");
+      return;
+    }
+
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let cardIndex = 0;
+    let eventType = "";
+    let eventData = "";
+
+    const flushEvent = () => {
+      if (!eventData) return;
+      try {
+        const parsed = JSON.parse(eventData) as Record<string, string>;
+        if (eventType === "card" && parsed.question && parsed.answer) {
+          const idx = cardIndex++;
+          setDrafts((prev) => [
+            ...prev,
+            { id: `d${idx}`, question: parsed.question, answer: parsed.answer, keep: true },
+          ]);
+        } else if (eventType === "error" && parsed.error) {
+          setError(parsed.error);
+        }
+      } catch { /* malformed SSE data */ }
+      eventType = "";
+      eventData = "";
+    };
+
+    const processLine = (line: string) => {
+      if (line.startsWith("event:")) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        eventData += line.slice(5).trimStart();
+      } else if (line === "") {
+        flushEvent();
+      }
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop()!;
+        for (const line of lines) processLine(line);
+      }
+      if (buf) processLine(buf);
+      flushEvent();
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+    }
+
+    setChatState((s) => s === "generating" ? "idle" : "results");
   }
 
   function handleDiscard() {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setDrafts([]);
     setPrompt("");
     setChatState("idle");
@@ -248,7 +319,7 @@ export function AiChat({
           >
             {isLoading ? (
               <><Loader2 size={14} className="up__spin" strokeWidth={2} />Generating…</>
-            ) : hasResults ? (
+            ) : drafts.length > 0 ? (
               <><RefreshCw size={14} strokeWidth={2} />Regenerate</>
             ) : (
               <><Sparkles size={14} strokeWidth={2} />Generate cards</>
@@ -285,29 +356,29 @@ export function AiChat({
         </div>
       )}
 
-      {chatState === "generating" && (
+      {isLoading && !hasResults && (
         <div className="up__chat-generating fade-in">
           <Loader2 size={28} className="up__spin" strokeWidth={1.5} color="var(--color-accent)" />
           <p className="text-body up__generating-label">Building your deck…</p>
+          <button className="btn-ghost up__cancel-btn" onClick={handleDiscard} type="button">
+            Cancel
+          </button>
         </div>
       )}
 
-      {hasResults && drafts.length > 0 && (
+      {hasResults && (
         <>
           <div className="up__regen-bar">
             <div className="up__regen-info">
-              <Sparkles size={12} strokeWidth={2} color="var(--color-accent)" />
+              {isLoading
+                ? <Loader2 size={12} className="up__spin" strokeWidth={2} color="var(--color-accent)" />
+                : <Sparkles size={12} strokeWidth={2} color="var(--color-accent)" />}
               <span className="text-meta">{drafts.length} cards</span>
               {prompt && <span className="up__regen-topic">· {truncatedPrompt}</span>}
             </div>
           </div>
 
-          <div className={`up__cards-wrap${chatState === "regenerating" ? " up__cards-wrap--loading" : ""}`}>
-            {chatState === "regenerating" && (
-              <div className="up__regen-overlay">
-                <Loader2 size={28} className="up__spin" strokeWidth={1.5} color="var(--color-accent)" />
-              </div>
-            )}
+          <div className="up__cards-wrap">
             <div className="up__drafts fade-in">
               {drafts.map((d, i) => (
                 <DraftCardItem

@@ -2,6 +2,7 @@
 package ai
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -59,6 +60,130 @@ func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count
 		}
 	}
 	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes))
+}
+
+// GenerateCardsFromTopicStream is the streaming variant of GenerateCardsFromTopic.
+// It calls Ollama with stream:true and invokes onCard each time a complete
+// question/answer pair is parsed out of the token stream.
+func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string, count int, level string, learnerTypes []string, onCard func(CardDraft)) error {
+	const maxTopicBytes = 500
+	if len(topic) > maxTopicBytes {
+		topic = topic[:maxTopicBytes]
+		for !utf8.ValidString(topic) {
+			topic = topic[:len(topic)-1]
+		}
+	}
+	return c.callOllamaStream(ctx, buildTopicPrompt(topic, count, level, learnerTypes), onCard)
+}
+
+func (c *Client) callOllamaStream(ctx context.Context, prompt string, onCard func(CardDraft)) error {
+	reqBody, err := json.Marshal(map[string]any{
+		"model":  c.model,
+		"prompt": prompt,
+		"stream": true,
+		"options": map[string]any{
+			"temperature": 0.3,
+			"num_ctx":     2048,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/api/generate", bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("ollama request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("ollama: HTTP %d", resp.StatusCode)
+	}
+
+	var buf string
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var chunk struct {
+			Response string `json:"response"`
+			Done     bool   `json:"done"`
+		}
+		if err := json.Unmarshal(scanner.Bytes(), &chunk); err != nil {
+			continue
+		}
+		buf += chunk.Response
+
+		// Extract any complete card objects from the accumulated buffer.
+		for {
+			card, remaining, found := extractNextCard(buf)
+			if !found {
+				break
+			}
+			buf = remaining
+			if card != nil {
+				onCard(*card)
+			}
+		}
+
+		if chunk.Done {
+			break
+		}
+	}
+	return scanner.Err()
+}
+
+// extractNextCard finds the first complete JSON object in buf using bracket
+// matching. Returns the parsed card (nil if malformed), the remaining string
+// after the closing brace, and found=true when a complete object was located.
+func extractNextCard(buf string) (card *CardDraft, remaining string, found bool) {
+	start := strings.Index(buf, "{")
+	if start == -1 {
+		return nil, buf, false
+	}
+
+	depth := 0
+	inString := false
+	escape := false
+
+	for i := start; i < len(buf); i++ {
+		ch := buf[i]
+		if escape {
+			escape = false
+			continue
+		}
+		if ch == '\\' && inString {
+			escape = true
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString {
+			continue
+		}
+		switch ch {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				var c CardDraft
+				if err := json.Unmarshal([]byte(buf[start:i+1]), &c); err == nil &&
+					strings.TrimSpace(c.Question) != "" && strings.TrimSpace(c.Answer) != "" {
+					return &c, buf[i+1:], true
+				}
+				return nil, buf[i+1:], true
+			}
+		}
+	}
+	return nil, buf, false
 }
 
 func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, error) {

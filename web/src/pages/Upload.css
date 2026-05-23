@@ -883,5 +883,6 @@
 .up__review-icon   { vertical-align: -2px; margin-right: 6px; }
 .up__chat-subtitle { margin-top: var(--space-1); max-width: 460px; }
 .up__generating-label { margin-top: var(--space-3); }
+.up__cancel-btn { margin-top: var(--space-4); }
 .up__draft-answer-label { margin-top: var(--space-2); }
 .up__draft-done    { margin-top: var(--space-2); align-self: flex-end; }
