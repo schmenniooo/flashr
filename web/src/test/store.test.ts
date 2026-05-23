@@ -82,6 +82,7 @@ function makeDb(overrides: {
     folders: overrides.folders ?? [],
     masteryMap: {},
     bootstrapping: false,
+    collectionsLoading: false,
   };
 }
 

@@ -5,6 +5,7 @@ export type { StoredUser, Session } from "./db";
 // Selectors
 export {
   selectBootstrapping,
+  selectCollectionsLoading,
   selectSession,
   selectCurrentUser,
   selectCollections,

@@ -62,21 +62,27 @@ export function mapCollection(bc: BackendCollection, masteryMap: Record<string, 
 
 export const collectionsApi = {
   async load(): Promise<void> {
-    const res = await api<{ collections: BackendCollection[] }>("/collections");
-    setState((db) => {
-      const collections = res.collections.map((bc) =>
-        mapCollection(bc, db.masteryMap, db.collections.find((c) => c.id === bc.id))
-      );
-      const known = new Set(db.folders.map((f) => f.name));
-      const merged = [...db.folders];
-      for (const c of collections) {
-        if (c.folder && !known.has(c.folder)) {
-          merged.push({ name: c.folder, emoji: "📁", count: 0 });
-          known.add(c.folder);
+    setState((db) => ({ ...db, collectionsLoading: true }));
+    try {
+      const res = await api<{ collections: BackendCollection[] }>("/collections");
+      setState((db) => {
+        const collections = res.collections.map((bc) =>
+          mapCollection(bc, db.masteryMap, db.collections.find((c) => c.id === bc.id))
+        );
+        const known = new Set(db.folders.map((f) => f.name));
+        const merged = [...db.folders];
+        for (const c of collections) {
+          if (c.folder && !known.has(c.folder)) {
+            merged.push({ name: c.folder, emoji: "📁", count: 0 });
+            known.add(c.folder);
+          }
         }
-      }
-      return { ...db, collections, folders: recountFolders(merged, collections) };
-    });
+        return { ...db, collections, folders: recountFolders(merged, collections), collectionsLoading: false };
+      });
+    } catch (err) {
+      setState((db) => ({ ...db, collectionsLoading: false }));
+      throw err;
+    }
   },
 
   async create(input: {
