@@ -57,11 +57,11 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	}
 
 	var req struct {
-		Prompt        string          `json:"prompt"`
-		Count         int             `json:"count"`
-		Level         string          `json:"level"`
-		LearnerTypes  []string        `json:"learnerTypes"`
-		ExistingCards []ai.CardDraft  `json:"existingCards"`
+		Prompt        string         `json:"prompt"`
+		Count         int            `json:"count"`
+		Level         string         `json:"level"`
+		LearnerTypes  []string       `json:"learnerTypes"`
+		ExistingCards []ai.CardDraft `json:"existingCards"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})

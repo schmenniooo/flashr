@@ -85,7 +85,7 @@ func (c *Client) callOllamaStream(ctx context.Context, prompt string, onCard fun
 		"stream": true,
 		"options": map[string]any{
 			"temperature": 0.3,
-			"num_ctx":     2048,
+			"num_ctx":     4096,
 		},
 	})
 	if err != nil {
@@ -195,7 +195,7 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 		"stream": false,
 		"options": map[string]any{
 			"temperature": 0.3,
-			"num_ctx":     2048,
+			"num_ctx":     4096,
 		},
 	})
 	if err != nil {
@@ -241,10 +241,17 @@ func buildTopicPrompt(topic string, count int, level string, learnerTypes []stri
 
 	var existingSection string
 	if len(existingCards) > 0 {
+		const maxExisting = 40
+		cards := existingCards
+		if len(cards) > maxExisting {
+			cards = cards[:maxExisting]
+		}
 		var sb strings.Builder
 		sb.WriteString("\nThe collection already contains these cards — do NOT duplicate or rephrase any of them:\n")
-		for i, c := range existingCards {
-			fmt.Fprintf(&sb, "%d. Q: %s | A: %s\n", i+1, c.Question, c.Answer)
+		for i, c := range cards {
+			q := strings.ReplaceAll(c.Question, "\n", " ")
+			a := strings.ReplaceAll(c.Answer, "\n", " ")
+			fmt.Fprintf(&sb, "%d. Q: %s | A: %s\n", i+1, q, a)
 		}
 		existingSection = sb.String()
 	}

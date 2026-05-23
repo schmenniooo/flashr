@@ -1,6 +1,22 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter, Trash2, X, Pencil, Check } from "lucide-react";
+import {
+  foldersApi,
+  selectCollections,
+  selectCurrentUser,
+  selectFolders,
+  useDb,
+} from "../lib/store";
+import { CollectionCard } from "../components/CollectionCard";
+import { CreateCollectionModal } from "../components/CreateCollectionModal";
+import { EditCollectionModal } from "../components/EditCollectionModal";
+import { Modal } from "../components/Modal";
+import { NewFolderModal } from "../components/NewFolderModal";
+import { RenameFolderModal } from "../components/RenameFolderModal";
+import { UpgradePrompt } from "../components/UpgradePrompt";
+import type { Collection } from "../lib/store";
+import "./Collections.css";
 
 type SortKey = "name-asc" | "name-desc" | "cards-desc" | "cards-asc" | "progress-desc" | "progress-asc" | "created-desc" | "created-asc";
 type FilterKey = "all" | "not-started" | "in-progress" | "mastered" | "ai";
@@ -23,22 +39,6 @@ const FILTER_OPTIONS: { key: FilterKey; label: string }[] = [
   { key: "mastered",    label: "Mastered" },
   { key: "ai",          label: "Has AI cards" },
 ];
-import {
-  foldersApi,
-  selectCollections,
-  selectCurrentUser,
-  selectFolders,
-  useDb,
-} from "../lib/store";
-import { CollectionCard } from "../components/CollectionCard";
-import { CreateCollectionModal } from "../components/CreateCollectionModal";
-import { EditCollectionModal } from "../components/EditCollectionModal";
-import { Modal } from "../components/Modal";
-import { NewFolderModal } from "../components/NewFolderModal";
-import { RenameFolderModal } from "../components/RenameFolderModal";
-import { UpgradePrompt } from "../components/UpgradePrompt";
-import type { Collection } from "../lib/store";
-import "./Collections.css";
 
 const FREE_COLLECTION_LIMIT = 3;
 

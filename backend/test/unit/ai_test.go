@@ -285,7 +285,7 @@ func TestGenerateCardsFromTopic_TopicUTF8TruncationIsSafe(t *testing.T) {
 // ── num_ctx option ───────────────────────────────────────────────────────────
 
 // TestCallOllama_SendsNumCtxOption verifies that every generate call includes
-// num_ctx: 2048 in the options map, preventing context-overflow crashes.
+// num_ctx: 4096 in the options map, giving the prompt enough context headroom.
 func TestCallOllama_SendsNumCtxOption(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
@@ -297,7 +297,7 @@ func TestCallOllama_SendsNumCtxOption(t *testing.T) {
 	opts, _ := captured["options"].(map[string]any)
 	require.NotNil(t, opts, "options map must be present in the Ollama request")
 	numCtx, _ := opts["num_ctx"].(float64) // JSON numbers unmarshal as float64
-	assert.Equal(t, float64(2048), numCtx, "num_ctx must be 2048")
+	assert.Equal(t, float64(4096), numCtx, "num_ctx must be 4096")
 }
 
 // TestCallOllama_TopicSendNumCtxOption verifies the topic path also sends num_ctx.
@@ -312,5 +312,6 @@ func TestCallOllama_TopicSendsNumCtxOption(t *testing.T) {
 	opts, _ := captured["options"].(map[string]any)
 	require.NotNil(t, opts)
 	numCtx, _ := opts["num_ctx"].(float64)
-	assert.Equal(t, float64(2048), numCtx)
+	assert.Equal(t, float64(4096), numCtx)
 }
+
