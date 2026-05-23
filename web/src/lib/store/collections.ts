@@ -92,26 +92,31 @@ export const collectionsApi = {
     emoji?: string;
     description?: string;
   }): Promise<Collection> {
-    const bc = await api<BackendCollection>("/collections", {
-      method: "POST",
-      body: JSON.stringify({
-        name: input.name,
-        folder: input.folder === "Uncategorized" ? "" : input.folder,
-        emoji: input.emoji || "📚",
-        description: input.description || "",
-      }),
-    });
-    const col = mapCollection(bc, state.masteryMap);
-    setState((db) => {
-      const collections = [col, ...db.collections];
-      const known = new Set(db.folders.map((f) => f.name));
-      const folders = col.folder && !known.has(col.folder)
-        ? [...db.folders, { name: col.folder, emoji: "📁", count: 0 }]
-        : db.folders;
-      return { ...db, collections, folders: recountFolders(folders, collections) };
-    });
-    toast.success(`Collection "${col.name}" created`);
-    return col;
+    try {
+      const bc = await api<BackendCollection>("/collections", {
+        method: "POST",
+        body: JSON.stringify({
+          name: input.name,
+          folder: input.folder === "Uncategorized" ? "" : input.folder,
+          emoji: input.emoji || "📚",
+          description: input.description || "",
+        }),
+      });
+      const col = mapCollection(bc, state.masteryMap);
+      setState((db) => {
+        const collections = [col, ...db.collections];
+        const known = new Set(db.folders.map((f) => f.name));
+        const folders = col.folder && !known.has(col.folder)
+          ? [...db.folders, { name: col.folder, emoji: "📁", count: 0 }]
+          : db.folders;
+        return { ...db, collections, folders: recountFolders(folders, collections) };
+      });
+      toast.success(`Collection "${col.name}" created`);
+      return col;
+    } catch (err) {
+      toast.error("Failed to create collection");
+      throw err;
+    }
   },
 
   async update(id: string, patch: Partial<Omit<Collection, "id" | "cards">>): Promise<void> {
@@ -161,18 +166,24 @@ export const collectionsApi = {
           return { ...db, collections, folders: recountFolders(db.folders, collections) };
         });
       }
+      toast.error("Failed to update collection");
       throw err;
     }
   },
 
   async remove(id: string): Promise<void> {
     const name = state.collections.find((c) => c.id === id)?.name;
-    await api(`/collections/${id}`, { method: "DELETE" });
-    setState((db) => {
-      const collections = db.collections.filter((c) => c.id !== id);
-      return { ...db, collections, folders: recountFolders(db.folders, collections) };
-    });
-    toast.success(name ? `"${name}" deleted` : "Collection deleted");
+    try {
+      await api(`/collections/${id}`, { method: "DELETE" });
+      setState((db) => {
+        const collections = db.collections.filter((c) => c.id !== id);
+        return { ...db, collections, folders: recountFolders(db.folders, collections) };
+      });
+      toast.success(name ? `"${name}" deleted` : "Collection deleted");
+    } catch (err) {
+      toast.error("Failed to delete collection");
+      throw err;
+    }
   },
 
   touch(id: string) {

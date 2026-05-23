@@ -21,9 +21,9 @@ export function CardEditorModal({
     e.preventDefault();
     if (!question.trim() || !answer.trim()) return;
     if (card) {
-      void cardsApi.update(collectionId, card.id, { question: question.trim(), answer: answer.trim() });
+      void cardsApi.update(collectionId, card.id, { question: question.trim(), answer: answer.trim() }).catch(() => {});
     } else {
-      void cardsApi.add(collectionId, { question: question.trim(), answer: answer.trim() });
+      void cardsApi.add(collectionId, { question: question.trim(), answer: answer.trim() }).catch(() => {});
     }
     onClose();
   }
