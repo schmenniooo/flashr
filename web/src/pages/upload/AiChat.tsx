@@ -169,6 +169,14 @@ export function AiChat({
     }
   }
 
+  function handleDiscard() {
+    setDrafts([]);
+    setPrompt("");
+    setChatState("idle");
+    setError(null);
+    clearChatDraft();
+  }
+
   async function handleSave() {
     const kept = drafts.filter((d) => d.keep);
     if (kept.length === 0) return;
@@ -321,6 +329,9 @@ export function AiChat({
               <strong>{keepCount}</strong> of {drafts.length} cards will be saved
             </div>
             <div className="up__save-actions">
+              <button className="btn-ghost" onClick={handleDiscard}>
+                Discard
+              </button>
               <select className="up__select" value={target} onChange={(e) => setTarget(e.target.value)}>
                 {collections.map((c) => (
                   <option key={c.id} value={c.id}>{c.emoji} · {c.name}</option>
