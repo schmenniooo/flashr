@@ -4,7 +4,7 @@ go 1.26.2
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.7
-	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.17
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -15,7 +15,7 @@ require (
 	github.com/stripe/stripe-go/v76 v76.25.0
 	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0
-	golang.org/x/crypto v0.50.0
+	golang.org/x/crypto v0.52.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -104,9 +104,9 @@ require (
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )
