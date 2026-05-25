@@ -14,6 +14,7 @@ export function ReviewStep({
   onBack,
   onSave,
   collections,
+  newCollectionName,
 }: {
   drafts: DraftCard[];
   onToggle: (id: string) => void;
@@ -26,6 +27,7 @@ export function ReviewStep({
   onBack: () => void;
   onSave: () => void;
   collections: { id: string; emoji: string; name: string }[];
+  newCollectionName: string;
 }) {
   return (
     <div className="up__review fade-in">
@@ -73,12 +75,12 @@ export function ReviewStep({
                 {c.emoji} · {c.name}
               </option>
             ))}
-            <option value="__new">+ Create new collection</option>
+            <option value="__new">+ Create new collection "{newCollectionName}"</option>
           </select>
         </div>
         <div className="up__save-actions">
           <button className="btn-ghost" onClick={onBack}>
-            Discard
+            Back
           </button>
           <button className="btn-primary" disabled={keepCount === 0} onClick={onSave}>
             <CheckCircle2 size={14} strokeWidth={2} />

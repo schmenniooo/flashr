@@ -80,7 +80,7 @@ export function Upload() {
     try {
       let collectionId = target;
       if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-        const name = fileName ? fileName.replace(/\.(pdf|md|docx|apkg)$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
+        const name = newCollectionName;
         const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
         collectionId = created.id;
       }
@@ -93,6 +93,9 @@ export function Upload() {
   }
 
   const keepCount = drafts.filter((d) => d.keep).length;
+  const newCollectionName = fileName
+    ? fileName.replace(/\.(pdf|md|docx|apkg)$/i, "").replace(/[_-]/g, " ")
+    : "AI Generated Cards";
 
   return (
     <div className="up">
@@ -187,6 +190,7 @@ export function Upload() {
                 onBack={() => setStep("drop")}
                 onSave={handleSave}
                 collections={collections}
+                newCollectionName={newCollectionName}
               />
             )}
           </>
