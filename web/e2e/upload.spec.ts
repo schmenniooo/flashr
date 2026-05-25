@@ -24,14 +24,15 @@ test.describe("File upload — PDF and Markdown", () => {
 
   // ── Drop zone UI ─────────────────────────────────────────────────────────
 
-  test("drop zone shows PDF or Markdown subtitle", async ({ page }) => {
-    await expect(page.locator(".up__drop-text")).toContainText("PDF or Markdown");
+  test("drop zone shows PDF, Markdown and Word subtitle", async ({ page }) => {
+    await expect(page.locator(".up__drop-text")).toContainText("PDF, Markdown or Word");
   });
 
-  test("supported formats section lists both PDF and Markdown badges", async ({ page }) => {
+  test("supported formats section lists PDF, Markdown and Word badges", async ({ page }) => {
     const badges = page.locator(".up__formats .badge");
     await expect(badges.filter({ hasText: "PDF" })).toBeVisible();
     await expect(badges.filter({ hasText: "Markdown" })).toBeVisible();
+    await expect(badges.filter({ hasText: "Word" })).toBeVisible();
   });
 
   // ── MD upload ────────────────────────────────────────────────────────────
@@ -74,6 +75,35 @@ test.describe("File upload — PDF and Markdown", () => {
     });
 
     await expect(page.locator(".up__save-summary strong")).toHaveText(String(MOCK_CARDS.length));
+  });
+
+  // ── DOCX upload ──────────────────────────────────────────────────────────
+
+  test("uploading a .docx file proceeds to the review step", async ({ page }) => {
+    await mockUpload(page);
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "report.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
+    await expect(page.locator(".up__save-bar")).toBeVisible();
+  });
+
+  test("collection name is derived from the .docx filename (no extension)", async ({ page }) => {
+    await mockUpload(page);
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "go-report.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
+    const select = page.locator(".up__save-bar .up__select");
+    await expect(select).toContainText("go report");
   });
 
   // ── Unsupported types ────────────────────────────────────────────────────

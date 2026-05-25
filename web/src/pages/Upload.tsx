@@ -47,8 +47,8 @@ export function Upload() {
 
   async function handleFile(file: File) {
     const name = file.name.toLowerCase();
-    if (!name.endsWith(".pdf") && !name.endsWith(".md")) {
-      setError("Only PDF and Markdown (.md) files are supported right now.");
+    if (!name.endsWith(".pdf") && !name.endsWith(".md") && !name.endsWith(".docx")) {
+      setError("Only PDF, Markdown (.md) and Word (.docx) files are supported right now.");
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
@@ -80,7 +80,7 @@ export function Upload() {
     try {
       let collectionId = target;
       if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-        const name = fileName ? fileName.replace(/\.(pdf|md)$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
+        const name = fileName ? fileName.replace(/\.(pdf|md|docx)$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
         const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
         collectionId = created.id;
       }
@@ -136,7 +136,7 @@ export function Upload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.md"
+          accept=".pdf,.md,.docx"
           className="up__file-input"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -218,7 +218,7 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
         </div>
         <div className="up__drop-text">
           <h2 className="text-h2">Drop a file here or click to upload</h2>
-          <p className="text-body">PDF or Markdown — up to 20 MB</p>
+          <p className="text-body">PDF, Markdown or Word — up to 20 MB</p>
         </div>
         <div className="up__drop-badges">
           <span className="badge">
@@ -239,7 +239,10 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
           <span className="badge">
             <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Markdown
           </span>
-          <span className="badge up__badge--muted">DOCX · GoodNotes · Notability — coming soon</span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Word
+          </span>
+          <span className="badge up__badge--muted">GoodNotes · Notability — coming soon</span>
         </div>
       </div>
     </>

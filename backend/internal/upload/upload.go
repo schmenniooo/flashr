@@ -2,8 +2,10 @@
 package upload
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -158,8 +160,9 @@ func (s *Service) handleUpload(c *gin.Context) {
 
 	nameLower := strings.ToLower(fh.Filename)
 	isMD := strings.HasSuffix(nameLower, ".md")
-	if !isMD && !isPDF(data) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF and Markdown (.md) are supported"})
+	isDOCX := strings.HasSuffix(nameLower, ".docx")
+	if !isMD && !isDOCX && !isPDF(data) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF, Markdown (.md) and Word (.docx) are supported"})
 		return
 	}
 
@@ -168,8 +171,11 @@ func (s *Service) handleUpload(c *gin.Context) {
 	// Falls back to in-memory if storage is not configured.
 	if s.storage != nil {
 		ext, mime := ".pdf", "application/pdf"
-		if isMD {
+		switch {
+		case isMD:
 			ext, mime = ".md", "text/markdown"
+		case isDOCX:
+			ext, mime = ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 		}
 		key := "uploads/" + uuid.New().String() + ext
 		if putErr := s.storage.Put(c.Request.Context(), key, data, mime); putErr == nil {
@@ -178,9 +184,16 @@ func (s *Service) handleUpload(c *gin.Context) {
 	}
 
 	var text string
-	if isMD {
+	switch {
+	case isMD:
 		text = string(data)
-	} else {
+	case isDOCX:
+		text, err = extractDOCXText(data)
+		if err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "could not extract text from Word document"})
+			return
+		}
+	default:
 		text, err = extractPDFText(data)
 		if err != nil {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "could not extract text from PDF — try a text-based PDF"})
@@ -204,6 +217,59 @@ func (s *Service) handleUpload(c *gin.Context) {
 
 func isPDF(data []byte) bool {
 	return bytes.HasPrefix(data, []byte("%PDF"))
+}
+
+func extractDOCXText(data []byte) (string, error) {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", fmt.Errorf("docx: %w", err)
+	}
+
+	var docFile *zip.File
+	for _, f := range zr.File {
+		if f.Name == "word/document.xml" {
+			docFile = f
+			break
+		}
+	}
+	if docFile == nil {
+		return "", errors.New("docx: word/document.xml not found")
+	}
+
+	rc, err := docFile.Open()
+	if err != nil {
+		return "", fmt.Errorf("docx: %w", err)
+	}
+	defer rc.Close()
+
+	var sb strings.Builder
+	dec := xml.NewDecoder(rc)
+	inText := false
+	for {
+		tok, err := dec.Token()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("docx: %w", err)
+		}
+		switch t := tok.(type) {
+		case xml.StartElement:
+			inText = t.Name.Local == "t"
+		case xml.EndElement:
+			if t.Name.Local == "p" {
+				sb.WriteByte('\n')
+			}
+			if t.Name.Local == "t" {
+				inText = false
+			}
+		case xml.CharData:
+			if inText {
+				sb.Write(t)
+			}
+		}
+	}
+	return sb.String(), nil
 }
 
 func extractPDFText(data []byte) (string, error) {

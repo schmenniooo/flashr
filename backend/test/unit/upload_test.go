@@ -1,6 +1,7 @@
 package unit_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -311,6 +312,93 @@ func TestUpload_MD_WithStorage_UsesMDKeyAndContentType(t *testing.T) {
 	assert.Contains(t, storedKey, "uploads/")
 	assert.Contains(t, storedKey, ".md")
 	assert.Contains(t, storedContentType, "text/markdown")
+}
+
+// ── Word (.docx) upload ──────────────────────────────────────────────────────
+
+// minimalDOCX builds a valid .docx (ZIP) with a single paragraph of text.
+func minimalDOCX(text string) []byte {
+	docXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+		`<w:body><w:p><w:r><w:t>` + text + `</w:t></w:r></w:p></w:body></w:document>`
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, _ := zw.Create("word/document.xml")
+	fw.Write([]byte(docXML))
+	zw.Close()
+	return buf.Bytes()
+}
+
+func TestUpload_DOCX_ValidContent_MockAI(t *testing.T) {
+	mockOllama := ollamaServer(t, `[{"question":"What is a struct?","answer":"A composite data type"}]`)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	body, ct := multipartUpload(t, "notes.docx", minimalDOCX("Go structs are composite data types."))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.NotEmpty(t, resp.Cards)
+}
+
+func TestUpload_DOCX_EmptyText_Returns422(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test-model"))
+
+	body, ct := multipartUpload(t, "empty.docx", minimalDOCX("   "))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_DOCX_WithStorage_UsesDOCXKeyAndContentType(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey, storedContentType string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			storedContentType = r.Header.Get("Content-Type")
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	body, ct := multipartUpload(t, "report.docx", minimalDOCX("Some document content."))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every DOCX upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".docx")
+	assert.Contains(t, storedContentType, "wordprocessingml.document")
 }
 
 // ── Storage integration ──────────────────────────────────────────────────────
