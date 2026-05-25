@@ -16,7 +16,7 @@ export function Toaster() {
   return (
     <div className="toaster" role="region" aria-label="Notifications" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast toast--${t.type}`}>
+        <div key={t.id} className={`toast toast--${t.type}${t.dismissing ? " toast--out" : ""}`}>
           <span className="toast__icon">{ICONS[t.type]}</span>
           <span className="toast__msg">{t.message}</span>
           <button

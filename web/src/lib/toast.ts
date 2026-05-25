@@ -6,9 +6,11 @@ export type Toast = {
   id: string;
   type: ToastType;
   message: string;
+  dismissing?: boolean;
 };
 
 const DISMISS_MS = 4000;
+const EXIT_MS = 220;
 
 let toasts: Toast[] = [];
 const listeners = new Set<() => void>();
@@ -31,8 +33,12 @@ export function useToasts() {
 }
 
 export function dismissToast(id: string) {
-  toasts = toasts.filter((t) => t.id !== id);
+  toasts = toasts.map((t) => (t.id === id ? { ...t, dismissing: true } : t));
   emit();
+  setTimeout(() => {
+    toasts = toasts.filter((t) => t.id !== id);
+    emit();
+  }, EXIT_MS);
 }
 
 function add(type: ToastType, message: string) {
