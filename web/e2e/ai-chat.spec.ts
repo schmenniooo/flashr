@@ -32,8 +32,8 @@ test.describe("AI chat — generate cards from topic", () => {
 
   // ── Tabs ────────────────────────────────────────────────────────────────
 
-  test("PDF tab is active by default and shows the drop zone", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Upload PDF", exact: true })).toHaveClass(/up__tab--active/);
+  test("upload tab is active by default and shows the drop zone", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Upload file", exact: true })).toHaveClass(/up__tab--active/);
     await expect(page.locator(".up__drop")).toBeVisible();
   });
 
@@ -44,9 +44,9 @@ test.describe("AI chat — generate cards from topic", () => {
     await expect(page.locator(".up__drop")).not.toBeAttached();
   });
 
-  test("switching back to the PDF tab restores the drop zone", async ({ page }) => {
+  test("switching back to the upload tab restores the drop zone", async ({ page }) => {
     await page.getByRole("button", { name: "Describe a topic" }).click();
-    await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
+    await page.getByRole("button", { name: "Upload file", exact: true }).click();
     await expect(page.locator(".up__drop")).toBeVisible();
     await expect(page.locator(".up__chat")).not.toBeAttached();
   });
