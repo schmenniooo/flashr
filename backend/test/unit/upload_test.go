@@ -238,6 +238,81 @@ func TestUpload_ValidPDF_MockAI(t *testing.T) {
 	}
 }
 
+// ── Markdown upload ──────────────────────────────────────────────────────────
+
+func TestUpload_MD_ValidContent_MockAI(t *testing.T) {
+	mockOllama := ollamaServer(t, `[{"question":"What is a goroutine?","answer":"A lightweight thread"}]`)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	md := []byte("# Go Notes\n\nA goroutine is a lightweight thread managed by the Go runtime.\n")
+	body, ct := multipartUpload(t, "notes.md", md)
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.NotEmpty(t, resp.Cards)
+}
+
+func TestUpload_MD_EmptyFile_Returns422(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test-model"))
+
+	body, ct := multipartUpload(t, "empty.md", []byte("   \n\t  \n"))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_MD_WithStorage_UsesMDKeyAndContentType(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey, storedContentType string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			storedContentType = r.Header.Get("Content-Type")
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	md := []byte("# Study Notes\n\nSome content here.\n")
+	body, ct := multipartUpload(t, "study.md", md)
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every MD upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".md")
+	assert.Contains(t, storedContentType, "text/markdown")
+}
+
 // ── Storage integration ──────────────────────────────────────────────────────
 
 // uploadRouterWithStorage is like uploadRouter but wires a real storage.Client.
