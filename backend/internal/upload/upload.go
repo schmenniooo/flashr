@@ -156,8 +156,10 @@ func (s *Service) handleUpload(c *gin.Context) {
 		return
 	}
 
-	if !isPDF(data) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF is supported right now"})
+	nameLower := strings.ToLower(fh.Filename)
+	isMD := strings.HasSuffix(nameLower, ".md")
+	if !isMD && !isPDF(data) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF and Markdown (.md) are supported"})
 		return
 	}
 
@@ -165,17 +167,25 @@ func (s *Service) handleUpload(c *gin.Context) {
 	// regardless of whether extraction or AI generation succeeds or fails.
 	// Falls back to in-memory if storage is not configured.
 	if s.storage != nil {
-		key := "uploads/" + uuid.New().String() + ".pdf"
-		if putErr := s.storage.Put(c.Request.Context(), key, data, "application/pdf"); putErr == nil {
+		ext, mime := ".pdf", "application/pdf"
+		if isMD {
+			ext, mime = ".md", "text/markdown"
+		}
+		key := "uploads/" + uuid.New().String() + ext
+		if putErr := s.storage.Put(c.Request.Context(), key, data, mime); putErr == nil {
 			defer s.storage.MustDelete(context.Background(), key)
 		}
-		// If Put fails we log inside MustDelete's sibling; processing continues in-memory.
 	}
 
-	text, err := extractPDFText(data)
-	if err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "could not extract text from PDF — try a text-based PDF"})
-		return
+	var text string
+	if isMD {
+		text = string(data)
+	} else {
+		text, err = extractPDFText(data)
+		if err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "could not extract text from PDF — try a text-based PDF"})
+			return
+		}
 	}
 
 	if strings.TrimSpace(text) == "" {

@@ -277,7 +277,7 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
       </ul>
 
       <p className="up__proc-tip text-body">
-        Large PDFs can take up to a minute. Hang tight — we'll show you the cards when they're ready.
+        Large files can take up to a minute. Hang tight — we'll show you the cards when they're ready.
       </p>
     </div>
   );
