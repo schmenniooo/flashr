@@ -46,8 +46,9 @@ export function Upload() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function handleFile(file: File) {
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Only PDF files are supported right now.");
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".md")) {
+      setError("Only PDF and Markdown (.md) files are supported right now.");
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
@@ -79,7 +80,7 @@ export function Upload() {
     try {
       let collectionId = target;
       if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-        const name = fileName ? fileName.replace(/\.pdf$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
+        const name = fileName ? fileName.replace(/\.(pdf|md)$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
         const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
         collectionId = created.id;
       }
@@ -110,7 +111,7 @@ export function Upload() {
 
       {!isPro && (
         <div className="up__gate">
-          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock PDF uploads and topic-based card generation." />
+          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock file uploads and topic-based card generation." />
         </div>
       )}
 
@@ -121,7 +122,7 @@ export function Upload() {
             onClick={() => setActiveTab("pdf")}
           >
             <UploadCloud size={14} strokeWidth={2} />
-            Upload PDF
+            Upload file
           </button>
           <button
             className={`up__tab${activeTab === "chat" ? " up__tab--active" : ""}`}
@@ -135,7 +136,7 @@ export function Upload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,.md"
           className="up__file-input"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -159,7 +160,7 @@ export function Upload() {
             </ol>
 
             {error && (error === "__pro__" ? (
-              <UpgradePrompt reason="AI generation from PDFs is a Pro feature." />
+              <UpgradePrompt reason="AI generation from files is a Pro feature." />
             ) : (
               <div className="up__error">
                 <AlertCircle size={14} strokeWidth={2} />
@@ -217,7 +218,7 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
         </div>
         <div className="up__drop-text">
           <h2 className="text-h2">Drop a file here or click to upload</h2>
-          <p className="text-body">PDF — up to 20 MB</p>
+          <p className="text-body">PDF or Markdown — up to 20 MB</p>
         </div>
         <div className="up__drop-badges">
           <span className="badge">
@@ -234,6 +235,9 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
         <div className="up__formats">
           <span className="badge">
             <FileText size={10} strokeWidth={2} className="up__badge-icon" /> PDF
+          </span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Markdown
           </span>
           <span className="badge up__badge--muted">DOCX · GoodNotes · Notability — coming soon</span>
         </div>
