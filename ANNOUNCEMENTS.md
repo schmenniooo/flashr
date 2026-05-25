@@ -8,6 +8,19 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.6.0
+  date: 2026-05-25
+  title: Upload more file types — Markdown, Word, and Anki decks
+  description: >
+    You can now upload three new file formats in addition to PDFs.
+    Markdown (.md) files are processed directly and turned into cards.
+    Word documents (.docx) have their text extracted and sent through
+    the same AI card generation pipeline as PDFs.
+    Anki packages (.apkg) are imported natively — flashr reads the
+    cards straight from the deck without involving AI, so you get your
+    existing flashcards instantly and accurately.
+    All three formats are available from the same upload page.
+
 - version: 1.5.0
   date: 2026-05-23
   title: Smarter AI generation — streaming cards, no duplicates, and a full reset flow
