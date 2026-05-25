@@ -3,18 +3,21 @@ package unit_test
 import (
 	"archive/zip"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
 	"github.com/smithlabs/flashr/backend/internal/upload"
@@ -312,6 +315,178 @@ func TestUpload_MD_WithStorage_UsesMDKeyAndContentType(t *testing.T) {
 	assert.Contains(t, storedKey, "uploads/")
 	assert.Contains(t, storedKey, ".md")
 	assert.Contains(t, storedContentType, "text/markdown")
+}
+
+// ── Anki (.apkg) upload ──────────────────────────────────────────────────────
+
+// minimalAPKG builds a valid .apkg (ZIP containing a SQLite collection DB)
+// with the given front/back card pairs.
+func minimalAPKG(t *testing.T, cards []struct{ front, back string }) []byte {
+	t.Helper()
+
+	tmp, err := os.CreateTemp("", "anki-test-*.db")
+	require.NoError(t, err)
+	defer os.Remove(tmp.Name())
+	tmp.Close()
+
+	db, err := sql.Open("sqlite", tmp.Name())
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE notes (
+		id INTEGER PRIMARY KEY, guid TEXT, mid INTEGER, mod INTEGER,
+		usn INTEGER, tags TEXT, flds TEXT, sfld TEXT, csum INTEGER,
+		flags INTEGER, data TEXT)`)
+	require.NoError(t, err)
+	for i, c := range cards {
+		flds := c.front + "\x1f" + c.back
+		_, err = db.Exec(
+			`INSERT INTO notes VALUES (?,?,1,0,0,'',?,'',0,0,'')`,
+			i+1, fmt.Sprintf("guid%d", i+1), flds,
+		)
+		require.NoError(t, err)
+	}
+	db.Close()
+
+	dbBytes, err := os.ReadFile(tmp.Name())
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, err := zw.Create("collection.anki2")
+	require.NoError(t, err)
+	_, err = fw.Write(dbBytes)
+	require.NoError(t, err)
+	zw.Close()
+	return buf.Bytes()
+}
+
+func TestUpload_APKG_ValidCards_ReturnedDirectly(t *testing.T) {
+	// APKG skips AI — pass nil client to prove it is not called.
+	r := uploadRouter(nil)
+
+	cards := []struct{ front, back string }{
+		{"What is a goroutine?", "A lightweight thread managed by the Go runtime."},
+		{"What is a channel?", "A typed conduit for passing values between goroutines."},
+	}
+	body, ct := multipartUpload(t, "go.apkg", minimalAPKG(t, cards))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Len(t, resp.Cards, 2)
+	assert.Equal(t, "What is a goroutine?", resp.Cards[0].Question)
+}
+
+func TestUpload_APKG_EmptyDeck_Returns422(t *testing.T) {
+	r := uploadRouter(nil)
+
+	body, ct := multipartUpload(t, "empty.apkg", minimalAPKG(t, nil))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_APKG_InvalidZip_Returns422(t *testing.T) {
+	r := uploadRouter(nil)
+
+	body, ct := multipartUpload(t, "corrupt.apkg", []byte("not a zip file"))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_APKG_MissingCollectionDB_Returns422(t *testing.T) {
+	r := uploadRouter(nil)
+
+	// Valid ZIP but without collection.anki2 or collection.anki21.
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, _ := zw.Create("media")
+	fw.Write([]byte("{}"))
+	zw.Close()
+
+	body, ct := multipartUpload(t, "nodb.apkg", buf.Bytes())
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_APKG_HTMLStrippedFromFields(t *testing.T) {
+	r := uploadRouter(nil)
+
+	cards := []struct{ front, back string }{
+		{"<b>What is Go?</b>", "<i>A compiled language</i> by Google."},
+	}
+	body, ct := multipartUpload(t, "go.apkg", minimalAPKG(t, cards))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	require.Len(t, resp.Cards, 1)
+	assert.Equal(t, "What is Go?", resp.Cards[0].Question)
+	assert.Equal(t, "A compiled language by Google.", resp.Cards[0].Answer)
+}
+
+func TestUpload_APKG_WithStorage_UsesAPKGKeyAndContentType(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey, storedContentType string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			storedContentType = r.Header.Get("Content-Type")
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	// APKG skips AI — nil client is intentional.
+	r := uploadRouterWithStorage(nil, store)
+
+	cards := []struct{ front, back string }{{"Q", "A"}}
+	body, ct := multipartUpload(t, "deck.apkg", minimalAPKG(t, cards))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every APKG upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".apkg")
+	assert.Contains(t, storedContentType, "application/zip")
 }
 
 // ── Word (.docx) upload ──────────────────────────────────────────────────────

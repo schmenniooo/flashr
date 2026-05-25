@@ -24,15 +24,16 @@ test.describe("File upload — PDF and Markdown", () => {
 
   // ── Drop zone UI ─────────────────────────────────────────────────────────
 
-  test("drop zone shows PDF, Markdown and Word subtitle", async ({ page }) => {
-    await expect(page.locator(".up__drop-text")).toContainText("PDF, Markdown or Word");
+  test("drop zone shows PDF, Markdown, Word and Anki subtitle", async ({ page }) => {
+    await expect(page.locator(".up__drop-text")).toContainText("PDF, Markdown, Word or Anki");
   });
 
-  test("supported formats section lists PDF, Markdown and Word badges", async ({ page }) => {
+  test("supported formats section lists PDF, Markdown, Word and Anki badges", async ({ page }) => {
     const badges = page.locator(".up__formats .badge");
     await expect(badges.filter({ hasText: "PDF" })).toBeVisible();
     await expect(badges.filter({ hasText: "Markdown" })).toBeVisible();
     await expect(badges.filter({ hasText: "Word" })).toBeVisible();
+    await expect(badges.filter({ hasText: "Anki" })).toBeVisible();
   });
 
   // ── MD upload ────────────────────────────────────────────────────────────
@@ -130,6 +131,74 @@ test.describe("File upload — PDF and Markdown", () => {
     await page.locator(".up__file-input").setInputFiles({
       name: "corrupt.docx",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__error")).toBeVisible();
+    await expect(page.locator(".up__drop")).toBeVisible();
+  });
+
+  // ── APKG upload ──────────────────────────────────────────────────────────
+
+  test("drop zone shows Anki in subtitle", async ({ page }) => {
+    await expect(page.locator(".up__drop-text")).toContainText("Anki");
+  });
+
+  test("supported formats section lists Anki badge", async ({ page }) => {
+    await expect(page.locator(".up__formats .badge").filter({ hasText: "Anki" })).toBeVisible();
+  });
+
+  test("uploading an .apkg file proceeds to the review step", async ({ page }) => {
+    await mockUpload(page);
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "japanese.apkg",
+      mimeType: "application/zip",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
+    await expect(page.locator(".up__save-bar")).toBeVisible();
+  });
+
+  test("collection name is derived from the .apkg filename (no extension)", async ({ page }) => {
+    await mockUpload(page);
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "japanese-n5.apkg",
+      mimeType: "application/zip",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
+    const select = page.locator(".up__save-bar .up__select");
+    await expect(select).toContainText("japanese n5");
+  });
+
+  test("save bar shows the correct kept count after APKG upload", async ({ page }) => {
+    await mockUpload(page);
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "deck.apkg",
+      mimeType: "application/zip",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__save-summary strong")).toHaveText(String(MOCK_CARDS.length));
+  });
+
+  test("API error during APKG upload shows an error banner and stays on drop step", async ({ page }) => {
+    await page.route("**/api/ai/upload", (route) =>
+      route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "no cards found in Anki package — the deck may be empty" }),
+      })
+    );
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "empty.apkg",
+      mimeType: "application/zip",
       buffer: Buffer.from("PK\x03\x04"),
     });
 

@@ -5,16 +5,21 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/ledongthuc/pdf"
+	_ "modernc.org/sqlite"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
 	"github.com/smithlabs/flashr/backend/pkg/storage"
@@ -130,11 +135,6 @@ func (s *Service) handleGenerateStream(c *gin.Context) {
 }
 
 func (s *Service) handleUpload(c *gin.Context) {
-	if s.ai == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI generation is not configured — OLLAMA_URL is missing"})
-		return
-	}
-
 	fh, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
@@ -161,8 +161,9 @@ func (s *Service) handleUpload(c *gin.Context) {
 	nameLower := strings.ToLower(fh.Filename)
 	isMD := strings.HasSuffix(nameLower, ".md")
 	isDOCX := strings.HasSuffix(nameLower, ".docx")
-	if !isMD && !isDOCX && !isPDF(data) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF, Markdown (.md) and Word (.docx) are supported"})
+	isAPKG := strings.HasSuffix(nameLower, ".apkg")
+	if !isMD && !isDOCX && !isAPKG && !isPDF(data) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported file type — only PDF, Markdown (.md), Word (.docx) and Anki (.apkg) are supported"})
 		return
 	}
 
@@ -176,11 +177,36 @@ func (s *Service) handleUpload(c *gin.Context) {
 			ext, mime = ".md", "text/markdown"
 		case isDOCX:
 			ext, mime = ".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+		case isAPKG:
+			ext, mime = ".apkg", "application/zip"
 		}
 		key := "uploads/" + uuid.New().String() + ext
 		if putErr := s.storage.Put(c.Request.Context(), key, data, mime); putErr == nil {
 			defer s.storage.MustDelete(context.Background(), key)
 		}
+	}
+
+	// Anki packages already contain Q&A pairs — import directly without AI.
+	if isAPKG {
+		cards, err := extractAPKGCards(data)
+		if err != nil {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "could not read Anki package"})
+			return
+		}
+		if len(cards) == 0 {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "no cards found in Anki package — the deck may be empty"})
+			return
+		}
+		if len(cards) > 100 {
+			cards = cards[:100]
+		}
+		c.JSON(http.StatusOK, gin.H{"cards": cards})
+		return
+	}
+
+	if s.ai == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "AI generation is not configured — OLLAMA_URL is missing"})
+		return
 	}
 
 	var text string
@@ -292,4 +318,86 @@ func extractPDFText(data []byte) (string, error) {
 		sb.WriteByte('\n')
 	}
 	return sb.String(), nil
+}
+
+var htmlTagRE = regexp.MustCompile(`<[^>]*>`)
+
+func stripHTML(s string) string {
+	s = htmlTagRE.ReplaceAllString(s, "")
+	return strings.TrimSpace(html.UnescapeString(s))
+}
+
+// extractAPKGCards reads an Anki package (.apkg), opens the embedded SQLite
+// collection database, and returns all notes as Q&A card drafts.
+// Anki stores fields separated by \x1f; we take field[0] as question and
+// field[1] as answer, stripping HTML from both.
+func extractAPKGCards(data []byte) ([]ai.CardDraft, error) {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("apkg: %w", err)
+	}
+
+	// Prefer the newer .anki21 format; fall back to .anki2.
+	var dbFile *zip.File
+	for _, f := range zr.File {
+		if f.Name == "collection.anki21" {
+			dbFile = f
+			break
+		}
+		if f.Name == "collection.anki2" && dbFile == nil {
+			dbFile = f
+		}
+	}
+	if dbFile == nil {
+		return nil, errors.New("apkg: no collection database found")
+	}
+
+	rc, err := dbFile.Open()
+	if err != nil {
+		return nil, fmt.Errorf("apkg: %w", err)
+	}
+	defer rc.Close()
+
+	// SQLite needs a seekable file, so we write to a temp file.
+	tmp, err := os.CreateTemp("", "anki-*.db")
+	if err != nil {
+		return nil, fmt.Errorf("apkg: %w", err)
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := io.Copy(tmp, rc); err != nil {
+		tmp.Close()
+		return nil, fmt.Errorf("apkg: %w", err)
+	}
+	tmp.Close()
+
+	db, err := sql.Open("sqlite", tmp.Name())
+	if err != nil {
+		return nil, fmt.Errorf("apkg: %w", err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT flds FROM notes")
+	if err != nil {
+		return nil, fmt.Errorf("apkg: %w", err)
+	}
+	defer rows.Close()
+
+	var cards []ai.CardDraft
+	for rows.Next() {
+		var flds string
+		if err := rows.Scan(&flds); err != nil {
+			continue
+		}
+		parts := strings.SplitN(flds, "\x1f", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		q := stripHTML(parts[0])
+		a := stripHTML(parts[1])
+		if q == "" || a == "" {
+			continue
+		}
+		cards = append(cards, ai.CardDraft{Question: q, Answer: a})
+	}
+	return cards, rows.Err()
 }
