@@ -1,19 +1,23 @@
 package unit_test
 
 import (
+	"archive/zip"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	_ "modernc.org/sqlite"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
 	"github.com/smithlabs/flashr/backend/internal/upload"
@@ -238,6 +242,372 @@ func TestUpload_ValidPDF_MockAI(t *testing.T) {
 	}
 }
 
+// ── Markdown upload ──────────────────────────────────────────────────────────
+
+func TestUpload_MD_ValidContent_MockAI(t *testing.T) {
+	mockOllama := ollamaServer(t, `[{"question":"What is a goroutine?","answer":"A lightweight thread"}]`)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	md := []byte("# Go Notes\n\nA goroutine is a lightweight thread managed by the Go runtime.\n")
+	body, ct := multipartUpload(t, "notes.md", md)
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.NotEmpty(t, resp.Cards)
+}
+
+func TestUpload_MD_EmptyFile_Returns422(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test-model"))
+
+	body, ct := multipartUpload(t, "empty.md", []byte("   \n\t  \n"))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_MD_WithStorage_UsesMDKeyAndContentType(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey, storedContentType string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			storedContentType = r.Header.Get("Content-Type")
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	md := []byte("# Study Notes\n\nSome content here.\n")
+	body, ct := multipartUpload(t, "study.md", md)
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every MD upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".md")
+	assert.Contains(t, storedContentType, "text/markdown")
+}
+
+// ── Anki (.apkg) upload ──────────────────────────────────────────────────────
+
+// minimalAPKG builds a valid .apkg (ZIP containing a SQLite collection DB)
+// with the given front/back card pairs.
+func minimalAPKG(t *testing.T, cards []struct{ front, back string }) []byte {
+	t.Helper()
+
+	tmp, err := os.CreateTemp("", "anki-test-*.db")
+	require.NoError(t, err)
+	defer os.Remove(tmp.Name())
+	tmp.Close()
+
+	db, err := sql.Open("sqlite", tmp.Name())
+	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE notes (
+		id INTEGER PRIMARY KEY, guid TEXT, mid INTEGER, mod INTEGER,
+		usn INTEGER, tags TEXT, flds TEXT, sfld TEXT, csum INTEGER,
+		flags INTEGER, data TEXT)`)
+	require.NoError(t, err)
+	for i, c := range cards {
+		flds := c.front + "\x1f" + c.back
+		_, err = db.Exec(
+			`INSERT INTO notes VALUES (?,?,1,0,0,'',?,'',0,0,'')`,
+			i+1, fmt.Sprintf("guid%d", i+1), flds,
+		)
+		require.NoError(t, err)
+	}
+	db.Close()
+
+	dbBytes, err := os.ReadFile(tmp.Name())
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, err := zw.Create("collection.anki2")
+	require.NoError(t, err)
+	_, err = fw.Write(dbBytes)
+	require.NoError(t, err)
+	zw.Close()
+	return buf.Bytes()
+}
+
+func TestUpload_APKG_ValidCards_ReturnedDirectly(t *testing.T) {
+	// APKG skips AI — pass nil client to prove it is not called.
+	r := uploadRouter(nil)
+
+	cards := []struct{ front, back string }{
+		{"What is a goroutine?", "A lightweight thread managed by the Go runtime."},
+		{"What is a channel?", "A typed conduit for passing values between goroutines."},
+	}
+	body, ct := multipartUpload(t, "go.apkg", minimalAPKG(t, cards))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.Len(t, resp.Cards, 2)
+	assert.Equal(t, "What is a goroutine?", resp.Cards[0].Question)
+}
+
+func TestUpload_APKG_EmptyDeck_Returns422(t *testing.T) {
+	r := uploadRouter(nil)
+
+	body, ct := multipartUpload(t, "empty.apkg", minimalAPKG(t, nil))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_APKG_InvalidZip_Returns422(t *testing.T) {
+	r := uploadRouter(nil)
+
+	body, ct := multipartUpload(t, "corrupt.apkg", []byte("not a zip file"))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_APKG_MissingCollectionDB_Returns422(t *testing.T) {
+	r := uploadRouter(nil)
+
+	// Valid ZIP but without collection.anki2 or collection.anki21.
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, _ := zw.Create("media")
+	fw.Write([]byte("{}"))
+	zw.Close()
+
+	body, ct := multipartUpload(t, "nodb.apkg", buf.Bytes())
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_APKG_HTMLStrippedFromFields(t *testing.T) {
+	r := uploadRouter(nil)
+
+	cards := []struct{ front, back string }{
+		{"<b>What is Go?</b>", "<i>A compiled language</i> by Google."},
+	}
+	body, ct := multipartUpload(t, "go.apkg", minimalAPKG(t, cards))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	require.Len(t, resp.Cards, 1)
+	assert.Equal(t, "What is Go?", resp.Cards[0].Question)
+	assert.Equal(t, "A compiled language by Google.", resp.Cards[0].Answer)
+}
+
+func TestUpload_APKG_WithStorage_UsesAPKGKeyAndContentType(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey, storedContentType string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			storedContentType = r.Header.Get("Content-Type")
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	// APKG skips AI — nil client is intentional.
+	r := uploadRouterWithStorage(nil, store)
+
+	cards := []struct{ front, back string }{{"Q", "A"}}
+	body, ct := multipartUpload(t, "deck.apkg", minimalAPKG(t, cards))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every APKG upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".apkg")
+	assert.Contains(t, storedContentType, "application/zip")
+}
+
+// ── Word (.docx) upload ──────────────────────────────────────────────────────
+
+// minimalDOCX builds a valid .docx (ZIP) with a single paragraph of text.
+func minimalDOCX(text string) []byte {
+	docXML := `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+		`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
+		`<w:body><w:p><w:r><w:t>` + text + `</w:t></w:r></w:p></w:body></w:document>`
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, _ := zw.Create("word/document.xml")
+	fw.Write([]byte(docXML))
+	zw.Close()
+	return buf.Bytes()
+}
+
+func TestUpload_DOCX_ValidContent_MockAI(t *testing.T) {
+	mockOllama := ollamaServer(t, `[{"question":"What is a struct?","answer":"A composite data type"}]`)
+	r := uploadRouter(ai.NewClient(mockOllama.URL, "test-model"))
+
+	body, ct := multipartUpload(t, "notes.docx", minimalDOCX("Go structs are composite data types."))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code, "body: %s", w.Body.String())
+	var resp struct {
+		Cards []ai.CardDraft `json:"cards"`
+	}
+	require.NoError(t, json.NewDecoder(w.Body).Decode(&resp))
+	assert.NotEmpty(t, resp.Cards)
+}
+
+func TestUpload_DOCX_EmptyText_Returns422(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test-model"))
+
+	body, ct := multipartUpload(t, "empty.docx", minimalDOCX("   "))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_DOCX_InvalidZip_Returns422(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test-model"))
+
+	// File has .docx extension but is not a valid ZIP archive.
+	body, ct := multipartUpload(t, "corrupt.docx", []byte("this is not a zip file"))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_DOCX_MissingDocumentXML_Returns422(t *testing.T) {
+	r := uploadRouter(ai.NewClient("http://localhost:11434", "test-model"))
+
+	// Valid ZIP but without word/document.xml inside.
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	fw, _ := zw.Create("word/styles.xml")
+	fw.Write([]byte("<w:styles/>"))
+	zw.Close()
+
+	body, ct := multipartUpload(t, "nodoc.docx", buf.Bytes())
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
+}
+
+func TestUpload_DOCX_WithStorage_UsesDOCXKeyAndContentType(t *testing.T) {
+	var mu sync.Mutex
+	var putCalled, deleteCalled bool
+	var storedKey, storedContentType string
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			storedKey = r.URL.Path
+			storedContentType = r.Header.Get("Content-Type")
+			putCalled = true
+			w.Header().Set("ETag", `"etag"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		case http.MethodHead:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	body, ct := multipartUpload(t, "report.docx", minimalDOCX("Some document content."))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.True(t, putCalled, "storage.Put must be called for every DOCX upload")
+	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
+	assert.Contains(t, storedKey, "uploads/")
+	assert.Contains(t, storedKey, ".docx")
+	assert.Contains(t, storedContentType, "wordprocessingml.document")
+}
+
 // ── Storage integration ──────────────────────────────────────────────────────
 
 // uploadRouterWithStorage is like uploadRouter but wires a real storage.Client.
@@ -292,6 +662,39 @@ func TestUpload_WithStorage_PutCalledAndCleanedUp(t *testing.T) {
 	assert.True(t, deleteCalled, "storage.MustDelete must run as deferred cleanup")
 	assert.Contains(t, storedKey, "uploads/")
 	assert.Contains(t, storedKey, ".pdf")
+}
+
+// TestUpload_DOCX_WithStorage_PutFails_ProcessingContinues verifies that a
+// storage Put failure for a DOCX upload is non-fatal and Delete is not called.
+func TestUpload_DOCX_WithStorage_PutFails_ProcessingContinues(t *testing.T) {
+	var deleteCalled bool
+
+	fakeBucket := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "application/xml")
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `<?xml version="1.0"?><Error><Code>AccessDenied</Code><Message>Access Denied</Message></Error>`)
+		case http.MethodDelete:
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	t.Cleanup(fakeBucket.Close)
+
+	store := storage.New(fakeBucket.URL, "key", "secret", "bucket")
+	mockOllama := ollamaServer(t, `[{"question":"Q","answer":"A"}]`)
+	r := uploadRouterWithStorage(ai.NewClient(mockOllama.URL, "test"), store)
+
+	body, ct := multipartUpload(t, "notes.docx", minimalDOCX("Some content here."))
+	req := httptest.NewRequest(http.MethodPost, "/api/ai/upload", body)
+	req.Header.Set("Content-Type", ct)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.False(t, deleteCalled, "Delete must not be called when Put failed — nothing was stored")
+	assert.NotEqual(t, http.StatusInternalServerError, w.Code, "storage failure must not crash the handler")
 }
 
 // TestUpload_WithStorage_PutFails_ProcessingContinues verifies that a storage

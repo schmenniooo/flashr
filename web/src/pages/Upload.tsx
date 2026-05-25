@@ -46,8 +46,9 @@ export function Upload() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function handleFile(file: File) {
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Only PDF files are supported right now.");
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".md") && !name.endsWith(".docx") && !name.endsWith(".apkg")) {
+      setError("Only PDF, Markdown (.md), Word (.docx) and Anki (.apkg) files are supported right now.");
       return;
     }
     if (file.size > 20 * 1024 * 1024) {
@@ -79,7 +80,7 @@ export function Upload() {
     try {
       let collectionId = target;
       if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-        const name = fileName ? fileName.replace(/\.pdf$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
+        const name = newCollectionName;
         const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
         collectionId = created.id;
       }
@@ -92,6 +93,9 @@ export function Upload() {
   }
 
   const keepCount = drafts.filter((d) => d.keep).length;
+  const newCollectionName = fileName
+    ? fileName.replace(/\.(pdf|md|docx|apkg)$/i, "").replace(/[_-]/g, " ")
+    : "AI Generated Cards";
 
   return (
     <div className="up">
@@ -110,7 +114,7 @@ export function Upload() {
 
       {!isPro && (
         <div className="up__gate">
-          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock PDF uploads and topic-based card generation." />
+          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock file uploads and topic-based card generation." />
         </div>
       )}
 
@@ -121,7 +125,7 @@ export function Upload() {
             onClick={() => setActiveTab("pdf")}
           >
             <UploadCloud size={14} strokeWidth={2} />
-            Upload PDF
+            Upload file
           </button>
           <button
             className={`up__tab${activeTab === "chat" ? " up__tab--active" : ""}`}
@@ -135,7 +139,7 @@ export function Upload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,.md,.docx,.apkg"
           className="up__file-input"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -159,7 +163,7 @@ export function Upload() {
             </ol>
 
             {error && (error === "__pro__" ? (
-              <UpgradePrompt reason="AI generation from PDFs is a Pro feature." />
+              <UpgradePrompt reason="AI generation from files is a Pro feature." />
             ) : (
               <div className="up__error">
                 <AlertCircle size={14} strokeWidth={2} />
@@ -186,6 +190,7 @@ export function Upload() {
                 onBack={() => setStep("drop")}
                 onSave={handleSave}
                 collections={collections}
+                newCollectionName={newCollectionName}
               />
             )}
           </>
@@ -217,7 +222,7 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
         </div>
         <div className="up__drop-text">
           <h2 className="text-h2">Drop a file here or click to upload</h2>
-          <p className="text-body">PDF — up to 20 MB</p>
+          <p className="text-body">PDF, Markdown, Word or Anki — up to 20 MB</p>
         </div>
         <div className="up__drop-badges">
           <span className="badge">
@@ -235,7 +240,16 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
           <span className="badge">
             <FileText size={10} strokeWidth={2} className="up__badge-icon" /> PDF
           </span>
-          <span className="badge up__badge--muted">DOCX · GoodNotes · Notability — coming soon</span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Markdown
+          </span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Word
+          </span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Anki
+          </span>
+          <span className="badge up__badge--muted">GoodNotes · Notability — coming soon</span>
         </div>
       </div>
     </>
@@ -273,7 +287,7 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
       </ul>
 
       <p className="up__proc-tip text-body">
-        Large PDFs can take up to a minute. Hang tight — we'll show you the cards when they're ready.
+        Large files can take up to a minute. Hang tight — we'll show you the cards when they're ready.
       </p>
     </div>
   );

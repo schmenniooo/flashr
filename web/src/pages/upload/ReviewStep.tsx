@@ -14,6 +14,7 @@ export function ReviewStep({
   onBack,
   onSave,
   collections,
+  newCollectionName,
 }: {
   drafts: DraftCard[];
   onToggle: (id: string) => void;
@@ -26,6 +27,7 @@ export function ReviewStep({
   onBack: () => void;
   onSave: () => void;
   collections: { id: string; emoji: string; name: string }[];
+  newCollectionName: string;
 }) {
   return (
     <div className="up__review fade-in">
@@ -43,18 +45,6 @@ export function ReviewStep({
           <p className="text-body">
             Keep, skip, or edit each one. Only selected cards get saved.
           </p>
-        </div>
-
-        <div className="up__review-target">
-          <label className="text-meta">Save to</label>
-          <select className="up__select" value={target} onChange={(e) => onTarget(e.target.value)}>
-            {collections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.emoji} · {c.name}
-              </option>
-            ))}
-            <option value="__new">+ Create new collection</option>
-          </select>
         </div>
       </div>
 
@@ -77,13 +67,24 @@ export function ReviewStep({
           <Layers size={14} strokeWidth={2} />
           <strong>{keepCount}</strong> of {drafts.length} cards will be saved
         </div>
+        <div className="up__save-target">
+          <label className="text-meta">Save to</label>
+          <select className="up__select" value={target} onChange={(e) => onTarget(e.target.value)}>
+            {collections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.emoji} · {c.name}
+              </option>
+            ))}
+            <option value="__new">+ Create new collection "{newCollectionName}"</option>
+          </select>
+        </div>
         <div className="up__save-actions">
           <button className="btn-ghost" onClick={onBack}>
-            Discard
+            Back
           </button>
           <button className="btn-primary" disabled={keepCount === 0} onClick={onSave}>
             <CheckCircle2 size={14} strokeWidth={2} />
-            Save to collection
+            Save
           </button>
         </div>
       </div>
