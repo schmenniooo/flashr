@@ -106,6 +106,37 @@ test.describe("File upload — PDF and Markdown", () => {
     await expect(select).toContainText("go report");
   });
 
+  test("save bar shows the correct kept count after DOCX upload", async ({ page }) => {
+    await mockUpload(page);
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "notes.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__save-summary strong")).toHaveText(String(MOCK_CARDS.length));
+  });
+
+  test("API error during DOCX upload shows an error banner and stays on drop step", async ({ page }) => {
+    await page.route("**/api/ai/upload", (route) =>
+      route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "could not extract text from Word document" }),
+      })
+    );
+
+    await page.locator(".up__file-input").setInputFiles({
+      name: "corrupt.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from("PK\x03\x04"),
+    });
+
+    await expect(page.locator(".up__error")).toBeVisible();
+    await expect(page.locator(".up__drop")).toBeVisible();
+  });
+
   // ── Unsupported types ────────────────────────────────────────────────────
 
   test("uploading a .txt file shows an error banner", async ({ page }) => {
