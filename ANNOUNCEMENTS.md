@@ -8,6 +8,15 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.6.1
+  date: 2026-05-27
+  title: Fix Anki import for decks exported from Anki 2.1.50+
+  description: >
+    Anki packages created with Anki 2.1.50 or newer use a compressed
+    database format (collection.anki21b). flashr now recognises and
+    decompresses this format automatically, so decks that previously
+    showed "no cards found" will import correctly.
+
 - version: 1.6.0
   date: 2026-05-25
   title: Upload more file types — Markdown, Word, and Anki decks
