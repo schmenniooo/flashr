@@ -469,6 +469,129 @@
   margin: 0;
 }
 
+/* ─── Import / Replace Anki ───────────────────────────────── */
+
+.landing-import {
+  padding: var(--space-9) 0;
+  border-top: 1px solid var(--color-border);
+  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 100%);
+}
+
+.landing-import-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-9);
+  align-items: center;
+}
+
+.landing-import-title {
+  margin-bottom: var(--space-4);
+}
+
+.landing-import-sub {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-6) 0;
+  max-width: 440px;
+}
+
+.landing-import-sub strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.landing-import-formats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.landing-format-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.landing-format-card--highlight {
+  border-color: rgba(108, 99, 255, 0.35);
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.07) 0%, var(--color-card) 60%);
+}
+
+.landing-format-card:hover {
+  border-color: rgba(108, 99, 255, 0.4);
+  box-shadow: 0 4px 20px rgba(108, 99, 255, 0.08);
+}
+
+.landing-format-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+}
+
+.landing-format-card--highlight .landing-format-icon {
+  color: var(--color-accent);
+  border-color: rgba(108, 99, 255, 0.25);
+  background: rgba(108, 99, 255, 0.08);
+}
+
+.landing-format-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.landing-format-ext {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.landing-format-name {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.landing-format-badge {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  border-radius: 20px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .landing-import-inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-7);
+  }
+
+  .landing-import-sub {
+    max-width: 100%;
+  }
+}
+
 /* ─── How It Works ────────────────────────────────────────── */
 
 .landing-how {
