@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/klauspost/compress/zstd"
 	"github.com/ledongthuc/pdf"
 	_ "modernc.org/sqlite"
 
@@ -331,21 +332,36 @@ func stripHTML(s string) string {
 // collection database, and returns all notes as Q&A card drafts.
 // Anki stores fields separated by \x1f; we take field[0] as question and
 // field[1] as answer, stripping HTML from both.
+//
+// Format priority:
+//   - collection.anki21b — Anki 2.1.50+; SQLite DB is Zstd-compressed
+//   - collection.anki21  — Anki 2.1.x plain SQLite
+//   - collection.anki2   — legacy plain SQLite
 func extractAPKGCards(data []byte) ([]ai.CardDraft, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, fmt.Errorf("apkg: %w", err)
 	}
 
-	// Prefer the newer .anki21 format; fall back to .anki2.
+	// Prefer anki21b > anki21 > anki2.
+	// collection.anki21b (Anki 2.1.50+) is a Zstd-compressed SQLite database.
 	var dbFile *zip.File
-	for _, f := range zr.File {
-		if f.Name == "collection.anki21" {
-			dbFile = f
-			break
+	var isZstd bool
+	rank := func(name string) int {
+		switch name {
+		case "collection.anki21b":
+			return 3
+		case "collection.anki21":
+			return 2
+		case "collection.anki2":
+			return 1
 		}
-		if f.Name == "collection.anki2" && dbFile == nil {
+		return 0
+	}
+	for _, f := range zr.File {
+		if r := rank(f.Name); r > 0 && (dbFile == nil || r > rank(dbFile.Name)) {
 			dbFile = f
+			isZstd = f.Name == "collection.anki21b"
 		}
 	}
 	if dbFile == nil {
@@ -364,9 +380,29 @@ func extractAPKGCards(data []byte) ([]ai.CardDraft, error) {
 		return nil, fmt.Errorf("apkg: %w", err)
 	}
 	defer os.Remove(tmp.Name())
-	if _, err := io.Copy(tmp, rc); err != nil {
-		tmp.Close()
-		return nil, fmt.Errorf("apkg: %w", err)
+
+	if isZstd {
+		// collection.anki21b is a Zstd-compressed SQLite database.
+		compressed, readErr := io.ReadAll(rc)
+		if readErr != nil {
+			tmp.Close()
+			return nil, fmt.Errorf("apkg: %w", readErr)
+		}
+		dec, newErr := zstd.NewReader(bytes.NewReader(compressed))
+		if newErr != nil {
+			tmp.Close()
+			return nil, fmt.Errorf("apkg: zstd: %w", newErr)
+		}
+		defer dec.Close()
+		if _, copyErr := io.Copy(tmp, dec); copyErr != nil {
+			tmp.Close()
+			return nil, fmt.Errorf("apkg: zstd decompress: %w", copyErr)
+		}
+	} else {
+		if _, err := io.Copy(tmp, rc); err != nil {
+			tmp.Close()
+			return nil, fmt.Errorf("apkg: %w", err)
+		}
 	}
 	tmp.Close()
 
