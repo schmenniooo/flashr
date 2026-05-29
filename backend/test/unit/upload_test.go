@@ -336,11 +336,24 @@ func minimalAPKG(t *testing.T, cards []struct{ front, back string }) []byte {
 		usn INTEGER, tags TEXT, flds TEXT, sfld TEXT, csum INTEGER,
 		flags INTEGER, data TEXT)`)
 	require.NoError(t, err)
+	_, err = db.Exec(`CREATE TABLE cards (
+		id INTEGER PRIMARY KEY, nid INTEGER, did INTEGER, ord INTEGER,
+		mod INTEGER, usn INTEGER, type INTEGER, queue INTEGER, due INTEGER,
+		ivl INTEGER, factor INTEGER, reps INTEGER, lapses INTEGER, left INTEGER,
+		odue INTEGER, odid INTEGER, flags INTEGER, data TEXT)`)
+	require.NoError(t, err)
 	for i, c := range cards {
 		flds := c.front + "\x1f" + c.back
+		noteID := i + 1
 		_, err = db.Exec(
 			`INSERT INTO notes VALUES (?,?,1,0,0,'',?,'',0,0,'')`,
-			i+1, fmt.Sprintf("guid%d", i+1), flds,
+			noteID, fmt.Sprintf("guid%d", noteID), flds,
+		)
+		require.NoError(t, err)
+		// One card per note (basic, forward-only template, ord=0).
+		_, err = db.Exec(
+			`INSERT INTO cards VALUES (?,?,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,'')`,
+			noteID*100, noteID,
 		)
 		require.NoError(t, err)
 	}
