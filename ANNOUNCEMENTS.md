@@ -8,6 +8,17 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.6.2
+  date: 2026-05-29
+  title: Larger uploads, no silent limits
+  description: >
+    Anki decks now import completely — no card limit. The file size limit
+    has been raised to 500 MB across all formats. More content from PDFs,
+    Markdown, and Word files is now sent to AI for better card coverage.
+    If a file is still too large to process in full you'll see a clear
+    warning rather than silent truncation. The AI topic field shows a
+    character counter when you are approaching the limit.
+
 - version: 1.6.1
   date: 2026-05-27
   title: Fix Anki import for decks exported from Anki 2.1.50+

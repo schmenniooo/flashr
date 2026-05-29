@@ -289,6 +289,11 @@ export function AiChat({
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate(); }}
           rows={3}
         />
+        {prompt.length > 750 && (
+          <div className={`up__char-count${prompt.length > 1000 ? " up__char-count--over" : " up__char-count--warn"}`}>
+            {prompt.length} / 1000 {prompt.length > 1000 ? "— topic will be trimmed" : ""}
+          </div>
+        )}
         <div className="up__composer-footer">
           <div className="up__composer-controls">
             <div className="up__count-pills">

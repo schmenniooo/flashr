@@ -77,6 +77,7 @@ func main() {
 	// Replace gin.Default() with gin.New() so we control the middleware stack.
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.MaxMultipartMemory = 500 << 20 // match upload.maxFileSize
 	r.Use(gin.Recovery())
 	r.Use(requestIDMiddleware())
 	r.Use(requestLogger())

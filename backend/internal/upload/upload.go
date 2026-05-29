@@ -26,7 +26,7 @@ import (
 	"github.com/smithlabs/flashr/backend/pkg/storage"
 )
 
-const maxFileSize = 20 << 20 // 20 MB
+const maxFileSize = 500 << 20 // 500 MB
 
 // Service wires the upload endpoint to the AI client.
 type Service struct {
@@ -142,7 +142,7 @@ func (s *Service) handleUpload(c *gin.Context) {
 		return
 	}
 	if fh.Size > maxFileSize {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "file too large — max 20 MB"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file too large — max 500 MB"})
 		return
 	}
 
@@ -198,9 +198,6 @@ func (s *Service) handleUpload(c *gin.Context) {
 			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "no cards found in Anki package — the deck may be empty"})
 			return
 		}
-		if len(cards) > 100 {
-			cards = cards[:100]
-		}
 		c.JSON(http.StatusOK, gin.H{"cards": cards})
 		return
 	}
@@ -233,13 +230,13 @@ func (s *Service) handleUpload(c *gin.Context) {
 		return
 	}
 
-	cards, err := s.ai.GenerateCards(c.Request.Context(), text)
+	cards, truncated, err := s.ai.GenerateCards(c.Request.Context(), text)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"cards": cards})
+	c.JSON(http.StatusOK, gin.H{"cards": cards, "truncated": truncated})
 }
 
 func isPDF(data []byte) bool {
