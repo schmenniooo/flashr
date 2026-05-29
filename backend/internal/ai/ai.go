@@ -38,7 +38,7 @@ func NewClient(baseURL, model string) *Client {
 // GenerateCards sends text to Ollama and returns flashcard drafts and whether
 // the input was truncated to fit the model context window.
 func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, bool, error) {
-	const maxBytes = 20000
+	const maxBytes = 12000
 	truncated := false
 	if len(text) > maxBytes {
 		text = text[:maxBytes]
@@ -56,7 +56,7 @@ func (c *Client) GenerateCards(ctx context.Context, text string) ([]CardDraft, b
 // learnerTypes is optional user context (e.g. ["university", "certifications"]).
 // existingCards is the current deck — the AI will avoid duplicating them.
 func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string, existingCards []CardDraft) ([]CardDraft, error) {
-	const maxTopicBytes = 2000
+	const maxTopicBytes = 1000
 	if len(topic) > maxTopicBytes {
 		topic = topic[:maxTopicBytes]
 		for !utf8.ValidString(topic) {
@@ -71,7 +71,7 @@ func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count
 // question/answer pair is parsed out of the token stream.
 // existingCards is the current deck — the AI will avoid duplicating them.
 func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string, count int, level string, learnerTypes []string, existingCards []CardDraft, onCard func(CardDraft)) error {
-	const maxTopicBytes = 2000
+	const maxTopicBytes = 1000
 	if len(topic) > maxTopicBytes {
 		topic = topic[:maxTopicBytes]
 		for !utf8.ValidString(topic) {
@@ -88,7 +88,7 @@ func (c *Client) callOllamaStream(ctx context.Context, prompt string, onCard fun
 		"stream": true,
 		"options": map[string]any{
 			"temperature": 0.3,
-			"num_ctx":     8192,
+			"num_ctx":     5120,
 		},
 	})
 	if err != nil {
@@ -198,7 +198,7 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 		"stream": false,
 		"options": map[string]any{
 			"temperature": 0.3,
-			"num_ctx":     8192,
+			"num_ctx":     5120,
 		},
 	})
 	if err != nil {
@@ -244,7 +244,7 @@ func buildTopicPrompt(topic string, count int, level string, learnerTypes []stri
 
 	var existingSection string
 	if len(existingCards) > 0 {
-		const maxExisting = 100
+		const maxExisting = 60
 		cards := existingCards
 		if len(cards) > maxExisting {
 			cards = cards[:maxExisting]

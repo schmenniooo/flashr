@@ -182,7 +182,7 @@ export function Upload() {
             {step === "review" && truncated && (
               <div className="up__warning">
                 <AlertCircle size={14} strokeWidth={2} />
-                Your file was too large to process in full — only the first 20 KB of text was used. Consider splitting the file for better coverage.
+                Your file was too large to process in full — only part of the text was used to generate cards. Consider splitting the file for better coverage.
               </div>
             )}
             {step === "review" && (
