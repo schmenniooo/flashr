@@ -8,7 +8,7 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
-- version: 1.7.0
+- version: 1.6.3
   date: 2026-05-29
   title: Stable uploads — streaming, Anki cloze & reverse cards
   description: >
