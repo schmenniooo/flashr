@@ -287,7 +287,7 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
       </ul>
 
       <p className="up__proc-tip text-body">
-        Large Anki decks with hundreds of cards can take a few minutes. Hang tight — we'll show you the cards when they're ready.
+        Large files can take a few minutes to process. Hang tight — we'll show you the cards when they're ready.
       </p>
     </div>
   );
