@@ -19,7 +19,7 @@ import {
   selectCurrentUser,
   useDb,
 } from "../lib/store";
-import { api, ApiError } from "../lib/api";
+import { API_BASE, getToken } from "../lib/api";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import { AiChat } from "./upload/AiChat";
 import { ReviewStep } from "./upload/ReviewStep";
@@ -45,6 +45,8 @@ export function Upload() {
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
+  const [skipped, setSkipped] = useState(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   async function handleFile(file: File) {
     const name = file.name.toLowerCase();
@@ -56,22 +58,114 @@ export function Upload() {
       setError("File too large — max 500 MB.");
       return;
     }
+
     setError(null);
     setFileName(file.name);
     setFileSize(file.size);
+    setDrafts([]);
+    setTruncated(false);
+    setSkipped(0);
     setStep("processing");
-    const form = new FormData();
-    form.append("file", file);
+
+    abortRef.current?.abort();
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    let resp: Response;
     try {
-      const result = await api<{ cards: { question: string; answer: string }[]; truncated?: boolean }>(
-        "/ai/upload",
-        { method: "POST", body: form }
-      );
-      setDrafts(result.cards.map((c, i) => ({ id: `d${i}`, question: c.question, answer: c.answer, keep: true })));
-      setTruncated(result.truncated ?? false);
-      setStep("review");
-    } catch (err: unknown) {
-      setError(err instanceof ApiError && err.status === 403 ? "__pro__" : (err instanceof Error ? err.message : "Something went wrong."));
+      const form = new FormData();
+      form.append("file", file);
+      resp = await fetch(`${API_BASE}/ai/upload/stream`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        signal: abort.signal,
+        body: form,
+      });
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setError("Upload failed — check your connection.");
+      setStep("drop");
+      return;
+    }
+
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({})) as { error?: string };
+      if (resp.status === 403) {
+        setError("__pro__");
+      } else {
+        setError(body.error ?? "Something went wrong.");
+      }
+      setStep("drop");
+      return;
+    }
+
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let cardIndex = 0;
+    let eventType = "";
+    let eventData = "";
+    let movedToReview = false;
+
+    const flushEvent = () => {
+      if (!eventData) return;
+      try {
+        const parsed = JSON.parse(eventData) as Record<string, unknown>;
+        if (eventType === "card") {
+          const q = parsed.question as string;
+          const a = parsed.answer as string;
+          if (q && a) {
+            const idx = cardIndex++;
+            setDrafts((prev) => [...prev, { id: `d${idx}`, question: q, answer: a, keep: true }]);
+            if (!movedToReview) {
+              movedToReview = true;
+              setStep("review");
+            }
+          }
+        } else if (eventType === "meta") {
+          if (parsed.truncated) setTruncated(true);
+          if (typeof parsed.skipped === "number" && parsed.skipped > 0) setSkipped(parsed.skipped);
+        } else if (eventType === "error") {
+          setError((parsed.error as string) ?? "AI generation failed.");
+          setStep("drop");
+        }
+      } catch { /* malformed SSE data */ }
+      eventType = "";
+      eventData = "";
+    };
+
+    const processLine = (line: string) => {
+      if (line.startsWith("event:")) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        eventData += line.slice(5).trimStart();
+      } else if (line === "") {
+        flushEvent();
+      }
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop()!;
+        for (const line of lines) processLine(line);
+      }
+      if (buf) processLine(buf);
+      flushEvent();
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+    }
+
+    if (cardIndex === 0 && step !== "drop") {
+      setError("No cards could be generated from this file.");
       setStep("drop");
     }
   }
@@ -183,6 +277,12 @@ export function Upload() {
               <div className="up__warning">
                 <AlertCircle size={14} strokeWidth={2} />
                 Your file was too large to process in full — only part of the text was used to generate cards. Consider splitting the file for better coverage.
+              </div>
+            )}
+            {step === "review" && skipped > 0 && (
+              <div className="up__warning">
+                <AlertCircle size={14} strokeWidth={2} />
+                {skipped} note{skipped === 1 ? "" : "s"} were skipped — they may be image-only or have empty fields.
               </div>
             )}
             {step === "review" && (
