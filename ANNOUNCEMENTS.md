@@ -8,6 +8,16 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.6.2
+  date: 2026-05-29
+  title: Import large Anki decks — no card limit, 500 MB file size
+  description: >
+    flashr no longer caps Anki imports at 100 cards — your entire deck
+    is imported, no matter how large. The file size limit has also been
+    raised from 20 MB to 500 MB, so big community decks upload without
+    a problem. The processing screen now shows an accurate time estimate
+    so you know a large deck may take a few minutes.
+
 - version: 1.6.1
   date: 2026-05-27
   title: Fix Anki import for decks exported from Anki 2.1.50+

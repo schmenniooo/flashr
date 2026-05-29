@@ -51,8 +51,8 @@ export function Upload() {
       setError("Only PDF, Markdown (.md), Word (.docx) and Anki (.apkg) files are supported right now.");
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setError("File too large — max 20 MB.");
+    if (file.size > 500 * 1024 * 1024) {
+      setError("File too large — max 500 MB.");
       return;
     }
     setError(null);
@@ -222,7 +222,7 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
         </div>
         <div className="up__drop-text">
           <h2 className="text-h2">Drop a file here or click to upload</h2>
-          <p className="text-body">PDF, Markdown, Word or Anki — up to 20 MB</p>
+          <p className="text-body">PDF, Markdown, Word or Anki — up to 500 MB</p>
         </div>
         <div className="up__drop-badges">
           <span className="badge">
@@ -274,11 +274,11 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
 
       <ul className="up__proc-list">
         <li className="up__proc-item up__proc-item--done">
-          <CheckCircle2 size={14} strokeWidth={2} /> PDF uploaded
+          <CheckCircle2 size={14} strokeWidth={2} /> File uploaded
         </li>
         <li className="up__proc-item up__proc-item--active">
           <Loader2 size={14} className="up__spin" strokeWidth={2} /> Extracting text &amp; generating cards…
-          <span className="text-meta">~ 30 s</span>
+          <span className="text-meta">~ 30 s – a few min for large decks</span>
         </li>
         <li className="up__proc-item">
           <span className="up__proc-dot" /> Review &amp; save
@@ -287,7 +287,7 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
       </ul>
 
       <p className="up__proc-tip text-body">
-        Large files can take up to a minute. Hang tight — we'll show you the cards when they're ready.
+        Large Anki decks with hundreds of cards can take a few minutes. Hang tight — we'll show you the cards when they're ready.
       </p>
     </div>
   );
