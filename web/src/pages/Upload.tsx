@@ -44,6 +44,7 @@ export function Upload() {
   const [target, setTarget] = useState<string>(collections[0]?.id ?? "__new");
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [truncated, setTruncated] = useState(false);
 
   async function handleFile(file: File) {
     const name = file.name.toLowerCase();
@@ -62,11 +63,12 @@ export function Upload() {
     const form = new FormData();
     form.append("file", file);
     try {
-      const result = await api<{ cards: { question: string; answer: string }[] }>(
+      const result = await api<{ cards: { question: string; answer: string }[]; truncated?: boolean }>(
         "/ai/upload",
         { method: "POST", body: form }
       );
       setDrafts(result.cards.map((c, i) => ({ id: `d${i}`, question: c.question, answer: c.answer, keep: true })));
+      setTruncated(result.truncated ?? false);
       setStep("review");
     } catch (err: unknown) {
       setError(err instanceof ApiError && err.status === 403 ? "__pro__" : (err instanceof Error ? err.message : "Something went wrong."));
@@ -176,6 +178,12 @@ export function Upload() {
             )}
             {step === "processing" && (
               <ProcessingStep fileName={fileName!} fileSize={fileSize} />
+            )}
+            {step === "review" && truncated && (
+              <div className="up__warning">
+                <AlertCircle size={14} strokeWidth={2} />
+                Your file was too large to process in full — only the first 20 KB of text was used. Consider splitting the file for better coverage.
+              </div>
             )}
             {step === "review" && (
               <ReviewStep

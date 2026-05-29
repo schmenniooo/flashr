@@ -10,13 +10,16 @@ User-facing changelog. Each entry represents a release visible to users.
 ```yaml
 - version: 1.6.2
   date: 2026-05-29
-  title: Import large Anki decks — no card limit, 500 MB file size
+  title: No more silent limits — raised text limits and visible warnings
   description: >
     flashr no longer caps Anki imports at 100 cards — your entire deck
     is imported, no matter how large. The file size limit has also been
-    raised from 20 MB to 500 MB, so big community decks upload without
-    a problem. The processing screen now shows an accurate time estimate
-    so you know a large deck may take a few minutes.
+    raised from 20 MB to 500 MB across all formats. For PDF, Markdown,
+    and Word uploads, the amount of text sent to AI has been raised from
+    4 KB to 20 KB, and if a file is still too large to process in full
+    you'll see a clear warning instead of silent truncation. The AI topic
+    field now shows a character counter when you're approaching the 2 000
+    character limit. The processing screen shows an accurate time estimate.
 
 - version: 1.6.1
   date: 2026-05-27

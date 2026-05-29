@@ -230,13 +230,13 @@ func (s *Service) handleUpload(c *gin.Context) {
 		return
 	}
 
-	cards, err := s.ai.GenerateCards(c.Request.Context(), text)
+	cards, truncated, err := s.ai.GenerateCards(c.Request.Context(), text)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"cards": cards})
+	c.JSON(http.StatusOK, gin.H{"cards": cards, "truncated": truncated})
 }
 
 func isPDF(data []byte) bool {

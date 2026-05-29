@@ -45,8 +45,9 @@ func TestGenerateCards_ValidJSON(t *testing.T) {
 	srv := ollamaServer(t, `[{"question":"What is Go?","answer":"A compiled language"},{"question":"What is a goroutine?","answer":"A lightweight concurrent thread"}]`)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCards(context.Background(), "Go programming notes")
+	cards, truncated, err := client.GenerateCards(context.Background(), "Go programming notes")
 	require.NoError(t, err)
+	assert.False(t, truncated, "short input must not set the truncated flag")
 	assert.Len(t, cards, 2)
 	assert.Equal(t, "What is Go?", cards[0].Question)
 	assert.Equal(t, "A compiled language", cards[0].Answer)
@@ -56,7 +57,7 @@ func TestGenerateCards_JSONWrappedInText(t *testing.T) {
 	srv := ollamaServer(t, "Here are your flashcards:\n[{\"question\":\"Q1\",\"answer\":\"A1\"}]\nHope that helps!")
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCards(context.Background(), "some notes")
+	cards, _, err := client.GenerateCards(context.Background(), "some notes")
 	require.NoError(t, err)
 	require.Len(t, cards, 1)
 	assert.Equal(t, "Q1", cards[0].Question)
@@ -66,7 +67,7 @@ func TestGenerateCards_FiltersEmptyPairs(t *testing.T) {
 	srv := ollamaServer(t, `[{"question":"Good Q","answer":"Good A"},{"question":"","answer":"orphan"},{"question":"another","answer":""}]`)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCards(context.Background(), "notes")
+	cards, _, err := client.GenerateCards(context.Background(), "notes")
 	require.NoError(t, err)
 	assert.Len(t, cards, 1)
 	assert.Equal(t, "Good Q", cards[0].Question)
@@ -76,7 +77,7 @@ func TestGenerateCards_NoArrayInResponse(t *testing.T) {
 	srv := ollamaServer(t, "The model forgot to return JSON.")
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCards(context.Background(), "notes")
+	_, _, err := client.GenerateCards(context.Background(), "notes")
 	assert.Error(t, err)
 }
 
@@ -87,7 +88,7 @@ func TestGenerateCards_ServerError(t *testing.T) {
 	t.Cleanup(srv.Close)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCards(context.Background(), "notes")
+	_, _, err := client.GenerateCards(context.Background(), "notes")
 	assert.Error(t, err)
 }
 
@@ -160,7 +161,7 @@ func TestGenerateCardsFromTopic_PromptContainsLevel(t *testing.T) {
 
 // ── Text truncation ──────────────────────────────────────────────────────────
 
-// TestGenerateCards_LongTextIsTruncated verifies that text longer than 4000
+// TestGenerateCards_LongTextIsTruncated verifies that text longer than 20 000
 // bytes is cut before being sent to Ollama, and that the prompt still reaches
 // the server (i.e. the request is made at all).
 func TestGenerateCards_LongTextIsTruncated(t *testing.T) {
@@ -168,50 +169,50 @@ func TestGenerateCards_LongTextIsTruncated(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	longText := strings.Repeat("x", 6000) // 6 KB — well over the 4 KB limit
-	_, err := client.GenerateCards(context.Background(), longText)
+	longText := strings.Repeat("x", 25000) // 25 KB — well over the 20 KB limit
+	_, truncated, err := client.GenerateCards(context.Background(), longText)
 	require.NoError(t, err)
+	assert.True(t, truncated, "truncated flag must be set for oversized input")
 
 	prompt, _ := captured["prompt"].(string)
-	// The prompt must be present but must not contain the full 6 KB input.
 	assert.NotEmpty(t, prompt)
-	assert.NotContains(t, prompt, longText, "prompt must not include the full 6 KB input verbatim")
+	assert.NotContains(t, prompt, longText, "prompt must not include the full 25 KB input verbatim")
 }
 
-// TestGenerateCards_TextTruncatedAt4000 checks the cap precisely: 5000-byte
-// input must be shorter in the prompt than the raw input.
-func TestGenerateCards_TextTruncatedAt4000(t *testing.T) {
+// TestGenerateCards_TextTruncatedAt20000 checks the cap precisely: input over
+// 20 000 bytes must be shorter in the prompt than the raw input.
+func TestGenerateCards_TextTruncatedAt20000(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	input := strings.Repeat("a", 5000)
-	_, err := client.GenerateCards(context.Background(), input)
+	input := strings.Repeat("a", 22000)
+	_, truncated, err := client.GenerateCards(context.Background(), input)
 	require.NoError(t, err)
+	assert.True(t, truncated)
 
 	prompt, _ := captured["prompt"].(string)
 	assert.NotContains(t, prompt, input, "truncated input must not appear verbatim")
-	// The 4000-byte prefix must still be present somewhere in the prompt.
 	assert.Contains(t, prompt, strings.Repeat("a", 100), "truncated text must still appear in the prompt")
 }
 
 // TestGenerateCards_UTF8TruncationIsSafe verifies that truncating near a
 // multi-byte UTF-8 boundary does not produce an invalid string. We craft a
-// string whose 4000th byte lands inside a 3-byte rune (€ = 0xE2 0x82 0xAC).
+// string whose 20 000th byte lands inside a 3-byte rune (€ = 0xE2 0x82 0xAC).
 func TestGenerateCards_UTF8TruncationIsSafe(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	// Fill 3999 ASCII bytes then append multi-byte runes so that byte 4000
+	// Fill 19 999 ASCII bytes then append multi-byte runes so that byte 20 000
 	// lands inside a rune, forcing the truncation code to back up.
-	prefix := make([]byte, 3999)
+	prefix := make([]byte, 19999)
 	for i := range prefix {
 		prefix[i] = 'a'
 	}
 	text := string(prefix) + "€€€€€" // each € is 3 bytes
 
-	_, err := client.GenerateCards(context.Background(), text)
+	_, _, err := client.GenerateCards(context.Background(), text)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -227,23 +228,23 @@ func TestGenerateCards_UTF8TruncationIsSafe(t *testing.T) {
 // ── Topic truncation ─────────────────────────────────────────────────────────
 
 // TestGenerateCardsFromTopic_LongTopicIsTruncated verifies that topic strings
-// over 500 bytes are cut before the prompt is built.
+// over 2000 bytes are cut before the prompt is built.
 func TestGenerateCardsFromTopic_LongTopicIsTruncated(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	longTopic := strings.Repeat("t", 600) // 600 bytes — over the 500-byte cap
+	longTopic := strings.Repeat("t", 2500) // 2500 bytes — over the 2000-byte cap
 	_, err := client.GenerateCardsFromTopic(context.Background(), longTopic, 5, "intermediate", nil, nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
-	assert.NotContains(t, prompt, longTopic, "full 600-byte topic must not appear verbatim in prompt")
+	assert.NotContains(t, prompt, longTopic, "full 2500-byte topic must not appear verbatim in prompt")
 	assert.NotEmpty(t, prompt)
 }
 
 // TestGenerateCardsFromTopic_ShortTopicNotTruncated verifies that topics under
-// 500 bytes are sent through unchanged.
+// 2000 bytes are sent through unchanged.
 func TestGenerateCardsFromTopic_ShortTopicNotTruncated(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
@@ -291,13 +292,13 @@ func TestCallOllama_SendsNumCtxOption(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCards(context.Background(), "some notes")
+	_, _, err := client.GenerateCards(context.Background(), "some notes")
 	require.NoError(t, err)
 
 	opts, _ := captured["options"].(map[string]any)
 	require.NotNil(t, opts, "options map must be present in the Ollama request")
 	numCtx, _ := opts["num_ctx"].(float64) // JSON numbers unmarshal as float64
-	assert.Equal(t, float64(4096), numCtx, "num_ctx must be 4096")
+	assert.Equal(t, float64(8192), numCtx, "num_ctx must be 8192")
 }
 
 // TestCallOllama_TopicSendNumCtxOption verifies the topic path also sends num_ctx.
@@ -312,5 +313,5 @@ func TestCallOllama_TopicSendsNumCtxOption(t *testing.T) {
 	opts, _ := captured["options"].(map[string]any)
 	require.NotNil(t, opts)
 	numCtx, _ := opts["num_ctx"].(float64)
-	assert.Equal(t, float64(4096), numCtx)
+	assert.Equal(t, float64(8192), numCtx)
 }
