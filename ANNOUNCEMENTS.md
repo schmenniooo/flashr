@@ -8,6 +8,19 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.6.3
+  date: 2026-05-29
+  title: Stable uploads — streaming, Anki cloze & reverse cards
+  description: >
+    File uploads are now streamed: cards appear one by one as AI generates
+    them instead of waiting for the full response. Anki decks now correctly
+    import cloze deletion notes (each deletion becomes its own card) and
+    reverse-card note types (both directions are imported). Notes that
+    couldn't be imported show a skipped count so nothing is lost silently.
+    AI generation no longer returns a blank screen on failure — you now get
+    a clear error message. The text limit fed to AI has been raised from
+    12 KB to 32 KB for better card coverage on longer documents.
+
 - version: 1.6.2
   date: 2026-05-29
   title: Larger uploads, no silent limits

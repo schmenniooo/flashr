@@ -161,7 +161,7 @@ func TestGenerateCardsFromTopic_PromptContainsLevel(t *testing.T) {
 
 // ── Text truncation ──────────────────────────────────────────────────────────
 
-// TestGenerateCards_LongTextIsTruncated verifies that text longer than 12 000
+// TestGenerateCards_LongTextIsTruncated verifies that text longer than 32 000
 // bytes is cut before being sent to Ollama, and that the prompt still reaches
 // the server (i.e. the request is made at all).
 func TestGenerateCards_LongTextIsTruncated(t *testing.T) {
@@ -169,24 +169,24 @@ func TestGenerateCards_LongTextIsTruncated(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	longText := strings.Repeat("x", 15000) // 15 KB — well over the 12 KB limit
+	longText := strings.Repeat("x", 40000) // 40 KB — well over the 32 KB limit
 	_, truncated, err := client.GenerateCards(context.Background(), longText)
 	require.NoError(t, err)
 	assert.True(t, truncated, "truncated flag must be set for oversized input")
 
 	prompt, _ := captured["prompt"].(string)
 	assert.NotEmpty(t, prompt)
-	assert.NotContains(t, prompt, longText, "prompt must not include the full 15 KB input verbatim")
+	assert.NotContains(t, prompt, longText, "prompt must not include the full 40 KB input verbatim")
 }
 
-// TestGenerateCards_TextTruncatedAt12000 checks the cap precisely: input over
-// 12 000 bytes must be shorter in the prompt than the raw input.
-func TestGenerateCards_TextTruncatedAt12000(t *testing.T) {
+// TestGenerateCards_TextTruncatedAt32000 checks the cap precisely: input over
+// 32 000 bytes must be shorter in the prompt than the raw input.
+func TestGenerateCards_TextTruncatedAt32000(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	input := strings.Repeat("a", 14000)
+	input := strings.Repeat("a", 35000)
 	_, truncated, err := client.GenerateCards(context.Background(), input)
 	require.NoError(t, err)
 	assert.True(t, truncated)
@@ -198,15 +198,15 @@ func TestGenerateCards_TextTruncatedAt12000(t *testing.T) {
 
 // TestGenerateCards_UTF8TruncationIsSafe verifies that truncating near a
 // multi-byte UTF-8 boundary does not produce an invalid string. We craft a
-// string whose 12 000th byte lands inside a 3-byte rune (€ = 0xE2 0x82 0xAC).
+// string whose 32 000th byte lands inside a 3-byte rune (€ = 0xE2 0x82 0xAC).
 func TestGenerateCards_UTF8TruncationIsSafe(t *testing.T) {
 	var captured map[string]any
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	// Fill 11 999 ASCII bytes then append multi-byte runes so that byte 12 000
+	// Fill 31 999 ASCII bytes then append multi-byte runes so that byte 32 000
 	// lands inside a rune, forcing the truncation code to back up.
-	prefix := make([]byte, 11999)
+	prefix := make([]byte, 31999)
 	for i := range prefix {
 		prefix[i] = 'a'
 	}
