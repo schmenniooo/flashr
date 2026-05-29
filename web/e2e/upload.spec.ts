@@ -6,12 +6,20 @@ const MOCK_CARDS = [
   { question: "What is a channel?", answer: "A typed conduit for passing values between goroutines." },
 ];
 
+/** Build a minimal SSE body that the streaming upload endpoint would emit. */
+function sseCards(cards = MOCK_CARDS, extra = ""): string {
+  const lines = cards
+    .map((c) => `event: card\ndata: ${JSON.stringify(c)}\n`)
+    .join("\n");
+  return lines + `\nevent: meta\ndata: {"truncated":false}\n\nevent: done\ndata: {}\n\n` + extra;
+}
+
 function mockUpload(page: Parameters<typeof signInAsDemo>[0], cards = MOCK_CARDS) {
-  return page.route("**/api/ai/upload", (route) =>
+  return page.route("**/api/ai/upload/stream", (route) =>
     route.fulfill({
       status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ cards }),
+      contentType: "text/event-stream",
+      body: sseCards(cards),
     })
   );
 }
@@ -120,7 +128,7 @@ test.describe("File upload — PDF and Markdown", () => {
   });
 
   test("API error during DOCX upload shows an error banner and stays on drop step", async ({ page }) => {
-    await page.route("**/api/ai/upload", (route) =>
+    await page.route("**/api/ai/upload/stream", (route) =>
       route.fulfill({
         status: 422,
         contentType: "application/json",
@@ -188,11 +196,11 @@ test.describe("File upload — PDF and Markdown", () => {
   });
 
   test("API error during APKG upload shows an error banner and stays on drop step", async ({ page }) => {
-    await page.route("**/api/ai/upload", (route) =>
+    await page.route("**/api/ai/upload/stream", (route) =>
       route.fulfill({
         status: 422,
         contentType: "application/json",
-        body: JSON.stringify({ error: "no cards found in Anki package — the deck may be empty" }),
+        body: JSON.stringify({ error: "no cards found in Anki package — the deck may be empty or contain only image/unsupported note types" }),
       })
     );
 
@@ -222,7 +230,7 @@ test.describe("File upload — PDF and Markdown", () => {
   // ── API error path ───────────────────────────────────────────────────────
 
   test("API error during MD upload shows an error banner and stays on drop step", async ({ page }) => {
-    await page.route("**/api/ai/upload", (route) =>
+    await page.route("**/api/ai/upload/stream", (route) =>
       route.fulfill({
         status: 422,
         contentType: "application/json",
