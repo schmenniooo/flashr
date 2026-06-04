@@ -386,4 +386,16 @@
     flex-wrap: wrap;
     gap: var(--space-2);
   }
+  .study__ratings {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .study__rate {
+    padding: 10px var(--space-2);
+  }
+  .study__rate-kbd {
+    display: none;
+  }
+  .study__rate-label {
+    margin-top: 0;
+  }
 }

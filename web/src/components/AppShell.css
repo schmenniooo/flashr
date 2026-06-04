@@ -534,6 +534,10 @@
     left: 0;
     z-index: 20;
     width: min(280px, 84vw);
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     transform: translateX(-100%);
     transition: transform var(--transition-base);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
