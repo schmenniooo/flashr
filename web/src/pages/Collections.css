@@ -325,6 +325,13 @@
   .cols__row-progress {
     display: none;
   }
+  .cols__row-edit {
+    opacity: 1;
+  }
+  .cols__dropdown {
+    right: auto;
+    left: 0;
+  }
 }
 
 .cols__title       { margin-top: var(--space-2); }
