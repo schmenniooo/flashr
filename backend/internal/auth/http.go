@@ -87,6 +87,7 @@ func (s *Service) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/refresh", s.handleRefresh)
 	rg.POST("/logout", s.handleLogout)
 	rg.GET("/me", s.RequireUser(), s.handleMe)
+	rg.PATCH("/me", s.RequireUser(), s.handlePatchMe)
 	rg.DELETE("/me", s.RequireUser(), s.handleDeleteMe)
 	rg.POST("/onboarding", s.RequireUser(), s.handleCompleteOnboarding)
 	rg.POST("/avatar", s.RequireUser(), s.handleUploadAvatar)
@@ -332,6 +333,30 @@ func (s *Service) handleMe(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user no longer exists"})
 		return
 	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load user"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func (s *Service) handlePatchMe(c *gin.Context) {
+	var body struct {
+		DailyGoal *int `json:"daily_goal"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	userID := UserIDFromContext(c)
+	ctx := c.Request.Context()
+	if body.DailyGoal != nil {
+		if err := s.UpdateDailyGoal(ctx, userID, *body.DailyGoal); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update settings"})
+			return
+		}
+	}
+	user, err := s.UserByID(ctx, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load user"})
 		return

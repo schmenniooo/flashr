@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   selectTotalCards,
   selectCardsDueToday,
+  selectCardsToday,
   selectKnownCards,
   selectCurrentUser,
   selectCollections,
@@ -78,6 +79,7 @@ function makeDb(overrides: {
   session?: Session;
   collections?: Collection[];
   folders?: Folder[];
+  cardsToday?: number;
 } = {}) {
   return {
     users: overrides.users ?? [],
@@ -87,6 +89,7 @@ function makeDb(overrides: {
     masteryMap: {},
     bootstrapping: false,
     collectionsLoading: false,
+    cardsToday: overrides.cardsToday ?? 0,
   };
 }
 
@@ -222,6 +225,20 @@ describe("selectKnownCards", () => {
       ],
     });
     expect(selectKnownCards(db)).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// selectCardsToday
+// ─────────────────────────────────────────────────────────────
+
+describe("selectCardsToday", () => {
+  it("returns 0 by default", () => {
+    expect(selectCardsToday(makeDb())).toBe(0);
+  });
+
+  it("returns cardsToday from db", () => {
+    expect(selectCardsToday(makeDb({ cardsToday: 7 }))).toBe(7);
   });
 });
 

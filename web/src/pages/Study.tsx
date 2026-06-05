@@ -11,7 +11,7 @@ import {
   RotateCcw,
   CalendarClock,
 } from "lucide-react";
-import { cardsApi, collectionsApi, selectCollection, selectCurrentUser, useDb } from "../lib/store";
+import { cardsApi, collectionsApi, selectCardsToday, selectCollection, selectCurrentUser, useDb } from "../lib/store";
 import type { Card, Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
 import "./Study.css";
@@ -35,6 +35,7 @@ export function Study() {
   const { id } = useParams();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);
+  const cardsToday = useDb(selectCardsToday);
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -150,7 +151,14 @@ export function Study() {
           <div className="study__done-stats">
             <div><strong>{known}</strong><span>got it</span></div>
             <div><strong>{total - known}</strong><span>coming back</span></div>
-            <div><strong>+1</strong><span>streak day</span></div>
+            <div>
+              <strong>{cardsToday} / {currentUser?.dailyGoal ?? 20}</strong>
+              <span>cards today</span>
+            </div>
+            <div>
+              <strong>{currentUser?.streak ?? 0}</strong>
+              <span>{cardsToday >= (currentUser?.dailyGoal ?? 20) ? "day streak 🔥" : "day streak"}</span>
+            </div>
           </div>
           <div className="study__done-cta">
             <Link to={`/app/c/${collection.id}`} className="btn-ghost">

@@ -124,15 +124,29 @@ export const cardsApi = {
       ),
     }));
 
+    // Client's local calendar date (ISO YYYY-MM-DD) — avoids UTC-midnight edge cases.
+    const localDate = new Date().toLocaleDateString("sv");
+
     try {
       const bc = await api<{
         id: string; question: string; answer: string; ai_generated: boolean; created_at: string;
         mastery: Card["mastery"]; interval: number; ease_factor: number; repetitions: number; due_date: string | null;
-      }>(`/cards/${cardId}/review`, { method: "POST", body: JSON.stringify({ rating }) });
+        cards_today?: number; daily_goal?: number; streak?: number; goal_met?: boolean;
+      }>(`/cards/${cardId}/review`, { method: "POST", body: JSON.stringify({ rating, date: localDate }) });
 
-      // Overwrite with server-computed SM-2 values.
+      // Overwrite with server-computed SM-2 values + streak/goal progress.
       setState((db) => ({
         ...db,
+        cardsToday: bc.cards_today ?? db.cardsToday,
+        users: db.users.map((u) =>
+          u.id === db.session?.userId
+            ? {
+                ...u,
+                streak: bc.streak ?? u.streak,
+                dailyGoal: bc.daily_goal ?? u.dailyGoal,
+              }
+            : u,
+        ),
         collections: db.collections.map((c) =>
           c.id === collectionId
             ? recalcProgress({

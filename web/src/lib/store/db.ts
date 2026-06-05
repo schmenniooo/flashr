@@ -33,6 +33,8 @@ export type Db = {
   // transient — never persisted, always resets to true on load
   bootstrapping: boolean;
   collectionsLoading: boolean;
+  // cards reviewed today (from review API responses, resets on reload)
+  cardsToday: number;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -54,6 +56,7 @@ function freshDb(): Db {
     masteryMap: {},
     bootstrapping: true,
     collectionsLoading: false,
+    cardsToday: 0,
   };
 }
 
@@ -92,6 +95,7 @@ function readDb(): Db {
       masteryMap: parsed.masteryMap ?? {},
       bootstrapping: true,
       collectionsLoading: false,
+      cardsToday: 0,
     };
   } catch {
     const fresh = freshDb();
@@ -184,6 +188,7 @@ export const selectCardsDueToday = (db: Db) => {
 };
 export const selectKnownCards = (db: Db) =>
   db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery === "known").length, 0);
+export const selectCardsToday = (db: Db) => db.cardsToday;
 
 // ─────────────────────────────────────────────────────────────
 // Shared helpers (used across action modules)

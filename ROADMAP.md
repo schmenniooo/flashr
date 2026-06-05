@@ -259,7 +259,7 @@ STRIPE_PRO_PRICE_ID
 
 ### 2.1 Gamification & Retention
 
-- [ ] **Streak-System:** Tägliche Lernstreak tracken & anzeigen
+- [x] **Streak-System:** Tägliche Lernstreak tracken & anzeigen — SM-2 review endpoint upserts `daily_reviews`, increments `streak` on goal-met, resets on gap; `daily_goal` persisted via PATCH /auth/me
 - [ ] **Ranglisten:** Leaderboard nach Streak / gelernten Karten
 - [ ] **Achievements / Badges:** Meilensteine belohnen
 - [ ] Push-Notifications / Reminder (Web + später Mobile)

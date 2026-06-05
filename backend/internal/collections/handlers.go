@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -300,11 +301,19 @@ func (s *Service) deleteCard(c *gin.Context) {
 func (s *Service) reviewCard(c *gin.Context) {
 	var body struct {
 		Rating string `json:"rating" binding:"required"`
+		Date   string `json:"date"` // client's local date YYYY-MM-DD; falls back to UTC today
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "rating is required"})
 		return
 	}
+
+	// Resolve the review date from the client-supplied local date.
+	reviewDate, err := time.Parse("2006-01-02", body.Date)
+	if err != nil {
+		reviewDate = time.Now().UTC()
+	}
+	dateStr := reviewDate.Format("2006-01-02")
 
 	userID := auth.UserIDFromContext(c)
 	cardID := c.Param("id")
@@ -312,7 +321,7 @@ func (s *Service) reviewCard(c *gin.Context) {
 
 	// Fetch current srs_metadata, verifying ownership through the collection join.
 	var rawMeta []byte
-	err := s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		SELECT cards.srs_metadata
 		FROM cards
 		JOIN collections ON collections.id = cards.collection_id
@@ -354,5 +363,53 @@ func (s *Service) reviewCard(c *gin.Context) {
 		return
 	}
 	card.applyMeta(&updated)
-	c.JSON(http.StatusOK, card)
+
+	// ── Streak / daily-goal logic ─────────────────────────────────────────────
+
+	// Increment today's review count (upsert).
+	var cardsToday int
+	err = s.pool.QueryRow(ctx, `
+		INSERT INTO daily_reviews (user_id, date, count)
+		VALUES ($1, $2, 1)
+		ON CONFLICT (user_id, date) DO UPDATE SET count = daily_reviews.count + 1
+		RETURNING count
+	`, userID, dateStr).Scan(&cardsToday)
+	if err != nil {
+		// Non-fatal — return the card without progress fields on failure.
+		c.JSON(http.StatusOK, card)
+		return
+	}
+
+	var dailyGoal, streak int
+	var streakUpdatedOn *time.Time
+	err = s.pool.QueryRow(ctx, `
+		SELECT daily_goal, streak, streak_updated_on FROM users WHERE id = $1
+	`, userID).Scan(&dailyGoal, &streak, &streakUpdatedOn)
+	if err != nil {
+		c.JSON(http.StatusOK, card)
+		return
+	}
+
+	goalMet := cardsToday >= dailyGoal
+	newStreak, streakChanged := ComputeNewStreak(cardsToday, dailyGoal, streak, streakUpdatedOn, dateStr)
+	if streakChanged {
+		_, _ = s.pool.Exec(ctx,
+			`UPDATE users SET streak = $2, streak_updated_on = $3 WHERE id = $1`,
+			userID, newStreak, dateStr,
+		)
+	}
+
+	c.JSON(http.StatusOK, struct {
+		Card
+		CardsToday int  `json:"cards_today"`
+		DailyGoal  int  `json:"daily_goal"`
+		Streak     int  `json:"streak"`
+		GoalMet    bool `json:"goal_met"`
+	}{
+		Card:       card,
+		CardsToday: cardsToday,
+		DailyGoal:  dailyGoal,
+		Streak:     newStreak,
+		GoalMet:    goalMet,
+	})
 }
