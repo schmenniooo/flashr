@@ -84,7 +84,7 @@ export function Dashboard() {
         <div className="dash__head-cta">
           <Link to="/app/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
-            Create cards from PDF
+            Create cards
           </Link>
         </div>
       </header>
@@ -264,9 +264,9 @@ export function Dashboard() {
               <Upload size={20} strokeWidth={1.8} />
             </div>
             <div>
-              <h3 className="text-h2">Got a lecture as a PDF?</h3>
+              <h3 className="text-h2">Turn any material into flashcards</h3>
               <p className="text-body">
-                Drop it in — flashr reads it and builds the cards for you. You review, we do the rest.
+                Upload a PDF, Word doc, or Markdown file — or just describe a topic — and flashr builds the cards for you.
               </p>
             </div>
             <div className="dash__upload-cta-arrow">

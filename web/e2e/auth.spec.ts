@@ -59,8 +59,11 @@ test.describe("auth", () => {
   test("sign-out from profile returns to login", async ({ page }) => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
-    await page.getByRole("button", { name: /^sign out$/i }).click();
-    await page.waitForURL("**/login");
+    // Click triggers immediate session clear + React unmount, so race with waitForURL.
+    await Promise.all([
+      page.waitForURL("**/login"),
+      page.getByRole("button", { name: /^sign out$/i }).click(),
+    ]);
     await expect(page).toHaveURL(/\/login$/);
   });
 });

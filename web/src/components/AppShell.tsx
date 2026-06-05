@@ -31,7 +31,6 @@ import {
   selectCollections,
   selectFolders,
   selectCurrentUser,
-  selectTotalCards,
   selectCardsDueToday,
 } from "../lib/store";
 import { NewFolderModal } from "./NewFolderModal";
@@ -49,7 +48,6 @@ export function AppShell() {
   const collections = useDb(selectCollections);
   const folders = useDb(selectFolders);
   const user = useDb(selectCurrentUser);
-  const totalCards = useDb(selectTotalCards);
   const cardsDueToday = useDb(selectCardsDueToday);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -297,8 +295,8 @@ export function AppShell() {
           <div className="shell__streak">
             <Flame size={16} strokeWidth={2} className="shell__streak-icon" />
             <div>
-              <div className="shell__streak-val">{totalCards} cards</div>
-              <div className="shell__streak-lbl">Across all collections</div>
+              <div className="shell__streak-val">{user?.streak ?? 0} day streak</div>
+              <div className="shell__streak-lbl">Keep it up!</div>
             </div>
           </div>
           <Link to="/app/profile" className="shell__userbar">

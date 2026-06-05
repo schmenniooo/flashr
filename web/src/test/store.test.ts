@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   selectTotalCards,
   selectCardsDueToday,
+  selectCardsToday,
   selectKnownCards,
   selectCurrentUser,
   selectCollections,
@@ -21,6 +22,10 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     answer: "A",
     aiGenerated: false,
     mastery: "new",
+    dueDate: null,
+    interval: 1,
+    easeFactor: 2.5,
+    repetitions: 0,
     ...overrides,
   };
 }
@@ -74,6 +79,7 @@ function makeDb(overrides: {
   session?: Session;
   collections?: Collection[];
   folders?: Folder[];
+  cardsToday?: number;
 } = {}) {
   return {
     users: overrides.users ?? [],
@@ -83,6 +89,7 @@ function makeDb(overrides: {
     masteryMap: {},
     bootstrapping: false,
     collectionsLoading: false,
+    cardsToday: overrides.cardsToday ?? 0,
   };
 }
 
@@ -125,14 +132,13 @@ describe("selectCardsDueToday", () => {
     expect(selectCardsDueToday(makeDb())).toBe(0);
   });
 
-  it("counts new and learning cards, excludes known", () => {
+  it("counts cards with null dueDate (never reviewed) as due", () => {
     const db = makeDb({
       collections: [
         makeCollection({
           cards: [
-            makeCard({ id: "1", mastery: "new" }),
-            makeCard({ id: "2", mastery: "learning" }),
-            makeCard({ id: "3", mastery: "known" }),
+            makeCard({ id: "1", dueDate: null }),
+            makeCard({ id: "2", dueDate: null }),
           ],
         }),
       ],
@@ -140,18 +146,45 @@ describe("selectCardsDueToday", () => {
     expect(selectCardsDueToday(db)).toBe(2);
   });
 
-  it("returns 0 when all cards are known", () => {
+  it("counts cards with a past dueDate as due", () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
     const db = makeDb({
       collections: [
         makeCollection({
-          cards: [
-            makeCard({ id: "1", mastery: "known" }),
-            makeCard({ id: "2", mastery: "known" }),
-          ],
+          cards: [makeCard({ id: "1", dueDate: yesterday })],
+        }),
+      ],
+    });
+    expect(selectCardsDueToday(db)).toBe(1);
+  });
+
+  it("excludes cards with a future dueDate", () => {
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    const db = makeDb({
+      collections: [
+        makeCollection({
+          cards: [makeCard({ id: "1", dueDate: tomorrow })],
         }),
       ],
     });
     expect(selectCardsDueToday(db)).toBe(0);
+  });
+
+  it("mixes due and not-due cards correctly", () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    const db = makeDb({
+      collections: [
+        makeCollection({
+          cards: [
+            makeCard({ id: "1", dueDate: null }),       // due (never reviewed)
+            makeCard({ id: "2", dueDate: yesterday }),  // due (past)
+            makeCard({ id: "3", dueDate: tomorrow }),   // not due
+          ],
+        }),
+      ],
+    });
+    expect(selectCardsDueToday(db)).toBe(2);
   });
 });
 
@@ -177,6 +210,35 @@ describe("selectKnownCards", () => {
       ],
     });
     expect(selectKnownCards(db)).toBe(2);
+  });
+
+  it("uses backend-derived mastery field", () => {
+    const future = new Date(Date.now() + 30 * 86_400_000).toISOString();
+    const db = makeDb({
+      collections: [
+        makeCollection({
+          cards: [
+            makeCard({ id: "1", mastery: "known", dueDate: future, interval: 30, repetitions: 5 }),
+            makeCard({ id: "2", mastery: "learning", dueDate: future, interval: 6, repetitions: 2 }),
+          ],
+        }),
+      ],
+    });
+    expect(selectKnownCards(db)).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// selectCardsToday
+// ─────────────────────────────────────────────────────────────
+
+describe("selectCardsToday", () => {
+  it("returns 0 by default", () => {
+    expect(selectCardsToday(makeDb())).toBe(0);
+  });
+
+  it("returns cardsToday from db", () => {
+    expect(selectCardsToday(makeDb({ cardsToday: 7 }))).toBe(7);
   });
 });
 

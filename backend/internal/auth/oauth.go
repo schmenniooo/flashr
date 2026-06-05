@@ -165,8 +165,8 @@ func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string)
 		ON CONFLICT (email) DO UPDATE
 		  SET oauth_provider = EXCLUDED.oauth_provider,
 		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
-		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at
-	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
+		RETURNING id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at
+	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
 	if err != nil {
 		return User{}, TokenPair{}, fmt.Errorf("oauth upsert: %w", err)
 	}

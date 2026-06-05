@@ -7,7 +7,7 @@ import type { Card } from "../../types";
 export const cardsApi = {
   async add(collectionId: string, input: { question: string; answer: string; aiGenerated?: boolean }): Promise<Card> {
     try {
-      const bc = await api<{ id: string; question: string; answer: string; ai_generated: boolean; created_at: string }>(
+      const bc = await api<import("./collections").BackendCard>(
         `/collections/${collectionId}/cards`,
         { method: "POST", body: JSON.stringify({ question: input.question, answer: input.answer, ai_generated: input.aiGenerated ?? false }) },
       );
@@ -108,5 +108,60 @@ export const cardsApi = {
           : c,
       ),
     }));
+  },
+
+  async review(collectionId: string, cardId: string, rating: "again" | "hard" | "good" | "easy"): Promise<void> {
+    // Optimistic update: apply a local mastery estimate immediately so the UI
+    // reflects the rating without waiting for the network round-trip.
+    const optimisticMastery: Card["mastery"] = rating === "again" ? "new" : "learning";
+    setState((db) => ({
+      ...db,
+      masteryMap: { ...db.masteryMap, [cardId]: optimisticMastery },
+      collections: db.collections.map((c) =>
+        c.id === collectionId
+          ? recalcProgress({ ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, mastery: optimisticMastery } : k) })
+          : c,
+      ),
+    }));
+
+    // Client's local calendar date (ISO YYYY-MM-DD) — avoids UTC-midnight edge cases.
+    const localDate = new Date().toLocaleDateString("sv");
+
+    try {
+      const bc = await api<{
+        id: string; question: string; answer: string; ai_generated: boolean; created_at: string;
+        mastery: Card["mastery"]; interval: number; ease_factor: number; repetitions: number; due_date: string | null;
+        cards_today?: number; daily_goal?: number; streak?: number; goal_met?: boolean;
+      }>(`/cards/${cardId}/review`, { method: "POST", body: JSON.stringify({ rating, date: localDate }) });
+
+      // Overwrite with server-computed SM-2 values + streak/goal progress.
+      setState((db) => ({
+        ...db,
+        cardsToday: bc.cards_today ?? db.cardsToday,
+        users: db.users.map((u) =>
+          u.id === db.session?.userId
+            ? {
+                ...u,
+                streak: bc.streak ?? u.streak,
+                dailyGoal: bc.daily_goal ?? u.dailyGoal,
+              }
+            : u,
+        ),
+        collections: db.collections.map((c) =>
+          c.id === collectionId
+            ? recalcProgress({
+                ...c,
+                cards: c.cards.map((k) =>
+                  k.id === cardId
+                    ? { ...k, mastery: bc.mastery, interval: bc.interval, easeFactor: bc.ease_factor, repetitions: bc.repetitions, dueDate: bc.due_date }
+                    : k
+                ),
+              })
+            : c,
+        ),
+      }));
+    } catch {
+      // Review failures are silent — the session continues; the next load will re-sync.
+    }
   },
 };

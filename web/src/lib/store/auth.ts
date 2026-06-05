@@ -27,6 +27,7 @@ type BackendUser = {
   email: string;
   name?: string;
   streak: number;
+  daily_goal: number;
   plan: "free" | "pro";
   plan_expires_at?: string | null;
   created_at: string;
@@ -71,7 +72,7 @@ function shadowFromBackend(
     bio: "",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     language: "English",
-    dailyGoal: 20,
+    dailyGoal: bu.daily_goal ?? 20,
     emailReminders: true,
     weeklyDigest: false,
     age: bu.age ?? null,
@@ -89,21 +90,17 @@ function adoptBackendUser(
     const existing = db.users.find((u) => u.id === bu.id);
     let user: StoredUser;
     if (existing) {
-      const fallbackName = (bu.name ?? "").trim();
-      const [first, ...rest] = fallbackName ? fallbackName.split(/\s+/) : [];
       user = {
         ...existing,
         email: bu.email,
         streak: bu.streak ?? existing.streak,
+        dailyGoal: bu.daily_goal ?? existing.dailyGoal,
         plan: bu.plan ?? existing.plan,
         planExpiresAt: bu.plan_expires_at ?? null,
         onboardingCompleted: bu.onboarding_completed,
         age: bu.age ?? existing.age,
         learnerTypes: (bu.learner_types as LearnerType[]) ?? existing.learnerTypes,
         avatarUrl: bu.avatar_url ?? null,
-        ...(fallbackName
-          ? { firstName: first || existing.firstName, lastName: rest.join(" ") }
-          : {}),
       };
     } else {
       user = shadowFromBackend(bu, hint);
@@ -298,11 +295,22 @@ export const auth = {
   updateProfile(patch: Partial<Omit<StoredUser, "id" | "password" | "email">>) {
     const session = state.session;
     if (!session) return;
+    // Apply locally first for instant feedback.
     setState((db) => ({
       ...db,
       users: db.users.map((u) =>
         u.id === session.userId ? { ...u, ...patch } : u,
       ),
     }));
+    // Persist backend-backed fields — only when they actually changed.
+    const currentUser = state.users.find((u) => u.id === session.userId);
+    if (patch.dailyGoal !== undefined && patch.dailyGoal !== currentUser?.dailyGoal) {
+      api<{ user: BackendUser }>("/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ daily_goal: patch.dailyGoal }),
+      })
+        .then((res) => adoptBackendUser(res.user))
+        .catch(() => {});
+    }
   },
 };

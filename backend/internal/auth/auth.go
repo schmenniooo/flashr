@@ -41,6 +41,7 @@ type User struct {
 	Email               string     `json:"email"`
 	Name                string     `json:"name,omitempty"`
 	Streak              int        `json:"streak"`
+	DailyGoal           int        `json:"daily_goal"`
 	Plan                string     `json:"plan"`
 	PlanExpiresAt       *time.Time `json:"plan_expires_at,omitempty"`
 	CreatedAt           time.Time  `json:"created_at"`
@@ -161,10 +162,10 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 	err = s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, NULLIF($2, ''), $3)
-		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
+		RETURNING id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at,
 		          onboarding_completed, age, learner_types, avatar_url
 	`, email, name, string(hash)).Scan(
-		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
+		&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
 		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
 	)
 	if err != nil {
@@ -191,12 +192,12 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, Toke
 		hash *string
 	)
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
+		SELECT id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at,
 		       onboarding_completed, age, learner_types, avatar_url, password_hash
 		FROM users
 		WHERE LOWER(email) = $1
 	`, email).Scan(
-		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
+		&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
 		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &hash,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -235,12 +236,12 @@ func (s *Service) DeleteUser(ctx context.Context, id string) error {
 func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at,
+		SELECT id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at,
 		       onboarding_completed, age, learner_types, avatar_url
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
-		&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
+		&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
 		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -257,6 +258,14 @@ func (s *Service) UpdateAvatar(ctx context.Context, userID string, avatarURL *st
 	_, err := s.pool.Exec(ctx,
 		`UPDATE users SET avatar_url = $2 WHERE id = $1`,
 		userID, avatarURL,
+	)
+	return err
+}
+
+func (s *Service) UpdateDailyGoal(ctx context.Context, userID string, dailyGoal int) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET daily_goal = $2 WHERE id = $1`,
+		userID, dailyGoal,
 	)
 	return err
 }

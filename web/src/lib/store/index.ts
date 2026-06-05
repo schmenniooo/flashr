@@ -13,6 +13,7 @@ export {
   selectCollection,
   selectTotalCards,
   selectCardsDueToday,
+  selectCardsToday,
   selectKnownCards,
 } from "./db";
 

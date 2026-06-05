@@ -34,6 +34,10 @@ export type Card = {
   answer: string;
   aiGenerated: boolean;
   mastery: "new" | "learning" | "known";
+  dueDate: string | null;
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
 };
 
 export type Collection = {
