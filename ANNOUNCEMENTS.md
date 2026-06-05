@@ -8,6 +8,20 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.7.0
+  date: 2026-06-05
+  title: Spaced repetition — cards now remember you
+  description: >
+    Study mode now uses the SM-2 spaced-repetition algorithm. Every time you
+    rate a card (Again / Hard / Good / Easy) the app schedules the next review
+    at the right interval — from one day for tricky cards up to weeks or months
+    for cards you know well. Your progress is saved to the server, so it
+    persists across devices and page reloads. Each study session starts with
+    a shuffled deck of only the cards that are due today, so you never waste
+    time re-reviewing cards you already know. When everything is caught up
+    you see an "All caught up" screen with the date of your next review — and
+    a "Study all cards" escape hatch if you want to drill anyway.
+
 - version: 1.6.3
   date: 2026-05-29
   title: Stable uploads — streaming, Anki cloze & reverse cards

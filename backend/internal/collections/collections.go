@@ -8,6 +8,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/smithlabs/flashr/backend/internal/srs"
 )
 
 var ErrNotFound = errors.New("not found")
@@ -15,11 +17,28 @@ var ErrNotFound = errors.New("not found")
 // ─── Domain types ────────────────────────────────────────────────────────────
 
 type Card struct {
-	ID          string    `json:"id"`
-	Question    string    `json:"question"`
-	Answer      string    `json:"answer"`
-	AIGenerated bool      `json:"ai_generated"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          string     `json:"id"`
+	Question    string     `json:"question"`
+	Answer      string     `json:"answer"`
+	AIGenerated bool       `json:"ai_generated"`
+	CreatedAt   time.Time  `json:"created_at"`
+	Mastery     string     `json:"mastery"`
+	Interval    int        `json:"interval"`
+	EaseFactor  float64    `json:"ease_factor"`
+	Repetitions int        `json:"repetitions"`
+	DueDate     *time.Time `json:"due_date"`
+}
+
+// applyMeta populates the SRS fields on a Card from a parsed srs.Meta pointer.
+func (c *Card) applyMeta(m *srs.Meta) {
+	c.Mastery = srs.Mastery(m)
+	if m != nil {
+		c.Interval = m.Interval
+		c.EaseFactor = m.EaseFactor
+		c.Repetitions = m.Repetitions
+		due := m.DueDate
+		c.DueDate = &due
+	}
 }
 
 type Collection struct {
@@ -57,4 +76,5 @@ func (s *Service) RegisterRoutes(api *gin.RouterGroup, authMW gin.HandlerFunc) {
 	cards := api.Group("/cards", authMW)
 	cards.PATCH("/:id", s.updateCard)
 	cards.DELETE("/:id", s.deleteCard)
+	cards.POST("/:id/review", s.reviewCard)
 }

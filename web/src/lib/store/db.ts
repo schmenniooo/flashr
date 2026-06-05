@@ -175,8 +175,13 @@ export const selectCollection = (id: string) => (db: Db) =>
   db.collections.find((c) => c.id === id);
 export const selectTotalCards = (db: Db) =>
   db.collections.reduce((s, c) => s + c.cards.length, 0);
-export const selectCardsDueToday = (db: Db) =>
-  db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery !== "known").length, 0);
+export const selectCardsDueToday = (db: Db) => {
+  const now = new Date();
+  return db.collections.reduce(
+    (s, c) => s + c.cards.filter((k) => !k.dueDate || new Date(k.dueDate) <= now).length,
+    0,
+  );
+};
 export const selectKnownCards = (db: Db) =>
   db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery === "known").length, 0);
 

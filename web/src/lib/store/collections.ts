@@ -13,6 +13,11 @@ type BackendCard = {
   answer: string;
   ai_generated: boolean;
   created_at: string;
+  mastery: "new" | "learning" | "known";
+  interval: number;
+  ease_factor: number;
+  repetitions: number;
+  due_date: string | null;
 };
 
 type BackendCollection = {
@@ -34,7 +39,12 @@ export function mapCard(bc: BackendCard, masteryMap: Record<string, Card["master
     question: bc.question,
     answer: bc.answer,
     aiGenerated: bc.ai_generated,
-    mastery: masteryMap[bc.id] ?? "new",
+    // Use backend-computed mastery for reviewed cards; fall back to localStorage for new ones.
+    mastery: bc.repetitions > 0 ? bc.mastery : (masteryMap[bc.id] ?? bc.mastery ?? "new"),
+    dueDate: bc.due_date ?? null,
+    interval: bc.interval ?? 1,
+    easeFactor: bc.ease_factor ?? 2.5,
+    repetitions: bc.repetitions ?? 0,
   };
 }
 

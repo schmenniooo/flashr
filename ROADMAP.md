@@ -308,9 +308,10 @@ collection_share_tokens (
 
 ### 2.4 Spaced Repetition (SRS)
 
-- [ ] SM-2 Algorithmus implementieren (basiert auf `srs_metadata` in DB)
-- [x] Lernmodus mit "Wieder", "Schwer", "Gut", "Einfach" Buttons — UI done in `Study.tsx`; mastery tracked locally in localStorage; SM-2 scoring not yet wired
-- [ ] Due-Date-System: Karten erscheinen wenn sie fällig sind
+- [x] SM-2 Algorithmus implementieren (basiert auf `srs_metadata` in DB) — `backend/internal/srs/srs.go`
+- [x] Lernmodus mit "Wieder", "Schwer", "Gut", "Einfach" Buttons — SM-2 scoring wired via `POST /api/cards/:id/review`
+- [x] Due-Date-System: Karten erscheinen wenn sie fällig sind; Deck wird bei jedem Start gemischt
+- [x] "All caught up" Screen wenn keine Karten fällig sind; "Study all cards" Fallback
 - [ ] Lernfortschritt-Dashboard (Karten fällig heute, diese Woche etc.)
 
 ### 2.5 Erweiterte KI-Features

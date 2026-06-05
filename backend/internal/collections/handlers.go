@@ -1,6 +1,7 @@
 package collections
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/smithlabs/flashr/backend/internal/auth"
+	"github.com/smithlabs/flashr/backend/internal/srs"
 	"github.com/smithlabs/flashr/backend/pkg/domain"
 )
 
@@ -293,4 +295,64 @@ func (s *Service) deleteCard(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (s *Service) reviewCard(c *gin.Context) {
+	var body struct {
+		Rating string `json:"rating" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "rating is required"})
+		return
+	}
+
+	userID := auth.UserIDFromContext(c)
+	cardID := c.Param("id")
+	ctx := c.Request.Context()
+
+	// Fetch current srs_metadata, verifying ownership through the collection join.
+	var rawMeta []byte
+	err := s.pool.QueryRow(ctx, `
+		SELECT cards.srs_metadata
+		FROM cards
+		JOIN collections ON collections.id = cards.collection_id
+		WHERE cards.id = $1 AND collections.user_id = $2
+	`, cardID, userID).Scan(&rawMeta)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "card not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load card"})
+		return
+	}
+
+	meta := parseSRSMeta(rawMeta)
+	if meta == nil {
+		m := srs.NewMeta()
+		meta = &m
+	}
+
+	updated := srs.Apply(*meta, srs.RatingToQuality(body.Rating))
+
+	metaJSON, err := json.Marshal(updated)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not encode srs metadata"})
+		return
+	}
+
+	var card Card
+	err = s.pool.QueryRow(ctx, `
+		UPDATE cards SET srs_metadata = $2
+		WHERE id = $1
+		RETURNING id, question, answer, ai_generated, created_at, srs_metadata
+	`, cardID, metaJSON).Scan(
+		&card.ID, &card.Question, &card.Answer, &card.AIGenerated, &card.CreatedAt, &rawMeta,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save review"})
+		return
+	}
+	card.applyMeta(&updated)
+	c.JSON(http.StatusOK, card)
 }

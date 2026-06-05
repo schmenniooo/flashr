@@ -109,4 +109,31 @@ export const cardsApi = {
       ),
     }));
   },
+
+  async review(collectionId: string, cardId: string, rating: "again" | "hard" | "good" | "easy"): Promise<void> {
+    try {
+      const bc = await api<{
+        id: string; question: string; answer: string; ai_generated: boolean; created_at: string;
+        mastery: Card["mastery"]; interval: number; ease_factor: number; repetitions: number; due_date: string | null;
+      }>(`/cards/${cardId}/review`, { method: "POST", body: JSON.stringify({ rating }) });
+
+      setState((db) => ({
+        ...db,
+        collections: db.collections.map((c) =>
+          c.id === collectionId
+            ? recalcProgress({
+                ...c,
+                cards: c.cards.map((k) =>
+                  k.id === cardId
+                    ? { ...k, mastery: bc.mastery, interval: bc.interval, easeFactor: bc.ease_factor, repetitions: bc.repetitions, dueDate: bc.due_date }
+                    : k
+                ),
+              })
+            : c,
+        ),
+      }));
+    } catch {
+      // Review failures are silent — the session continues; the next load will re-sync.
+    }
+  },
 };
