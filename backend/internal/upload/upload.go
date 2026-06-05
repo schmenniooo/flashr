@@ -81,7 +81,7 @@ func (s *Service) handleGenerate(c *gin.Context) {
 	}
 	req.Level = validLevel(req.Level)
 
-	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level, req.LearnerTypes, req.ExistingCards)
+	cards, err := s.ai.GenerateCardsFromTopic(c.Request.Context(), req.Prompt, req.Count, req.Level, req.LearnerTypes)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI generation failed: " + err.Error()})
 		return
@@ -97,11 +97,10 @@ func (s *Service) handleGenerateStream(c *gin.Context) {
 	}
 
 	var req struct {
-		Prompt        string         `json:"prompt"`
-		Count         int            `json:"count"`
-		Level         string         `json:"level"`
-		LearnerTypes  []string       `json:"learnerTypes"`
-		ExistingCards []ai.CardDraft `json:"existingCards"`
+		Prompt       string   `json:"prompt"`
+		Count        int      `json:"count"`
+		Level        string   `json:"level"`
+		LearnerTypes []string `json:"learnerTypes"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Prompt) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt is required"})
@@ -119,7 +118,7 @@ func (s *Service) handleGenerateStream(c *gin.Context) {
 
 	err := s.ai.GenerateCardsFromTopicStream(
 		c.Request.Context(),
-		req.Prompt, req.Count, req.Level, req.LearnerTypes, req.ExistingCards,
+		req.Prompt, req.Count, req.Level, req.LearnerTypes,
 		func(card ai.CardDraft) {
 			c.SSEvent("card", card)
 			c.Writer.Flush()

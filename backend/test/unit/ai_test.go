@@ -98,7 +98,7 @@ func TestGenerateCardsFromTopic_ValidJSON(t *testing.T) {
 	srv := ollamaServer(t, `[{"question":"What is S3?","answer":"Object storage service by AWS"},{"question":"What is IAM?","answer":"Identity and Access Management"}]`)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCardsFromTopic(context.Background(), "AWS Cloud Practitioner", 2, "intermediate", nil, nil)
+	cards, err := client.GenerateCardsFromTopic(context.Background(), "AWS Cloud Practitioner", 2, "intermediate", nil)
 	require.NoError(t, err)
 	assert.Len(t, cards, 2)
 	assert.Equal(t, "What is S3?", cards[0].Question)
@@ -109,7 +109,7 @@ func TestGenerateCardsFromTopic_JSONWrappedInText(t *testing.T) {
 	srv := ollamaServer(t, "Sure! Here are your cards:\n[{\"question\":\"Q1\",\"answer\":\"A1\"}]\nHope that helps!")
 	client := ai.NewClient(srv.URL, "test-model")
 
-	cards, err := client.GenerateCardsFromTopic(context.Background(), "some topic", 1, "beginner", nil, nil)
+	cards, err := client.GenerateCardsFromTopic(context.Background(), "some topic", 1, "beginner", nil)
 	require.NoError(t, err)
 	require.Len(t, cards, 1)
 	assert.Equal(t, "Q1", cards[0].Question)
@@ -119,7 +119,7 @@ func TestGenerateCardsFromTopic_NoArrayInResponse(t *testing.T) {
 	srv := ollamaServer(t, "Let me tell you about the French Revolution...")
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil)
 	assert.Error(t, err)
 }
 
@@ -128,7 +128,7 @@ func TestGenerateCardsFromTopic_PromptContainsTopic(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "French Revolution", 5, "intermediate", nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -140,7 +140,7 @@ func TestGenerateCardsFromTopic_PromptContainsCount(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 7, "intermediate", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 7, "intermediate", nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -152,7 +152,7 @@ func TestGenerateCardsFromTopic_PromptContainsLevel(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 5, "advanced", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "React hooks", 5, "advanced", nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -235,7 +235,7 @@ func TestGenerateCardsFromTopic_LongTopicIsTruncated(t *testing.T) {
 	client := ai.NewClient(srv.URL, "test-model")
 
 	longTopic := strings.Repeat("t", 1200) // 1200 bytes — over the 1000-byte cap
-	_, err := client.GenerateCardsFromTopic(context.Background(), longTopic, 5, "intermediate", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), longTopic, 5, "intermediate", nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -251,7 +251,7 @@ func TestGenerateCardsFromTopic_ShortTopicNotTruncated(t *testing.T) {
 	client := ai.NewClient(srv.URL, "test-model")
 
 	topic := "React hooks and state management"
-	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 5, "intermediate", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 5, "intermediate", nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -272,7 +272,7 @@ func TestGenerateCardsFromTopic_TopicUTF8TruncationIsSafe(t *testing.T) {
 	}
 	topic := string(prefix) + "€€€€" // each € is 3 bytes
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 3, "beginner", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), topic, 3, "beginner", nil)
 	require.NoError(t, err)
 
 	prompt, _ := captured["prompt"].(string)
@@ -307,7 +307,7 @@ func TestCallOllama_TopicSendsNumCtxOption(t *testing.T) {
 	srv := ollamaServerCapture(t, `[{"question":"Q","answer":"A"}]`, &captured)
 	client := ai.NewClient(srv.URL, "test-model")
 
-	_, err := client.GenerateCardsFromTopic(context.Background(), "Biology", 5, "intermediate", nil, nil)
+	_, err := client.GenerateCardsFromTopic(context.Background(), "Biology", 5, "intermediate", nil)
 	require.NoError(t, err)
 
 	opts, _ := captured["options"].(map[string]any)
