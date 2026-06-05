@@ -70,8 +70,7 @@ func (c *Client) GenerateCardsStream(ctx context.Context, text string, onCard fu
 // GenerateCardsFromTopic generates cards from a topic description (no source text).
 // level is one of "beginner", "intermediate", or "advanced".
 // learnerTypes is optional user context (e.g. ["university", "certifications"]).
-// existingCards is the current deck — the AI will avoid duplicating them.
-func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string, existingCards []CardDraft) ([]CardDraft, error) {
+func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count int, level string, learnerTypes []string) ([]CardDraft, error) {
 	const maxTopicBytes = 1000
 	if len(topic) > maxTopicBytes {
 		topic = topic[:maxTopicBytes]
@@ -79,14 +78,13 @@ func (c *Client) GenerateCardsFromTopic(ctx context.Context, topic string, count
 			topic = topic[:len(topic)-1]
 		}
 	}
-	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes, existingCards))
+	return c.callOllama(ctx, buildTopicPrompt(topic, count, level, learnerTypes))
 }
 
 // GenerateCardsFromTopicStream is the streaming variant of GenerateCardsFromTopic.
 // It calls Ollama with stream:true and invokes onCard each time a complete
 // question/answer pair is parsed out of the token stream.
-// existingCards is the current deck — the AI will avoid duplicating them.
-func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string, count int, level string, learnerTypes []string, existingCards []CardDraft, onCard func(CardDraft)) error {
+func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string, count int, level string, learnerTypes []string, onCard func(CardDraft)) error {
 	const maxTopicBytes = 1000
 	if len(topic) > maxTopicBytes {
 		topic = topic[:maxTopicBytes]
@@ -94,7 +92,7 @@ func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string,
 			topic = topic[:len(topic)-1]
 		}
 	}
-	return c.callOllamaStream(ctx, buildTopicPrompt(topic, count, level, learnerTypes, existingCards), onCard)
+	return c.callOllamaStream(ctx, buildTopicPrompt(topic, count, level, learnerTypes), onCard)
 }
 
 func (c *Client) callOllamaStream(ctx context.Context, prompt string, onCard func(CardDraft)) error {
@@ -252,33 +250,16 @@ func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, er
 	return cards, nil
 }
 
-func buildTopicPrompt(topic string, count int, level string, learnerTypes []string, existingCards []CardDraft) string {
+func buildTopicPrompt(topic string, count int, level string, learnerTypes []string) string {
 	var contextLine string
 	if len(learnerTypes) > 0 {
 		contextLine = "\nLearner context: " + strings.Join(learnerTypes, ", ") + " — calibrate examples and framing accordingly.\n"
 	}
 
-	var existingSection string
-	if len(existingCards) > 0 {
-		const maxExisting = 60
-		cards := existingCards
-		if len(cards) > maxExisting {
-			cards = cards[:maxExisting]
-		}
-		var sb strings.Builder
-		sb.WriteString("\nThe collection already contains these cards — do NOT duplicate or rephrase any of them:\n")
-		for i, c := range cards {
-			q := strings.ReplaceAll(c.Question, "\n", " ")
-			a := strings.ReplaceAll(c.Answer, "\n", " ")
-			fmt.Fprintf(&sb, "%d. Q: %s | A: %s\n", i+1, q, a)
-		}
-		existingSection = sb.String()
-	}
-
 	return fmt.Sprintf(`You are a flashcard generator. Generate exactly %d %s-level flashcard question-answer pairs for the topic below. Output ONLY the JSON array — no explanation, no markdown, no code fences, no intro text.
 
 Topic: %s
-%s%s
+%s
 Rules:
 - Exactly %d cards
 - Calibrate difficulty and assumed prior knowledge to the %s level
@@ -287,7 +268,7 @@ Rules:
 - Vary types: definitions, mechanisms, comparisons, examples, applications
 
 Required output format (the entire response must be this and nothing else):
-[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, contextLine, existingSection, count, level)
+[{"question": "...", "answer": "..."}, {"question": "...", "answer": "..."}, ...]`, count, level, topic, contextLine, count, level)
 }
 
 func buildPrompt(text string) string {
