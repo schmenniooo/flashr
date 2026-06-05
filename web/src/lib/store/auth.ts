@@ -90,8 +90,6 @@ function adoptBackendUser(
     const existing = db.users.find((u) => u.id === bu.id);
     let user: StoredUser;
     if (existing) {
-      const fallbackName = (bu.name ?? "").trim();
-      const [first, ...rest] = fallbackName ? fallbackName.split(/\s+/) : [];
       user = {
         ...existing,
         email: bu.email,
@@ -103,9 +101,6 @@ function adoptBackendUser(
         age: bu.age ?? existing.age,
         learnerTypes: (bu.learner_types as LearnerType[]) ?? existing.learnerTypes,
         avatarUrl: bu.avatar_url ?? null,
-        ...(fallbackName
-          ? { firstName: first || existing.firstName, lastName: rest.join(" ") }
-          : {}),
       };
     } else {
       user = shadowFromBackend(bu, hint);
@@ -307,8 +302,9 @@ export const auth = {
         u.id === session.userId ? { ...u, ...patch } : u,
       ),
     }));
-    // Persist backend-backed fields.
-    if (patch.dailyGoal !== undefined) {
+    // Persist backend-backed fields — only when they actually changed.
+    const currentUser = state.users.find((u) => u.id === session.userId);
+    if (patch.dailyGoal !== undefined && patch.dailyGoal !== currentUser?.dailyGoal) {
       api<{ user: BackendUser }>("/auth/me", {
         method: "PATCH",
         body: JSON.stringify({ daily_goal: patch.dailyGoal }),
