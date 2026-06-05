@@ -84,7 +84,7 @@ export function Dashboard() {
         <div className="dash__head-cta">
           <Link to="/app/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
-            Create cards from PDF
+            Create cards
           </Link>
         </div>
       </header>
