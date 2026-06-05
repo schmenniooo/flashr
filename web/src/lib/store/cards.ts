@@ -111,12 +111,26 @@ export const cardsApi = {
   },
 
   async review(collectionId: string, cardId: string, rating: "again" | "hard" | "good" | "easy"): Promise<void> {
+    // Optimistic update: apply a local mastery estimate immediately so the UI
+    // reflects the rating without waiting for the network round-trip.
+    const optimisticMastery: Card["mastery"] = rating === "again" ? "new" : "learning";
+    setState((db) => ({
+      ...db,
+      masteryMap: { ...db.masteryMap, [cardId]: optimisticMastery },
+      collections: db.collections.map((c) =>
+        c.id === collectionId
+          ? recalcProgress({ ...c, cards: c.cards.map((k) => k.id === cardId ? { ...k, mastery: optimisticMastery } : k) })
+          : c,
+      ),
+    }));
+
     try {
       const bc = await api<{
         id: string; question: string; answer: string; ai_generated: boolean; created_at: string;
         mastery: Card["mastery"]; interval: number; ease_factor: number; repetitions: number; due_date: string | null;
       }>(`/cards/${cardId}/review`, { method: "POST", body: JSON.stringify({ rating }) });
 
+      // Overwrite with server-computed SM-2 values.
       setState((db) => ({
         ...db,
         collections: db.collections.map((c) =>
