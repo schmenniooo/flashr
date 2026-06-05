@@ -7,7 +7,7 @@ import type { Card } from "../../types";
 export const cardsApi = {
   async add(collectionId: string, input: { question: string; answer: string; aiGenerated?: boolean }): Promise<Card> {
     try {
-      const bc = await api<{ id: string; question: string; answer: string; ai_generated: boolean; created_at: string }>(
+      const bc = await api<import("./collections").BackendCard>(
         `/collections/${collectionId}/cards`,
         { method: "POST", body: JSON.stringify({ question: input.question, answer: input.answer, ai_generated: input.aiGenerated ?? false }) },
       );
