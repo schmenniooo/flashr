@@ -113,8 +113,8 @@ Loading Google Fonts via Google CDN transmits the user's IP address to US server
 
 Railway is a US provider. A server location alone is not sufficient for DSGVO compliance — a Data Processing Agreement (AVV) is required.
 
-- [ ] Sign AVV with Railway (available in their dashboard)
-- [ ] Set EU region in Railway service settings
+- [x] Sign AVV with Railway (available in their dashboard)
+- [x] Set EU region in Railway service settings
 
 ### Cookie banner
 
