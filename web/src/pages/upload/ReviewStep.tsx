@@ -1,9 +1,10 @@
-import { Sparkles, Layers, CheckCircle2 } from "lucide-react";
+import { Sparkles, Layers, CheckCircle2, Loader2 } from "lucide-react";
 import { DraftCardItem } from "./DraftCardItem";
 import type { DraftCard } from "./types";
 
 export function ReviewStep({
   drafts,
+  isGenerating,
   onToggle,
   onEdit,
   editingId,
@@ -17,6 +18,7 @@ export function ReviewStep({
   newCollectionName,
 }: {
   drafts: DraftCard[];
+  isGenerating: boolean;
   onToggle: (id: string) => void;
   onEdit: (id: string, field: "question" | "answer", value: string) => void;
   editingId: string | null;
@@ -34,16 +36,15 @@ export function ReviewStep({
       <div className="up__review-bar">
         <div>
           <h2 className="text-h2">
-            <Sparkles
-              size={16}
-              strokeWidth={2}
-              color="var(--color-accent)"
-              className="up__review-icon"
-            />
-            {drafts.length} cards generated
+            {isGenerating
+              ? <Loader2 size={16} strokeWidth={2} color="var(--color-accent)" className="up__spin up__review-icon" />
+              : <Sparkles size={16} strokeWidth={2} color="var(--color-accent)" className="up__review-icon" />}
+            {isGenerating ? `Generating cards… ${drafts.length} so far` : `${drafts.length} cards generated`}
           </h2>
           <p className="text-body">
-            Keep, skip, or edit each one. Only selected cards get saved.
+            {isGenerating
+              ? "More cards are still coming in — feel free to start reviewing already."
+              : "Keep, skip, or edit each one. Only selected cards get saved."}
           </p>
         </div>
       </div>
