@@ -411,16 +411,19 @@ export function AiChat({
               <Layers size={14} strokeWidth={2} />
               <strong>{keepCount}</strong> of {drafts.length} cards will be saved
             </div>
-            <div className="up__save-actions">
-              <button className="btn-ghost" onClick={handleDiscard}>
-                Discard
-              </button>
+            <div className="up__save-target">
+              <label className="text-meta">Save to</label>
               <select className="up__select" value={target} onChange={(e) => setTarget(e.target.value)}>
                 {collections.map((c) => (
                   <option key={c.id} value={c.id}>{c.emoji} · {c.name}</option>
                 ))}
                 <option value="__new">+ Create new collection</option>
               </select>
+            </div>
+            <div className="up__save-actions">
+              <button className="btn-ghost" onClick={handleDiscard}>
+                Discard
+              </button>
               <button className="btn-primary" disabled={keepCount === 0} onClick={handleSave}>
                 <CheckCircle2 size={14} strokeWidth={2} />
                 Save to collection
