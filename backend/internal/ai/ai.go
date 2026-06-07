@@ -97,9 +97,10 @@ func (c *Client) GenerateCardsFromTopicStream(ctx context.Context, topic string,
 
 func (c *Client) callOllamaStream(ctx context.Context, prompt string, onCard func(CardDraft)) error {
 	reqBody, err := json.Marshal(map[string]any{
-		"model":  c.model,
-		"prompt": prompt,
-		"stream": true,
+		"model":      c.model,
+		"prompt":     prompt,
+		"stream":     true,
+		"keep_alive": 0,
 		"options": map[string]any{
 			"temperature": 0.3,
 			"num_ctx":     5120,
@@ -207,9 +208,10 @@ func extractNextCard(buf string) (card *CardDraft, remaining string, found bool)
 
 func (c *Client) callOllama(ctx context.Context, prompt string) ([]CardDraft, error) {
 	reqBody, err := json.Marshal(map[string]any{
-		"model":  c.model,
-		"prompt": prompt,
-		"stream": false,
+		"model":      c.model,
+		"prompt":     prompt,
+		"stream":     false,
+		"keep_alive": 0,
 		"options": map[string]any{
 			"temperature": 0.3,
 			"num_ctx":     5120,

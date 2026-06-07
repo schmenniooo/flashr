@@ -46,6 +46,7 @@ export function Upload() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [skipped, setSkipped] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   async function handleFile(file: File) {
@@ -65,6 +66,7 @@ export function Upload() {
     setDrafts([]);
     setTruncated(false);
     setSkipped(0);
+    setIsGenerating(true);
     setStep("processing");
 
     abortRef.current?.abort();
@@ -90,6 +92,7 @@ export function Upload() {
       if ((err as Error).name === "AbortError") return;
       setError("Upload failed — check your connection.");
       setStep("drop");
+      setIsGenerating(false);
       return;
     }
 
@@ -101,6 +104,7 @@ export function Upload() {
         setError(body.error ?? "Something went wrong.");
       }
       setStep("drop");
+      setIsGenerating(false);
       return;
     }
 
@@ -162,6 +166,8 @@ export function Upload() {
       flushEvent();
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
+    } finally {
+      setIsGenerating(false);
     }
 
     if (cardIndex === 0 && step !== "drop") {
@@ -288,6 +294,7 @@ export function Upload() {
             {step === "review" && (
               <ReviewStep
                 drafts={drafts}
+                isGenerating={isGenerating}
                 onToggle={(id) => setDrafts((d) => d.map((c) => (c.id === id ? { ...c, keep: !c.keep } : c)))}
                 onEdit={(id, field, value) => setDrafts((d) => d.map((c) => (c.id === id ? { ...c, [field]: value } : c)))}
                 editingId={editingId}

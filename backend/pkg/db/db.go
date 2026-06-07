@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,8 +19,28 @@ var migrationsFS embed.FS
 // when multiple backend instances boot at the same time.
 const migrationLockID int64 = 0xF1A5520
 
+// Pool bounds sized for a single-instance, early-stage deployment on Railway.
+// Without these, pgxpool falls back to defaults that scale with the host's CPU
+// count and never proactively release idle connections — wasteful on a small
+// instance where each connection costs memory on both ends.
+const (
+	poolMaxConns        = 10
+	poolMinConns        = 1
+	poolMaxConnIdleTime = 5 * time.Minute
+	poolMaxConnLifetime = 30 * time.Minute
+)
+
 func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, url)
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	cfg.MaxConns = poolMaxConns
+	cfg.MinConns = poolMinConns
+	cfg.MaxConnIdleTime = poolMaxConnIdleTime
+	cfg.MaxConnLifetime = poolMaxConnLifetime
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("connect: %w", err)
 	}

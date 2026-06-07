@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
@@ -82,6 +83,13 @@ func main() {
 	r.Use(requestIDMiddleware())
 	r.Use(requestLogger())
 	r.Use(corsMiddleware(cfg.AllowedOrigins))
+	// Compress JSON responses to cut egress bandwidth — excluding the SSE
+	// streaming routes, whose incremental flushes gzip would buffer into one
+	// delayed chunk and break the "generating cards…" live UX.
+	r.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{
+		"/api/ai/upload/stream",
+		"/api/ai/generate/stream",
+	})))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})

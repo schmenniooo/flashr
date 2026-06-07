@@ -30,7 +30,7 @@ test.describe("SRS — study session", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(mockReviewResponse("c1")) })
     );
 
-    await page.goto(`/app/study/${COLLECTION_ID}`);
+    await page.goto(`/app/c/${COLLECTION_ID}/study`);
     await expect(page.locator(".study__card")).toBeVisible();
     await expect(page.locator(".study__card-text").first()).not.toBeEmpty();
   });
@@ -40,7 +40,7 @@ test.describe("SRS — study session", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(mockReviewResponse("c1")) })
     );
 
-    await page.goto(`/app/study/${COLLECTION_ID}`);
+    await page.goto(`/app/c/${COLLECTION_ID}/study`);
 
     // Reveal the answer.
     await page.locator(".study__card").click();
@@ -63,7 +63,7 @@ test.describe("SRS — study session", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(mockReviewResponse("c1")) })
     );
 
-    await page.goto(`/app/study/${COLLECTION_ID}`);
+    await page.goto(`/app/c/${COLLECTION_ID}/study`);
 
     // Rate every card as Easy until session ends.
     for (let i = 0; i < 20; i++) {
@@ -88,7 +88,7 @@ test.describe("SRS — study session", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(mockReviewResponse("c1")) })
     );
 
-    await page.goto(`/app/study/${COLLECTION_ID}`);
+    await page.goto(`/app/c/${COLLECTION_ID}/study`);
     await page.locator(".study__card").click();
     await expect(page.locator(".study__card--revealed")).toBeVisible();
 
@@ -100,76 +100,49 @@ test.describe("SRS — study session", () => {
   });
 });
 
+// Demo sessions are fully local (seeded into localStorage by signInAsDemo,
+// never fetched from `/api/collections`), so push every card's `dueDate` in
+// the target collection into the future directly in the persisted store —
+// intercepting the collections API would be a no-op for the demo flow.
+async function pushDueDatesToFuture(page: import("@playwright/test").Page, collectionId: string) {
+  const future = new Date(Date.now() + 7 * 86_400_000).toISOString();
+  await page.evaluate(
+    ({ collectionId, future }) => {
+      const raw = localStorage.getItem("flashr:db:v1");
+      if (!raw) return;
+      const db = JSON.parse(raw) as { collections: Array<{ id: string; cards: Array<Record<string, unknown>> }> };
+      for (const c of db.collections) {
+        if (c.id === collectionId) {
+          c.cards = c.cards.map((k) => ({ ...k, dueDate: future }));
+        }
+      }
+      localStorage.setItem("flashr:db:v1", JSON.stringify(db));
+    },
+    { collectionId, future }
+  );
+}
+
 test.describe("SRS — all caught up screen", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsDemo(page);
   });
 
   test("shows all-caught-up screen when all cards have future due dates", async ({ page }) => {
-    const future = new Date(Date.now() + 7 * 86_400_000).toISOString();
+    await pushDueDatesToFuture(page, COLLECTION_ID);
 
-    // Intercept the collections API and return all cards with future due dates.
-    await page.route("**/api/collections", async (route) => {
-      const response = await route.fetch();
-      const body = await response.json() as { collections: unknown[] };
-      const patched = {
-        ...body,
-        collections: (body.collections as Array<{ id: string; cards: Array<Record<string, unknown>> }>).map((c) =>
-          c.id === COLLECTION_ID
-            ? {
-                ...c,
-                cards: c.cards.map((k) => ({
-                  ...k,
-                  mastery: "learning",
-                  interval: 6,
-                  ease_factor: 2.5,
-                  repetitions: 2,
-                  due_date: future,
-                })),
-              }
-            : c
-        ),
-      };
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(patched) });
-    });
-
-    await page.goto(`/app/study/${COLLECTION_ID}`);
+    await page.goto(`/app/c/${COLLECTION_ID}/study`);
     await expect(page.getByText("All caught up")).toBeVisible();
     await expect(page.getByRole("button", { name: "Study all cards" })).toBeVisible();
   });
 
   test("Study all cards button starts a session with all cards", async ({ page }) => {
-    const future = new Date(Date.now() + 7 * 86_400_000).toISOString();
-
-    await page.route("**/api/collections", async (route) => {
-      const response = await route.fetch();
-      const body = await response.json() as { collections: unknown[] };
-      const patched = {
-        ...body,
-        collections: (body.collections as Array<{ id: string; cards: Array<Record<string, unknown>> }>).map((c) =>
-          c.id === COLLECTION_ID
-            ? {
-                ...c,
-                cards: c.cards.map((k) => ({
-                  ...k,
-                  mastery: "learning",
-                  interval: 6,
-                  ease_factor: 2.5,
-                  repetitions: 2,
-                  due_date: future,
-                })),
-              }
-            : c
-        ),
-      };
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(patched) });
-    });
+    await pushDueDatesToFuture(page, COLLECTION_ID);
 
     await page.route("**/api/cards/*/review", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(mockReviewResponse("c1")) })
     );
 
-    await page.goto(`/app/study/${COLLECTION_ID}`);
+    await page.goto(`/app/c/${COLLECTION_ID}/study`);
     await expect(page.getByText("All caught up")).toBeVisible();
 
     await page.getByRole("button", { name: "Study all cards" }).click();
