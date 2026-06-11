@@ -241,18 +241,22 @@
   gap: 7px;
   width: 100%;
   padding: 9px var(--space-3);
-  background: var(--color-accent);
-  color: #0d0f14;
-  border: none;
+  background: rgba(108, 99, 255, 0.08);
+  color: var(--color-accent-light);
+  border: 1px solid rgba(108, 99, 255, 0.25);
   border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
   letter-spacing: -0.2px;
 }
+.shell__upgrade-nudge svg {
+  color: var(--color-accent);
+}
 .shell__upgrade-nudge:hover {
-  opacity: 0.88;
+  background: rgba(108, 99, 255, 0.14);
+  border-color: rgba(108, 99, 255, 0.4);
 }
 
 .shell__userbar {
