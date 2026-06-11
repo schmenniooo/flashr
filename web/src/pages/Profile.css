@@ -376,6 +376,21 @@
   margin-top: var(--space-2);
 }
 
+.prof__support-hint {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin-top: var(--space-2);
+  margin-bottom: 0;
+}
+
+.prof__support-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.prof__support-link:hover {
+  text-decoration: underline;
+}
+
 /* ── Preferences ── */
 
 .prof__slider-row {

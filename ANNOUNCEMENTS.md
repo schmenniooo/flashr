@@ -8,6 +8,21 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.8.0
+  date: 2026-06-11
+  title: 7-day free trial, Get Pro button & support contact
+  description: >
+    A few changes to make upgrading easier and less risky.
+    Free users now see a "Get Pro" button in the sidebar that goes straight
+    to a 7-day free Pro trial checkout — no extra clicks.
+    The landing page Pro plan now clearly shows the trial offer with a
+    "Then €7.99/month — cancel anytime" note, and a hint that promo codes
+    can be applied at checkout.
+    We also added trust signals on the landing page (cancel anytime, files
+    never stored, no hidden fees) and a new contact FAQ entry.
+    The support email (support@flashr.io) is now visible in the landing
+    footer, the FAQ, and on the Profile page.
+
 - version: 1.7.0
   date: 2026-06-05
   title: Spaced repetition & real streaks

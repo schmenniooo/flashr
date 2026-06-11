@@ -186,6 +186,22 @@ backend/
 
 ---
 
+## Worktrees
+
+When working in a git worktree (path contains `.claude/worktrees/`), copy both env files from the real repo before starting anything — the worktree won't have them:
+
+```bash
+# Frontend — Vite's loadEnv reads from process.cwd() (web/)
+cp /Users/ennio/_projects/flashr/web/.env /Users/ennio/_projects/flashr/.claude/worktrees/<worktree-name>/web/.env
+
+# Backend — Go server reads from backend/
+cp /Users/ennio/_projects/flashr/backend/.env /Users/ennio/_projects/flashr/.claude/worktrees/<worktree-name>/backend/.env
+```
+
+Do this once at the start of the session.
+
+---
+
 ## Working Rules
 
 - Treat ROADMAP.md as authoritative for scope and architecture. If requirements change, update the roadmap rather than diverging silently.
