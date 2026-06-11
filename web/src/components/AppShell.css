@@ -234,6 +234,27 @@
   letter-spacing: 0.05em;
 }
 
+.shell__upgrade-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  padding: 9px var(--space-3);
+  background: var(--color-accent);
+  color: #0d0f14;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+  letter-spacing: -0.2px;
+}
+.shell__upgrade-nudge:hover {
+  opacity: 0.88;
+}
+
 .shell__userbar {
   display: flex;
   align-items: center;

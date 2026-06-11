@@ -32,6 +32,7 @@ import {
   selectFolders,
   selectCurrentUser,
   selectCardsDueToday,
+  billingApi,
 } from "../lib/store";
 import { NewFolderModal } from "./NewFolderModal";
 import "./AppShell.css";
@@ -292,6 +293,16 @@ export function AppShell() {
         </nav>
 
         <div className="shell__sidebar-foot">
+          {user?.plan === "free" && (
+            <button
+              type="button"
+              className="shell__upgrade-nudge"
+              onClick={() => user && billingApi.checkout(user.email, true)}
+            >
+              <Sparkles size={13} strokeWidth={2} />
+              Get Pro
+            </button>
+          )}
           <div className="shell__streak">
             <Flame size={16} strokeWidth={2} className="shell__streak-icon" />
             <div>

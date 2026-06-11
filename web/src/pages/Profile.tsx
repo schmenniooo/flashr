@@ -401,6 +401,9 @@ export function Profile() {
               {billingError && (
                 <span className="prof__billing-error">{billingError}</span>
               )}
+              <p className="prof__support-hint">
+                Questions? <a href="mailto:support@flashr.io" className="prof__support-link">support@flashr.io</a>
+              </p>
             </div>
           </div>
 
