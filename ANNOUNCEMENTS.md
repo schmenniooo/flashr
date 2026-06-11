@@ -8,7 +8,7 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
-- version: 1.8.0
+- version: 1.7.1
   date: 2026-06-11
   title: 7-day free trial, Get Pro button & support contact
   description: >
