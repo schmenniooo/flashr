@@ -32,12 +32,36 @@ const MOCK_PUSH_MANAGER_SCRIPT = `
   })();
 `;
 
+// Same as above but pre-loads an existing subscription so init() finds subscribed=true.
+const MOCK_PUSH_MANAGER_SUBSCRIBED_SCRIPT = `
+  (function () {
+    const mockSub = {
+      endpoint: "https://fcm.googleapis.com/fcm/send/mock-test-endpoint",
+      toJSON() {
+        return {
+          endpoint: this.endpoint,
+          keys: { p256dh: "BHmock-p256dh-key", auth: "mock-auth-key" },
+        };
+      },
+      unsubscribe: () => Promise.resolve(true),
+    };
+    const mockPM = {
+      subscribe: () => Promise.resolve(mockSub),
+      getSubscription: () => Promise.resolve(mockSub),
+      permissionState: () => Promise.resolve("granted"),
+    };
+    Object.defineProperty(ServiceWorkerRegistration.prototype, "pushManager", {
+      get: () => mockPM,
+      configurable: true,
+    });
+  })();
+`;
+
 /** Route all notification-related API calls so no backend is required. */
 async function mockNotifBackend(
   page: Parameters<typeof signInAsDemo>[0],
   opts: { subscribed?: boolean } = {},
 ) {
-  // VAPID key endpoint
   await page.route("**/api/notifications/vapid-public-key", (route) =>
     route.fulfill({
       status: 200,
@@ -45,11 +69,10 @@ async function mockNotifBackend(
       body: JSON.stringify({ key: MOCK_VAPID_KEY }),
     }),
   );
-  // Subscribe / unsubscribe
   await page.route("**/api/notifications/subscribe", (route) =>
     route.fulfill({ status: 204, body: "" }),
   );
-  // PATCH /auth/me (notification_time update)
+  // Only intercept PATCH /auth/me — let GET through (bootstrap uses demo localStorage).
   await page.route("**/api/auth/me", (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     return route.fulfill({
@@ -73,32 +96,47 @@ async function mockNotifBackend(
   });
 }
 
+// The push-notification toggle row is the one that contains the time input.
+// There are multiple .prof__toggle-row elements on the page (weekly digest, etc.),
+// so we scope every selector through this container to avoid strict-mode violations.
+function pushRow(page: Parameters<typeof signInAsDemo>[0]) {
+  return page
+    .locator(".prof__toggle-row")
+    .filter({ has: page.locator(".prof__time-input") });
+}
+
 // ── Section visibility ────────────────────────────────────────────────────────
 
 test.describe("push notifications — profile UI", () => {
-  test("daily reminder section is visible on the profile page", async ({ page }) => {
+  test("daily reminder section is visible on the profile page", async ({
+    page,
+  }) => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    await expect(page.locator(".prof__toggle-label")).toHaveText(
+    const row = pushRow(page);
+    await expect(row.locator(".prof__toggle-label")).toHaveText(
       "Daily study reminder",
     );
-    await expect(page.locator(".prof__time-input")).toBeVisible();
-    await expect(page.locator(".prof__switch")).toBeVisible();
+    await expect(row.locator(".prof__time-input")).toBeVisible();
+    await expect(row.locator(".prof__switch")).toBeVisible();
   });
 
   test("switch is unchecked and not disabled by default", async ({ page }) => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    const switchInput = page.locator(".prof__switch input[type='checkbox']");
-    await expect(switchInput).not.toBeChecked();
-    // Switch should not carry the disabled modifier class initially (permission is "default")
-    await expect(page.locator(".prof__switch--disabled")).not.toBeAttached();
+    const row = pushRow(page);
+    await expect(
+      row.locator(".prof__switch input[type='checkbox']"),
+    ).not.toBeChecked();
+    // The push switch should not be disabled when permission is "default"
+    await expect(row.locator(".prof__switch--disabled")).not.toBeAttached();
   });
 
-  test("shows blocked hint and disables switch when permission is denied", async ({ page }) => {
-    // Override Notification.permission before the page loads so init() reads "denied"
+  test("shows blocked hint and disables switch when permission is denied", async ({
+    page,
+  }) => {
     await page.addInitScript(() => {
       Object.defineProperty(Notification, "permission", {
         get: () => "denied" as NotificationPermission,
@@ -109,10 +147,11 @@ test.describe("push notifications — profile UI", () => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    await expect(page.locator(".prof__toggle-hint")).toContainText(
+    const row = pushRow(page);
+    await expect(row.locator(".prof__toggle-hint")).toContainText(
       "Notifications are blocked",
     );
-    await expect(page.locator(".prof__switch--disabled")).toBeAttached();
+    await expect(row.locator(".prof__switch--disabled")).toBeAttached();
   });
 
   test("shows unsupported hint when push API is absent", async ({ page }) => {
@@ -123,10 +162,11 @@ test.describe("push notifications — profile UI", () => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    await expect(page.locator(".prof__toggle-hint")).toContainText(
+    const row = pushRow(page);
+    await expect(row.locator(".prof__toggle-hint")).toContainText(
       "Push notifications aren't supported in this browser.",
     );
-    await expect(page.locator(".prof__switch--disabled")).toBeAttached();
+    await expect(row.locator(".prof__switch--disabled")).toBeAttached();
   });
 });
 
@@ -137,7 +177,6 @@ test.describe("push notifications — enable / disable", () => {
     page,
     context,
   }) => {
-    // Grant permission before page load so Notification.permission = "granted"
     await context.grantPermissions(["notifications"]);
     await page.addInitScript(MOCK_PUSH_MANAGER_SCRIPT);
     await mockNotifBackend(page);
@@ -145,7 +184,8 @@ test.describe("push notifications — enable / disable", () => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    const switchInput = page.locator(".prof__switch input[type='checkbox']");
+    const row = pushRow(page);
+    const switchInput = row.locator(".prof__switch input[type='checkbox']");
     await expect(switchInput).not.toBeChecked();
 
     const subscribeRequest = page.waitForRequest(
@@ -154,11 +194,11 @@ test.describe("push notifications — enable / disable", () => {
         r.method() === "POST",
     );
 
-    await page.locator(".prof__switch").click();
+    await row.locator(".prof__switch").click();
     await subscribeRequest;
 
     await expect(switchInput).toBeChecked();
-    await expect(page.locator(".prof__toggle-error")).not.toBeAttached();
+    await expect(row.locator(".prof__toggle-error")).not.toBeAttached();
   });
 
   test("disabling notifications sends DELETE to subscribe endpoint", async ({
@@ -166,34 +206,15 @@ test.describe("push notifications — enable / disable", () => {
     context,
   }) => {
     await context.grantPermissions(["notifications"]);
-
-    // Start with a mock subscription already active
-    await page.addInitScript(`
-      ${MOCK_PUSH_MANAGER_SCRIPT}
-      // Pre-subscribe so the initial state is subscribed=true
-      (async () => {
-        // We can't directly set the store, but we can pre-call subscribe on the mock.
-        // The store's init() will call getSubscription() and find the mock sub.
-        ServiceWorkerRegistration.prototype.pushManager.getSubscription =
-          () => Promise.resolve({
-            endpoint: "https://fcm.googleapis.com/fcm/send/mock-test-endpoint",
-            toJSON() {
-              return {
-                endpoint: this.endpoint,
-                keys: { p256dh: "BHmock-p256dh-key", auth: "mock-auth-key" },
-              };
-            },
-            unsubscribe: () => Promise.resolve(true),
-          });
-      })();
-    `);
+    await page.addInitScript(MOCK_PUSH_MANAGER_SUBSCRIBED_SCRIPT);
     await mockNotifBackend(page, { subscribed: true });
 
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    const switchInput = page.locator(".prof__switch input[type='checkbox']");
-    // Should be checked because init() found an existing subscription
+    const row = pushRow(page);
+    const switchInput = row.locator(".prof__switch input[type='checkbox']");
+    // init() finds an existing subscription → subscribed = true
     await expect(switchInput).toBeChecked();
 
     const deleteRequest = page.waitForRequest(
@@ -202,7 +223,7 @@ test.describe("push notifications — enable / disable", () => {
         r.method() === "DELETE",
     );
 
-    await page.locator(".prof__switch").click();
+    await row.locator(".prof__switch").click();
     await deleteRequest;
 
     await expect(switchInput).not.toBeChecked();
@@ -214,7 +235,9 @@ test.describe("push notifications — enable / disable", () => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
-    // Default value is 08:00 from the demo user (mock.ts)
-    await expect(page.locator(".prof__time-input")).toHaveValue("08:00");
+    // Demo user has notificationTime: "08:00" (set in mock.ts)
+    await expect(pushRow(page).locator(".prof__time-input")).toHaveValue(
+      "08:00",
+    );
   });
 });
