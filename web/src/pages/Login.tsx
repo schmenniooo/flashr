@@ -34,7 +34,11 @@ export function Login() {
     return code ? (OAUTH_ERRORS[code] ?? "Something went wrong — please try again.") : null;
   });
   const [submitting, setSubmitting] = useState(false);
-  const [wantsTrial, setWantsTrial] = useState(false);
+  const [wantsTrial, setWantsTrial] = useState(() => {
+    try {
+      return sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
+    } catch { return false; }
+  });
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -50,11 +54,16 @@ export function Login() {
   async function redirectAfterAuth(defaultPath: string) {
     if (hasProIntent()) {
       clearIntent();
+      let withTrial = false;
+      try {
+        withTrial = sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
+        sessionStorage.removeItem(STORAGE_KEYS.TRIAL_INTENT);
+      } catch { /* ignore */ }
       const user = selectNow(selectCurrentUser);
       if (user?.plan === "pro") {
         navigate("/app");
       } else {
-        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "");
+        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "", withTrial);
       }
     } else {
       navigate(defaultPath);

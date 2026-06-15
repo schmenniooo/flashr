@@ -1,12 +1,21 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare, PackageOpen, FileText, FileCode } from "lucide-react";
+import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare, PackageOpen, FileText, FileCode, ShieldCheck, Trash2, Lock } from "lucide-react";
 import { Wordmark } from "../lib/logo";
+import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Landing.css";
 
 export function Landing() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+
+  function goToTrialSignup() {
+    try {
+      sessionStorage.setItem(STORAGE_KEYS.CHECKOUT_INTENT, "pro");
+      sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+    } catch { /* sessionStorage unavailable */ }
+    navigate("/signup");
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
@@ -60,7 +69,7 @@ export function Landing() {
               </span>
             </h1>
             <p className="landing-subheadline">
-              Drop a PDF or connect your notes. flashr generates flashcards with AI — so you can focus on learning, not formatting.
+              Upload PDFs, import Anki decks, or just describe a topic in chat — flashr generates flashcards with AI so you can focus on learning, not formatting.
             </p>
             <div className="landing-hero-ctas">
               <Link to="/signup" className="landing-btn-primary landing-btn-large">
@@ -235,7 +244,7 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI card generation</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI chat — generate by topic</li>
-                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> PDF upload</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> Import PDF, Anki, Markdown & more</li>
               </ul>
             </div>
 
@@ -251,23 +260,38 @@ export function Landing() {
               </div>
               <button
                 className="landing-btn-primary landing-plan-cta"
-                onClick={() => {
-                  sessionStorage.setItem("checkout_intent", "pro");
-                  navigate("/signup");
-                }}
+                onClick={goToTrialSignup}
               >
-                Get Pro →
+                Start 7-day free trial →
               </button>
+              <p className="landing-plan-trial-note">Then €7.99/month — cancel anytime</p>
+              <p className="landing-plan-promo-hint">Have a promo code? Apply it at checkout.</p>
               <ul className="landing-plan-features">
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited collections</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited cards</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI card generation</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI chat — generate by topic</li>
-                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> PDF upload</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Import PDF, Anki, Markdown & more</li>
               </ul>
             </div>
 
+          </div>
+          <div className="landing-trust-strip">
+            <span className="landing-trust-item">
+              <Lock size={13} strokeWidth={2} />
+              Cancel anytime
+            </span>
+            <span className="landing-trust-sep" aria-hidden="true">·</span>
+            <span className="landing-trust-item">
+              <Trash2 size={13} strokeWidth={2} />
+              Files never stored
+            </span>
+            <span className="landing-trust-sep" aria-hidden="true">·</span>
+            <span className="landing-trust-item">
+              <ShieldCheck size={13} strokeWidth={2} />
+              No hidden fees
+            </span>
           </div>
         </div>
       </section>
@@ -313,6 +337,11 @@ export function Landing() {
               <p className="landing-faq-a">Never. flashr earns money through subscriptions only. Your notes and cards are never shared with third parties, advertisers, or used to train AI models.</p>
             </details>
 
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">I have a question — how do I contact you?</summary>
+              <p className="landing-faq-a">Email us at <a href="mailto:support@flashr.io" className="landing-faq-link">support@flashr.io</a> — we reply within 24 hours.</p>
+            </details>
+
           </div>
         </div>
       </section>
@@ -321,10 +350,10 @@ export function Landing() {
         <div className="landing-cta-glow" aria-hidden="true" />
         <div className="landing-section-inner landing-section-inner--narrow" data-animate>
           <h2 className="landing-cta-title">Stop copying notes.<br />Start retaining them.</h2>
-          <Link to="/signup" className="landing-btn-primary landing-btn-large">
-            Get started free
-          </Link>
-          <p className="landing-cta-caption">Free plan available — no card required</p>
+          <button className="landing-btn-primary landing-btn-large" onClick={goToTrialSignup}>
+            Start free trial <ArrowRight size={16} strokeWidth={2} />
+          </button>
+          <p className="landing-cta-caption">7-day free Pro trial — cancel anytime</p>
         </div>
       </section>
 
@@ -336,6 +365,7 @@ export function Landing() {
             <a href="#import" className="landing-footer-link">Import</a>
             <a href="#pricing" className="landing-footer-link">Pricing</a>
             <a href="#faq" className="landing-footer-link">FAQ</a>
+            <a href="mailto:support@flashr.io" className="landing-footer-link">Contact</a>
             <Link to="/login" className="landing-footer-link">Log in</Link>
           </nav>
           <div className="landing-footer-social">
