@@ -45,6 +45,11 @@ type Config struct {
 
 	// AllowedOrigins is the parsed list from ALLOWED_ORIGINS (comma-separated).
 	AllowedOrigins []string
+
+	// VAPID credentials for Web Push notifications.
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDEmail      string
 }
 
 // Load reads all environment variables and returns a populated Config.
@@ -90,6 +95,10 @@ func Load() Config {
 		SecureCookies: strings.HasPrefix(os.Getenv("BACKEND_URL"), "https://"),
 
 		AllowedOrigins: parseOrigins(os.Getenv("ALLOWED_ORIGINS")),
+
+		VAPIDPublicKey:  os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey: os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDEmail:      envOr("VAPID_EMAIL", "mailto:hello@flashr.io"),
 	}
 }
 

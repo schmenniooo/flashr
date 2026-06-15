@@ -7,8 +7,9 @@ import './index.css'
 import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { auth } from './lib/store'
+import { notificationsApi } from './lib/store/notifications'
 
-void auth.bootstrap()
+void auth.bootstrap().then(() => notificationsApi.init())
 
 if (typeof window !== "undefined") {
   (window as unknown as { flashrSignInAsDemo(): void }).flashrSignInAsDemo =

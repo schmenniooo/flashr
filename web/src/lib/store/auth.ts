@@ -35,6 +35,8 @@ type BackendUser = {
   age?: number | null;
   learner_types?: string[];
   avatar_url?: string | null;
+  notification_time?: string | null;
+  notification_tz?: string | null;
 };
 
 type AuthResponse = {
@@ -75,6 +77,7 @@ function shadowFromBackend(
     dailyGoal: bu.daily_goal ?? 20,
     emailReminders: true,
     weeklyDigest: false,
+    notificationTime: bu.notification_time?.slice(0, 5) ?? "08:00",
     age: bu.age ?? null,
     learnerTypes: (bu.learner_types ?? []) as LearnerType[],
     onboardingCompleted: bu.onboarding_completed,
@@ -101,6 +104,7 @@ function adoptBackendUser(
         age: bu.age ?? existing.age,
         learnerTypes: (bu.learner_types as LearnerType[]) ?? existing.learnerTypes,
         avatarUrl: bu.avatar_url ?? null,
+        notificationTime: bu.notification_time?.slice(0, 5) ?? existing.notificationTime,
       };
     } else {
       user = shadowFromBackend(bu, hint);

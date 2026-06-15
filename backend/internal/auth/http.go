@@ -342,7 +342,9 @@ func (s *Service) handleMe(c *gin.Context) {
 
 func (s *Service) handlePatchMe(c *gin.Context) {
 	var body struct {
-		DailyGoal *int `json:"daily_goal"`
+		DailyGoal        *int    `json:"daily_goal"`
+		NotificationTime *string `json:"notification_time"` // "HH:MM" or null to disable
+		NotificationTZ   *string `json:"notification_tz"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
@@ -353,6 +355,24 @@ func (s *Service) handlePatchMe(c *gin.Context) {
 	if body.DailyGoal != nil {
 		if err := s.UpdateDailyGoal(ctx, userID, *body.DailyGoal); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update settings"})
+			return
+		}
+	}
+	// Send notification_time as "" to opt out, "HH:MM" to opt in, omit to leave unchanged.
+	// JSON null and absent fields both decode to nil (*string), so we use empty string as
+	// the explicit opt-out sentinel to distinguish "not sent" from "clear".
+	if body.NotificationTime != nil {
+		var t, tz *string
+		if *body.NotificationTime != "" {
+			if !validNotificationTime(*body.NotificationTime) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "notification_time must be HH:MM (00:00–23:59)"})
+				return
+			}
+			t = body.NotificationTime
+			tz = body.NotificationTZ
+		}
+		if err := s.UpdateNotificationPrefs(ctx, userID, t, tz); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not update notification settings"})
 			return
 		}
 	}

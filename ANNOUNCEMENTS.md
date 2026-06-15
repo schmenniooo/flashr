@@ -8,6 +8,16 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.8.0
+  date: 2026-06-11
+  title: Daily push reminders
+  description: >
+    You can now enable browser push notifications for a daily study reminder.
+    Head to your Profile → Learning preferences, toggle "Daily study reminder",
+    and pick the time that works best for you. Reminders are delivered as native
+    OS notifications even when the app isn't open, and respect your profile
+    timezone. No more missing a study day.
+
 - version: 1.7.0
   date: 2026-06-05
   title: Spaced repetition & real streaks

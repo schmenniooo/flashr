@@ -20,6 +20,7 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/auth"
 	"github.com/smithlabs/flashr/backend/internal/billing"
 	"github.com/smithlabs/flashr/backend/internal/collections"
+	"github.com/smithlabs/flashr/backend/internal/notifications"
 	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/config"
 	"github.com/smithlabs/flashr/backend/pkg/db"
@@ -158,6 +159,25 @@ func main() {
 		authSvc.RequireUser(),
 	)
 
+	notifSvc, err := notifications.NewService(pool, notifications.Config{
+		VAPIDPublicKey:  cfg.VAPIDPublicKey,
+		VAPIDPrivateKey: cfg.VAPIDPrivateKey,
+		VAPIDEmail:      cfg.VAPIDEmail,
+	})
+	if err != nil {
+		slog.Error("notifications service init failed", "error", err)
+		os.Exit(1)
+	}
+	notifSvc.RegisterRoutes(
+		api.Group("", timeoutMiddleware(15*time.Second)),
+		authSvc.RequireUser(),
+	)
+
+	// serverCtx lives for the full process lifetime — used by background goroutines
+	// that must outlive individual HTTP requests (e.g. the push scheduler).
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	notifSvc.StartScheduler(serverCtx)
+
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
@@ -175,6 +195,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	slog.Info("shutting down gracefully")
+
+	serverCancel() // stop background goroutines (scheduler, etc.)
 
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutCancel()
