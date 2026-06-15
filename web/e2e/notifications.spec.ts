@@ -1,61 +1,65 @@
 import { test, expect } from "@playwright/test";
 import { signInAsDemo } from "./fixtures";
 
-// A fake VAPID public key in base64url format (P-256 uncompressed, 65 bytes = 87 base64url chars).
+// A fake VAPID public key in base64url format (P-256 uncompressed).
 const MOCK_VAPID_KEY =
   "BAN-jUhg_sa8WdXyouUx4TZHs83qeOrIoWXVEM3nlrrawKwGqwA0bkLjfQrXvdSQbNQcep-4SJn9rCIjPAHD3-4";
 
-// Injects a mock PushManager so tests never hit a real push service.
-// Must be added via page.addInitScript before navigation.
-const MOCK_PUSH_MANAGER_SCRIPT = `
-  (function () {
-    let _sub = null;
-    const mockSub = {
-      endpoint: "https://fcm.googleapis.com/fcm/send/mock-test-endpoint",
-      toJSON() {
-        return {
-          endpoint: this.endpoint,
-          keys: { p256dh: "BHmock-p256dh-key", auth: "mock-auth-key" },
-        };
-      },
-      unsubscribe: () => Promise.resolve(true),
-    };
-    const mockPM = {
-      subscribe: () => { _sub = mockSub; return Promise.resolve(mockSub); },
-      getSubscription: () => Promise.resolve(_sub),
-      permissionState: () => Promise.resolve("granted"),
-    };
-    Object.defineProperty(ServiceWorkerRegistration.prototype, "pushManager", {
-      get: () => mockPM,
-      configurable: true,
-    });
-  })();
-`;
+/**
+ * Replaces navigator.serviceWorker entirely so SW registration always
+ * "succeeds" in headless CI — real SW support is irrelevant for these tests.
+ * preSubscribed controls whether pushManager.getSubscription() finds an
+ * existing subscription (used by the disable-flow test).
+ */
+function mockSwScript(preSubscribed = false) {
+  return `
+(function () {
+  const mockSub = {
+    endpoint: "https://fcm.googleapis.com/fcm/send/mock-test-endpoint",
+    toJSON() {
+      return {
+        endpoint: this.endpoint,
+        keys: { p256dh: "BHmock-p256dh-key", auth: "mock-auth-key" },
+      };
+    },
+    unsubscribe: () => Promise.resolve(true),
+  };
 
-// Same as above but pre-loads an existing subscription so init() finds subscribed=true.
-const MOCK_PUSH_MANAGER_SUBSCRIBED_SCRIPT = `
-  (function () {
-    const mockSub = {
-      endpoint: "https://fcm.googleapis.com/fcm/send/mock-test-endpoint",
-      toJSON() {
-        return {
-          endpoint: this.endpoint,
-          keys: { p256dh: "BHmock-p256dh-key", auth: "mock-auth-key" },
-        };
-      },
-      unsubscribe: () => Promise.resolve(true),
-    };
-    const mockPM = {
-      subscribe: () => Promise.resolve(mockSub),
-      getSubscription: () => Promise.resolve(mockSub),
-      permissionState: () => Promise.resolve("granted"),
-    };
-    Object.defineProperty(ServiceWorkerRegistration.prototype, "pushManager", {
-      get: () => mockPM,
-      configurable: true,
-    });
-  })();
+  const mockPM = {
+    subscribe: () => Promise.resolve(mockSub),
+    getSubscription: () => Promise.resolve(${preSubscribed ? "mockSub" : "null"}),
+    permissionState: () => Promise.resolve("prompt"),
+  };
+
+  const mockReg = {
+    scope: "/",
+    pushManager: mockPM,
+    installing: null,
+    waiting: null,
+    active: { state: "activated" },
+    update: () => Promise.resolve(),
+    unregister: () => Promise.resolve(true),
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  };
+
+  Object.defineProperty(navigator, "serviceWorker", {
+    get: () => ({
+      register: () => Promise.resolve(mockReg),
+      ready: Promise.resolve(mockReg),
+      getRegistration: () => Promise.resolve(mockReg),
+      getRegistrations: () => Promise.resolve([mockReg]),
+      controller: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }),
+    configurable: true,
+  });
+})();
 `;
+}
 
 /** Route all notification-related API calls so no backend is required. */
 async function mockNotifBackend(
@@ -72,7 +76,7 @@ async function mockNotifBackend(
   await page.route("**/api/notifications/subscribe", (route) =>
     route.fulfill({ status: 204, body: "" }),
   );
-  // Only intercept PATCH /auth/me — let GET through (bootstrap uses demo localStorage).
+  // Only intercept PATCH — let GET through (bootstrap uses demo localStorage).
   await page.route("**/api/auth/me", (route) => {
     if (route.request().method() !== "PATCH") return route.continue();
     return route.fulfill({
@@ -96,9 +100,11 @@ async function mockNotifBackend(
   });
 }
 
-// The push-notification toggle row is the one that contains the time input.
-// There are multiple .prof__toggle-row elements on the page (weekly digest, etc.),
-// so we scope every selector through this container to avoid strict-mode violations.
+/**
+ * The push-notification toggle row is the one that contains the time input.
+ * The Profile page has multiple .prof__toggle-row elements (weekly digest etc.),
+ * so we scope every child selector through this container.
+ */
 function pushRow(page: Parameters<typeof signInAsDemo>[0]) {
   return page
     .locator(".prof__toggle-row")
@@ -111,6 +117,7 @@ test.describe("push notifications — profile UI", () => {
   test("daily reminder section is visible on the profile page", async ({
     page,
   }) => {
+    await page.addInitScript(mockSwScript());
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
@@ -123,6 +130,9 @@ test.describe("push notifications — profile UI", () => {
   });
 
   test("switch is unchecked and not disabled by default", async ({ page }) => {
+    // Mock SW so init() succeeds and reads Notification.permission ("default")
+    // rather than falling back to "unsupported" on a headless runner.
+    await page.addInitScript(mockSwScript());
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
@@ -130,13 +140,14 @@ test.describe("push notifications — profile UI", () => {
     await expect(
       row.locator(".prof__switch input[type='checkbox']"),
     ).not.toBeChecked();
-    // The push switch should not be disabled when permission is "default"
     await expect(row.locator(".prof__switch--disabled")).not.toBeAttached();
   });
 
   test("shows blocked hint and disables switch when permission is denied", async ({
     page,
   }) => {
+    // Mock SW first so init() doesn't short-circuit to "unsupported".
+    await page.addInitScript(mockSwScript());
     await page.addInitScript(() => {
       Object.defineProperty(Notification, "permission", {
         get: () => "denied" as NotificationPermission,
@@ -155,6 +166,8 @@ test.describe("push notifications — profile UI", () => {
   });
 
   test("shows unsupported hint when push API is absent", async ({ page }) => {
+    // Deleting PushManager causes init() to return early with "unsupported"
+    // before attempting SW registration.
     await page.addInitScript(() => {
       delete (window as Window & { PushManager?: unknown }).PushManager;
     });
@@ -178,7 +191,7 @@ test.describe("push notifications — enable / disable", () => {
     context,
   }) => {
     await context.grantPermissions(["notifications"]);
-    await page.addInitScript(MOCK_PUSH_MANAGER_SCRIPT);
+    await page.addInitScript(mockSwScript());
     await mockNotifBackend(page);
 
     await signInAsDemo(page);
@@ -206,7 +219,9 @@ test.describe("push notifications — enable / disable", () => {
     context,
   }) => {
     await context.grantPermissions(["notifications"]);
-    await page.addInitScript(MOCK_PUSH_MANAGER_SUBSCRIBED_SCRIPT);
+    // Pre-subscribed variant: getSubscription() returns the mock sub so
+    // init() sets subscribed=true and the switch starts checked.
+    await page.addInitScript(mockSwScript(true));
     await mockNotifBackend(page, { subscribed: true });
 
     await signInAsDemo(page);
@@ -214,7 +229,6 @@ test.describe("push notifications — enable / disable", () => {
 
     const row = pushRow(page);
     const switchInput = row.locator(".prof__switch input[type='checkbox']");
-    // init() finds an existing subscription → subscribed = true
     await expect(switchInput).toBeChecked();
 
     const deleteRequest = page.waitForRequest(
@@ -232,6 +246,7 @@ test.describe("push notifications — enable / disable", () => {
   test("time input is pre-filled with notification_time from user profile", async ({
     page,
   }) => {
+    await page.addInitScript(mockSwScript());
     await signInAsDemo(page);
     await page.goto("/app/profile");
 
