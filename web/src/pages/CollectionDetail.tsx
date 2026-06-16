@@ -52,11 +52,7 @@ export function CollectionDetail() {
   };
 
   function handleDelete() {
-    posthog.capture("collection_deleted", {
-      collection_id: collection!.id,
-      collection_name: collection!.name,
-      card_count: collection!.cards.length,
-    });
+    posthog.capture("collection_deleted", { collection_id: collection!.id, collection_name: collection!.name, card_count: collection!.cards.length });
     void collectionsApi.remove(collection!.id).catch(() => {});
     navigate("/app/collections");
   }

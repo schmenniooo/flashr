@@ -97,8 +97,9 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
+        const user = selectNow(selectCurrentUser);
         if (mode === "signup") {
-          posthog.identify(form.email, { email: form.email, name: form.name });
+          if (user) posthog.identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
           posthog.capture("user_signed_up", { method: "email" });
           if (wantsTrial) {
             await billingApi.checkout(form.email, true);
@@ -106,7 +107,7 @@ export function Login() {
             await redirectAfterAuth("/onboarding");
           }
         } else {
-          posthog.identify(form.email, { email: form.email });
+          if (user) posthog.identify(user.id, { email: user.email, plan: user.plan });
           posthog.capture("user_signed_in", { method: "email" });
           await redirectAfterAuth("/app");
         }

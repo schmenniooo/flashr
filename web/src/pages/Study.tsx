@@ -139,7 +139,6 @@ export function Study() {
 
   function rate(r: Rating) {
     if (!card || !collection) return;
-    setRatings((old) => ({ ...old, [card.id]: r }));
     posthog.capture("card_rated", {
       rating: r,
       collection_id: collection.id,
@@ -147,6 +146,7 @@ export function Study() {
       card_id: card.id,
       ai_generated: card.aiGenerated,
     });
+    setRatings((old) => ({ ...old, [card.id]: r }));
     cardsApi.review(collection.id, card.id, r);
     collectionsApi.touch(collection.id);
     setTimeout(() => next(), 180);

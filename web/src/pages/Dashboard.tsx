@@ -52,14 +52,9 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   async function handleAcceptSuggestion(id: string) {
-    const suggestion = suggestions.find((s) => s.id === id);
     const created = await suggestionsApi.accept(id);
     if (created) {
-      posthog.capture("suggestion_accepted", {
-        suggestion_id: id,
-        suggestion_title: suggestion?.title,
-        collection_id: created.id,
-      });
+      posthog.capture("suggestion_accepted", { suggestion_id: id, collection_id: created.id });
       navigate(`/app/c/${created.id}`);
     }
   }
