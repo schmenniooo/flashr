@@ -24,10 +24,12 @@ import { Modal } from "../components/Modal";
 import { MoveCardModal } from "../components/MoveCardModal";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import type { Card } from "../lib/store";
+import { usePostHog } from "@posthog/react";
 import "./CollectionDetail.css";
 
 export function CollectionDetail() {
   const { id } = useParams();
+  const posthog = usePostHog();
   const navigate = useNavigate();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);

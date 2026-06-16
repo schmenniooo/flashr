@@ -25,6 +25,7 @@ import { UpgradePrompt } from "../components/UpgradePrompt";
 import { AiChat } from "./upload/AiChat";
 import { ReviewStep } from "./upload/ReviewStep";
 import type { DraftCard } from "./upload/types";
+import { usePostHog } from "@posthog/react";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -32,6 +33,7 @@ type ActiveTab = "pdf" | "chat";
 
 export function Upload() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const isPro = currentUser?.plan === "pro";
@@ -183,7 +185,8 @@ export function Upload() {
     if (kept.length === 0) return;
     try {
       let collectionId = target;
-      if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
+      const isNew = collectionId === "__new" || !collections.find((c) => c.id === collectionId);
+      if (isNew) {
         const name = newCollectionName;
         const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
         collectionId = created.id;

@@ -16,6 +16,7 @@ import posthog from "posthog-js";
 import { Wordmark } from "../lib/logo";
 import { auth, useDb, selectCurrentUser } from "../lib/store";
 import type { LearnerType } from "../types";
+import { usePostHog } from "@posthog/react";
 import "./Onboarding.css";
 
 type Step = 0 | 1 | 2;
@@ -66,6 +67,7 @@ const LEARNER_OPTIONS: {
 
 export function Onboarding() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const user = useDb(selectCurrentUser);
   const [step, setStep] = useState<Step>(0);
   const [firstName, setFirstName] = useState(user?.firstName ?? "");

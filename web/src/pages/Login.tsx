@@ -28,6 +28,7 @@ export function Login() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
+  const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>(pathname === "/signup" ? "signup" : "signin");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(() => {
