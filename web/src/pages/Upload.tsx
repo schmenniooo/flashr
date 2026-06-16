@@ -12,7 +12,6 @@ import {
   AlertCircle,
   MessageSquare,
 } from "lucide-react";
-import posthog from "posthog-js";
 import {
   cardsApi,
   collectionsApi,

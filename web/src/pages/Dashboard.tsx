@@ -23,7 +23,7 @@ import {
   suggestionsApi,
   useDb,
 } from "../lib/store";
-import posthog from "posthog-js";
+import { usePostHog } from "@posthog/react";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -52,14 +52,9 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   async function handleAcceptSuggestion(id: string) {
-    posthog.capture("suggestion_accepted", { suggestion_id: id });
     const created = await suggestionsApi.accept(id);
     if (created) {
-      posthog.capture("suggestion_accepted", {
-        suggestion_id: id,
-        suggestion_title: suggestion?.title,
-        collection_id: created.id,
-      });
+      posthog.capture("suggestion_accepted", { suggestion_id: id, collection_id: created.id });
       navigate(`/app/c/${created.id}`);
     }
   }

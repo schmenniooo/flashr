@@ -10,7 +10,6 @@ import {
   Trash2,
   Layers,
 } from "lucide-react";
-import posthog from "posthog-js";
 import {
   cardsApi,
   collectionsApi,

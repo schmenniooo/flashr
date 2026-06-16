@@ -12,7 +12,6 @@ import {
   Compass,
   Sparkles,
 } from "lucide-react";
-import posthog from "posthog-js";
 import { Wordmark } from "../lib/logo";
 import { auth, useDb, selectCurrentUser } from "../lib/store";
 import type { LearnerType } from "../types";

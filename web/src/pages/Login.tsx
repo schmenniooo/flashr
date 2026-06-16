@@ -15,7 +15,7 @@ import { Wordmark } from "../lib/logo";
 import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import { STORAGE_KEYS } from "../lib/storageKeys";
-import posthog from "posthog-js";
+import { usePostHog } from "@posthog/react";
 import "./Login.css";
 
 type Mode = "signin" | "signup";

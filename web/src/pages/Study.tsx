@@ -11,7 +11,6 @@ import {
   RotateCcw,
   CalendarClock,
 } from "lucide-react";
-import posthog from "posthog-js";
 import { cardsApi, collectionsApi, selectCardsToday, selectCollection, selectCurrentUser, useDb } from "../lib/store";
 import type { Card, Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
@@ -140,8 +139,6 @@ export function Study() {
 
   function rate(r: Rating) {
     if (!card || !collection) return;
-    posthog.capture("card_rated", { rating: r, collection_id: collection.id, card_id: card.id, ai_generated: card.aiGenerated });
-    setRatings((old) => ({ ...old, [card.id]: r }));
     posthog.capture("card_rated", {
       rating: r,
       collection_id: collection.id,
@@ -149,23 +146,11 @@ export function Study() {
       card_id: card.id,
       ai_generated: card.aiGenerated,
     });
+    setRatings((old) => ({ ...old, [card.id]: r }));
     cardsApi.review(collection.id, card.id, r);
     collectionsApi.touch(collection.id);
     setTimeout(() => next(), 180);
   }
-
-  useEffect(() => {
-    if (!finished || !collection) return;
-    const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
-    posthog.capture("study_session_completed", {
-      collection_id: collection.id,
-      collection_name: collection.name,
-      total_cards: total,
-      cards_known: known,
-      cards_missed: total - known,
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished]);
 
   if (finished) {
     const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;

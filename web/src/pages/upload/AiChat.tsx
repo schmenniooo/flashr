@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import posthog from "posthog-js";
 import { cardsApi, collectionsApi, useDb, selectCurrentUser, selectCollections } from "../../lib/store";
 import { API_BASE, getToken } from "../../lib/api";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
@@ -155,16 +154,10 @@ export function AiChat({
 
   async function handleGenerate() {
     if (!prompt.trim() || isLoading) return;
-    posthog.capture("ai_generation_started", { method: "topic", prompt_length: prompt.trim().length, count, level });
+    posthog.capture("ai_generation_started", { method: "topic", card_count: count, level, prompt_length: prompt.trim().length });
     setChatState("generating");
     setDrafts([]);
     setError(null);
-    posthog.capture("ai_generation_started", {
-      method: "topic",
-      card_count: count,
-      level,
-      prompt_length: prompt.trim().length,
-    });
 
     const abort = new AbortController();
     abortRef.current = abort;
