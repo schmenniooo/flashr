@@ -14,6 +14,7 @@ import {
 import { cardsApi, collectionsApi, selectCardsToday, selectCollection, selectCurrentUser, useDb } from "../lib/store";
 import type { Card, Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
+import { usePostHog } from "@posthog/react";
 import "./Study.css";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -33,6 +34,7 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function Study() {
   const { id } = useParams();
+  const posthog = usePostHog();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);
   const cardsToday = useDb(selectCardsToday);
@@ -116,6 +118,14 @@ export function Study() {
       setIndex((i) => i + 1);
       setRevealed(false);
     } else {
+      const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
+      posthog.capture("study_session_completed", {
+        collection_id: collection?.id,
+        collection_name: collection?.name,
+        total_cards: total,
+        cards_known: known,
+        cards_missed: total - known,
+      });
       setFinished(true);
     }
   }
@@ -130,6 +140,13 @@ export function Study() {
   function rate(r: Rating) {
     if (!card || !collection) return;
     setRatings((old) => ({ ...old, [card.id]: r }));
+    posthog.capture("card_rated", {
+      rating: r,
+      collection_id: collection.id,
+      collection_name: collection.name,
+      card_id: card.id,
+      ai_generated: card.aiGenerated,
+    });
     cardsApi.review(collection.id, card.id, r);
     collectionsApi.touch(collection.id);
     setTimeout(() => next(), 180);

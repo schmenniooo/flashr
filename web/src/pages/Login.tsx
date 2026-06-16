@@ -15,6 +15,7 @@ import { Wordmark } from "../lib/logo";
 import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import { STORAGE_KEYS } from "../lib/storageKeys";
+import { usePostHog } from "@posthog/react";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -27,6 +28,7 @@ export function Login() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
+  const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>(pathname === "/signup" ? "signup" : "signin");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(() => {
@@ -95,10 +97,18 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
-        if (mode === "signup" && wantsTrial) {
-          await billingApi.checkout(form.email, true);
+        if (mode === "signup") {
+          posthog.identify(form.email, { email: form.email, name: form.name });
+          posthog.capture("user_signed_up", { method: "email" });
+          if (wantsTrial) {
+            await billingApi.checkout(form.email, true);
+          } else {
+            await redirectAfterAuth("/onboarding");
+          }
         } else {
-          await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+          posthog.identify(form.email, { email: form.email });
+          posthog.capture("user_signed_in", { method: "email" });
+          await redirectAfterAuth("/app");
         }
       } else {
         setError(res.error);

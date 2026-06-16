@@ -24,6 +24,7 @@ import { UpgradePrompt } from "../components/UpgradePrompt";
 import { AiChat } from "./upload/AiChat";
 import { ReviewStep } from "./upload/ReviewStep";
 import type { DraftCard } from "./upload/types";
+import { usePostHog } from "@posthog/react";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -31,6 +32,7 @@ type ActiveTab = "pdf" | "chat";
 
 export function Upload() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const isPro = currentUser?.plan === "pro";
@@ -68,6 +70,11 @@ export function Upload() {
     setSkipped(0);
     setIsGenerating(true);
     setStep("processing");
+    posthog.capture("ai_generation_started", {
+      method: "file",
+      file_type: file.name.split(".").pop()?.toLowerCase(),
+      file_size_kb: Math.round(file.size / 1024),
+    });
 
     abortRef.current?.abort();
     const abort = new AbortController();
@@ -181,12 +188,20 @@ export function Upload() {
     if (kept.length === 0) return;
     try {
       let collectionId = target;
-      if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
+      const isNew = collectionId === "__new" || !collections.find((c) => c.id === collectionId);
+      if (isNew) {
         const name = newCollectionName;
         const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+      posthog.capture("ai_cards_saved", {
+        method: "file",
+        cards_saved: kept.length,
+        cards_discarded: drafts.length - kept.length,
+        collection_id: collectionId,
+        new_collection: isNew,
+      });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       navigate(`/app/c/${collectionId}`);
     } catch {
