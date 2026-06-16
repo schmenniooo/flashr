@@ -16,7 +16,9 @@
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
+    "@posthog/react": "^1.10.2",
     "lucide-react": "^1.8.0",
+    "posthog-js": "^1.386.8",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2"

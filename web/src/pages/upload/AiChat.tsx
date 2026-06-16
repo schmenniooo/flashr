@@ -15,6 +15,7 @@ import { UpgradePrompt } from "../../components/UpgradePrompt";
 import { DraftCardItem } from "./DraftCardItem";
 import type { DraftCard, Level } from "./types";
 import type { LearnerType } from "../../types";
+import { usePostHog } from "@posthog/react";
 
 type ChatState = "idle" | "generating" | "results";
 
@@ -124,6 +125,7 @@ export function AiChat({
   collections: { id: string; emoji: string; name: string }[];
   navigate: (to: string) => void;
 }) {
+  const posthog = usePostHog();
   const currentUser = useDb(selectCurrentUser);
   const allCollections = useDb(selectCollections);
   const userId = currentUser?.id ?? "";
@@ -155,6 +157,12 @@ export function AiChat({
     setChatState("generating");
     setDrafts([]);
     setError(null);
+    posthog.capture("ai_generation_started", {
+      method: "topic",
+      card_count: count,
+      level,
+      prompt_length: prompt.trim().length,
+    });
 
     const abort = new AbortController();
     abortRef.current = abort;
@@ -260,7 +268,8 @@ export function AiChat({
     if (kept.length === 0) return;
     try {
       let collectionId = target;
-      if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
+      const isNew = collectionId === "__new" || !collections.find((c) => c.id === collectionId);
+      if (isNew) {
         const created = await collectionsApi.create({
           name: prompt.slice(0, 50) || "AI Generated Cards",
           folder: "Uncategorized",
@@ -270,6 +279,14 @@ export function AiChat({
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+      posthog.capture("ai_cards_saved", {
+        method: "topic",
+        cards_saved: kept.length,
+        cards_discarded: drafts.length - kept.length,
+        collection_id: collectionId,
+        new_collection: isNew,
+        level,
+      });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       clearChatDraft();
       navigate(`/app/c/${collectionId}`);

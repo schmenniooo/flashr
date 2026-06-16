@@ -17,6 +17,7 @@ import {
   Bell,
 } from "lucide-react";
 import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot } from "../lib/store";
+import { usePostHog } from "@posthog/react";
 import "./Profile.css";
 
 function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
@@ -39,6 +40,7 @@ function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
 
 export function Profile() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const currentUser = useDb(selectCurrentUser);
   const collectionsCount = useDb((db) => selectCollections(db).length);
   const totalCards = useDb(selectTotalCards);
@@ -204,6 +206,7 @@ export function Profile() {
     if (!currentUser) return;
     setBillingLoading(true);
     setBillingError("");
+    posthog.capture("upgrade_clicked", { plan: currentUser.plan });
     try {
       await billingApi.checkout(currentUser.email);
     } catch {
@@ -247,6 +250,8 @@ export function Profile() {
   }
 
   function handleSignOut() {
+    posthog.capture("user_signed_out");
+    posthog.reset();
     auth.signOut();
     navigate("/login");
   }

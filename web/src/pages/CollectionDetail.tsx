@@ -23,10 +23,12 @@ import { Modal } from "../components/Modal";
 import { MoveCardModal } from "../components/MoveCardModal";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import type { Card } from "../lib/store";
+import { usePostHog } from "@posthog/react";
 import "./CollectionDetail.css";
 
 export function CollectionDetail() {
   const { id } = useParams();
+  const posthog = usePostHog();
   const navigate = useNavigate();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);
@@ -50,6 +52,11 @@ export function CollectionDetail() {
   };
 
   function handleDelete() {
+    posthog.capture("collection_deleted", {
+      collection_id: collection!.id,
+      collection_name: collection!.name,
+      card_count: collection!.cards.length,
+    });
     void collectionsApi.remove(collection!.id).catch(() => {});
     navigate("/app/collections");
   }

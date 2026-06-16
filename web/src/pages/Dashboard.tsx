@@ -23,6 +23,7 @@ import {
   suggestionsApi,
   useDb,
 } from "../lib/store";
+import { usePostHog } from "@posthog/react";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -41,6 +42,7 @@ import { CollectionCard } from "../components/CollectionCard";
 import "./Dashboard.css";
 
 export function Dashboard() {
+  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const suggestions = useDb(selectSuggestionsForUser);
@@ -50,8 +52,16 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   async function handleAcceptSuggestion(id: string) {
+    const suggestion = suggestions.find((s) => s.id === id);
     const created = await suggestionsApi.accept(id);
-    if (created) navigate(`/app/c/${created.id}`);
+    if (created) {
+      posthog.capture("suggestion_accepted", {
+        suggestion_id: id,
+        suggestion_title: suggestion?.title,
+        collection_id: created.id,
+      });
+      navigate(`/app/c/${created.id}`);
+    }
   }
 
   const recentActivity = useMemo(() => {
