@@ -10,6 +10,7 @@ import {
   Trash2,
   Layers,
 } from "lucide-react";
+import posthog from "posthog-js";
 import {
   cardsApi,
   collectionsApi,
@@ -50,6 +51,7 @@ export function CollectionDetail() {
   };
 
   function handleDelete() {
+    posthog.capture("collection_deleted", { collection_id: collection!.id, collection_name: collection!.name, card_count: collection!.cards.length });
     void collectionsApi.remove(collection!.id).catch(() => {});
     navigate("/app/collections");
   }

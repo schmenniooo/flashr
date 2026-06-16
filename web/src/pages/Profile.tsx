@@ -16,6 +16,7 @@ import {
   Crown,
   Bell,
 } from "lucide-react";
+import posthog from "posthog-js";
 import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot } from "../lib/store";
 import "./Profile.css";
 
@@ -202,6 +203,7 @@ export function Profile() {
 
   async function handleUpgrade() {
     if (!currentUser) return;
+    posthog.capture("upgrade_clicked", { plan: currentUser.plan });
     setBillingLoading(true);
     setBillingError("");
     try {
@@ -247,6 +249,7 @@ export function Profile() {
   }
 
   function handleSignOut() {
+    posthog.capture("user_signed_out");
     auth.signOut();
     navigate("/login");
   }

@@ -23,6 +23,7 @@ import {
   suggestionsApi,
   useDb,
 } from "../lib/store";
+import posthog from "posthog-js";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -50,6 +51,7 @@ export function Dashboard() {
   const navigate = useNavigate();
 
   async function handleAcceptSuggestion(id: string) {
+    posthog.capture("suggestion_accepted", { suggestion_id: id });
     const created = await suggestionsApi.accept(id);
     if (created) navigate(`/app/c/${created.id}`);
   }

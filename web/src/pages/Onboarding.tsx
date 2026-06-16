@@ -12,6 +12,7 @@ import {
   Compass,
   Sparkles,
 } from "lucide-react";
+import posthog from "posthog-js";
 import { Wordmark } from "../lib/logo";
 import { auth, useDb, selectCurrentUser } from "../lib/store";
 import type { LearnerType } from "../types";
@@ -110,6 +111,7 @@ export function Onboarding() {
         age: ageNum,
         learnerTypes,
       });
+      posthog.capture("onboarding_completed", { learner_types: learnerTypes, age: ageNum });
       navigate("/app", { replace: true });
     } catch {
       setSaveError("Something went wrong — please try again.");

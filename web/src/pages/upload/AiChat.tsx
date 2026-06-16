@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import posthog from "posthog-js";
 import { cardsApi, collectionsApi, useDb, selectCurrentUser, selectCollections } from "../../lib/store";
 import { API_BASE, getToken } from "../../lib/api";
 import { STORAGE_KEYS } from "../../lib/storageKeys";
@@ -152,6 +153,7 @@ export function AiChat({
 
   async function handleGenerate() {
     if (!prompt.trim() || isLoading) return;
+    posthog.capture("ai_generation_started", { method: "topic", prompt_length: prompt.trim().length, count, level });
     setChatState("generating");
     setDrafts([]);
     setError(null);
@@ -270,6 +272,7 @@ export function AiChat({
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+      posthog.capture("ai_cards_saved", { method: "topic", cards_saved: kept.length, cards_discarded: drafts.length - kept.length, collection_id: collectionId, new_collection: target === "__new" });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       clearChatDraft();
       navigate(`/app/c/${collectionId}`);

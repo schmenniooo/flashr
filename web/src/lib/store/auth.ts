@@ -1,3 +1,4 @@
+import posthog from "posthog-js";
 import { api, ApiError, setToken, API_BASE } from "../api";
 import { state, setState, seedCollections, seedFolders } from "./db";
 import { collectionsApi } from "./collections";
@@ -182,6 +183,11 @@ export const auth = {
       setToken(token);
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
+      posthog.identify(res.user.id, {
+        email: res.user.email,
+        name: res.user.name ?? "",
+        plan: res.user.plan,
+      });
       void collectionsApi.load().catch(console.error);
       return { ok: true };
     } catch (err) {
@@ -209,6 +215,11 @@ export const auth = {
 
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
+      posthog.identify(res.user.id, {
+        email: res.user.email,
+        name: res.user.name ?? "",
+        plan: res.user.plan,
+      });
       await collectionsApi.load();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -294,6 +305,7 @@ export const auth = {
     setToken(null);
     localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
     setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
+    posthog.reset();
   },
 
   updateProfile(patch: Partial<Omit<StoredUser, "id" | "password" | "email">>) {

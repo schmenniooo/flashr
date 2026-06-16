@@ -15,6 +15,7 @@ import { Wordmark } from "../lib/logo";
 import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import { STORAGE_KEYS } from "../lib/storageKeys";
+import posthog from "posthog-js";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -95,10 +96,19 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
-        if (mode === "signup" && wantsTrial) {
-          await billingApi.checkout(form.email, true);
+        const user = selectNow(selectCurrentUser);
+        if (mode === "signup") {
+          if (user) posthog.identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
+          posthog.capture("user_signed_up", { method: "email" });
+          if (wantsTrial) {
+            await billingApi.checkout(form.email, true);
+          } else {
+            await redirectAfterAuth("/onboarding");
+          }
         } else {
-          await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+          if (user) posthog.identify(user.id, { email: user.email, plan: user.plan });
+          posthog.capture("user_signed_in", { method: "email" });
+          await redirectAfterAuth("/app");
         }
       } else {
         setError(res.error);
