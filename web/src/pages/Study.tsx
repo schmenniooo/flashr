@@ -137,9 +137,21 @@ export function Study() {
     setTimeout(() => next(), 180);
   }
 
+  useEffect(() => {
+    if (!finished || !collection) return;
+    const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
+    posthog.capture("study_session_completed", {
+      collection_id: collection.id,
+      collection_name: collection.name,
+      total_cards: total,
+      cards_known: known,
+      cards_missed: total - known,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
   if (finished) {
     const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
-    posthog.capture("study_session_completed", { collection_id: collection.id, collection_name: collection.name, total_cards: total, cards_known: known, cards_missed: total - known });
     return (
       <div className="study">
         <StudyTopBar collection={collection} total={total} index={total} streak={currentUser?.streak ?? 0} />

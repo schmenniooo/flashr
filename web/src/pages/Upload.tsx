@@ -12,6 +12,7 @@ import {
   AlertCircle,
   MessageSquare,
 } from "lucide-react";
+import posthog from "posthog-js";
 import {
   cardsApi,
   collectionsApi,
@@ -68,6 +69,7 @@ export function Upload() {
     setSkipped(0);
     setIsGenerating(true);
     setStep("processing");
+    posthog.capture("ai_generation_started", { method: "file", file_type: name.split(".").pop(), file_size_kb: Math.round(file.size / 1024) });
 
     abortRef.current?.abort();
     const abort = new AbortController();
@@ -187,6 +189,7 @@ export function Upload() {
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+      posthog.capture("ai_cards_saved", { method: "file", cards_saved: kept.length, cards_discarded: drafts.length - kept.length, collection_id: collectionId, new_collection: target === "__new" });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       navigate(`/app/c/${collectionId}`);
     } catch {

@@ -188,6 +188,7 @@ export const auth = {
         name: res.user.name ?? "",
         plan: res.user.plan,
       });
+      posthog.capture("user_signed_in", { method: "oauth" });
       void collectionsApi.load().catch(console.error);
       return { ok: true };
     } catch (err) {
