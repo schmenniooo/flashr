@@ -49,6 +49,8 @@ type User struct {
 	Age                 *int       `json:"age,omitempty"`
 	LearnerTypes        []string   `json:"learner_types"`
 	AvatarURL           *string    `json:"avatar_url,omitempty"`
+	NotificationTime    *string    `json:"notification_time,omitempty"`
+	NotificationTZ      *string    `json:"notification_tz,omitempty"`
 }
 
 // TokenPair holds both tokens issued after a successful authentication.
@@ -163,10 +165,10 @@ func (s *Service) SignUp(ctx context.Context, email, password, name string) (Use
 		INSERT INTO users (email, name, password_hash)
 		VALUES ($1, NULLIF($2, ''), $3)
 		RETURNING id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at,
-		          onboarding_completed, age, learner_types, avatar_url
+		          onboarding_completed, age, learner_types, avatar_url, notification_time, notification_tz
 	`, email, name, string(hash)).Scan(
 		&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
-		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &u.NotificationTime, &u.NotificationTZ,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -193,12 +195,14 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, Toke
 	)
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at,
-		       onboarding_completed, age, learner_types, avatar_url, password_hash
+		       onboarding_completed, age, learner_types, avatar_url, notification_time, notification_tz,
+		       password_hash
 		FROM users
 		WHERE LOWER(email) = $1
 	`, email).Scan(
 		&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
-		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &hash,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &u.NotificationTime, &u.NotificationTZ,
+		&hash,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Dummy bcrypt compare to keep response timing constant (prevents enumeration).
@@ -237,12 +241,12 @@ func (s *Service) UserByID(ctx context.Context, id string) (User, error) {
 	var u User
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at,
-		       onboarding_completed, age, learner_types, avatar_url
+		       onboarding_completed, age, learner_types, avatar_url, notification_time, notification_tz
 		FROM users
 		WHERE id = $1
 	`, id).Scan(
 		&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt,
-		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL,
+		&u.OnboardingCompleted, &u.Age, &u.LearnerTypes, &u.AvatarURL, &u.NotificationTime, &u.NotificationTZ,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrUserNotFound
@@ -266,6 +270,16 @@ func (s *Service) UpdateDailyGoal(ctx context.Context, userID string, dailyGoal 
 	_, err := s.pool.Exec(ctx,
 		`UPDATE users SET daily_goal = $2 WHERE id = $1`,
 		userID, dailyGoal,
+	)
+	return err
+}
+
+// UpdateNotificationPrefs sets or clears the user's push notification schedule.
+// Pass nil notificationTime to opt out (both columns set to NULL).
+func (s *Service) UpdateNotificationPrefs(ctx context.Context, userID string, notificationTime, tz *string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE users SET notification_time = $2, notification_tz = $3 WHERE id = $1`,
+		userID, notificationTime, tz,
 	)
 	return err
 }
@@ -424,4 +438,15 @@ func validEmail(s string) bool {
 
 func isUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "SQLSTATE 23505")
+}
+
+// validNotificationTime checks that s is a valid "HH:MM" string (00:00–23:59).
+func validNotificationTime(s string) bool {
+	if len(s) != 5 || s[2] != ':' {
+		return false
+	}
+	h := (int(s[0]-'0') * 10) + int(s[1]-'0')
+	m := (int(s[3]-'0') * 10) + int(s[4]-'0')
+	return s[0] >= '0' && s[1] >= '0' && s[3] >= '0' && s[4] >= '0' &&
+		h >= 0 && h <= 23 && m >= 0 && m <= 59
 }

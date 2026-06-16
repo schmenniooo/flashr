@@ -24,6 +24,7 @@ export { cardsApi } from "./cards";
 export { foldersApi } from "./folders";
 export { suggestionsApi, selectSuggestionsForUser } from "./suggestions";
 export { billingApi } from "./billing";
+export { notificationsApi, subscribeNotif, getNotifSnapshot } from "./notifications";
 
 // Domain types (single import point for the whole app)
 export type { Card, Collection, Folder, LearnerType, Suggestion, User } from "../../types";

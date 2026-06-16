@@ -22,6 +22,7 @@ export type User = {
   dailyGoal: number;
   emailReminders: boolean;
   weeklyDigest: boolean;
+  notificationTime: string; // "HH:MM" preferred push reminder time, default "08:00"
   age: number | null;
   learnerTypes: LearnerType[];
   onboardingCompleted: boolean;

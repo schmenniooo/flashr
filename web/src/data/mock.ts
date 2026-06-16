@@ -18,6 +18,7 @@ export const user: User = {
   dailyGoal: 30,
   emailReminders: true,
   weeklyDigest: false,
+  notificationTime: "08:00",
   age: 24,
   learnerTypes: ["university"],
   onboardingCompleted: true,

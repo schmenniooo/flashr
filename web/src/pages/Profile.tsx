@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,8 +14,9 @@ import {
   LogOut,
   AlertTriangle,
   Crown,
+  Bell,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
+import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot } from "../lib/store";
 import "./Profile.css";
 
 function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
@@ -61,6 +62,8 @@ export function Profile() {
     }
   }
 
+  const notifState = useSyncExternalStore(subscribeNotif, getNotifSnapshot, getNotifSnapshot);
+
   const dirty = useMemo(() => {
     if (!currentUser || !form) return false;
     return (
@@ -70,12 +73,13 @@ export function Profile() {
       form.bio !== currentUser.bio ||
       form.timezone !== currentUser.timezone ||
       form.dailyGoal !== currentUser.dailyGoal ||
-      form.emailReminders !== currentUser.emailReminders ||
       form.weeklyDigest !== currentUser.weeklyDigest ||
+      (notifState.subscribed && form.notificationTime !== currentUser.notificationTime) ||
       avatarPreview !== currentUser.avatarUrl
     );
-  }, [form, avatarPreview, currentUser]);
+  }, [form, avatarPreview, currentUser, notifState.subscribed]);
 
+  const [pushError, setPushError] = useState<string | null>(null);
   const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState("");
@@ -175,9 +179,20 @@ export function Profile() {
         bio: form.bio,
         timezone: form.timezone,
         dailyGoal: form.dailyGoal,
-        emailReminders: form.emailReminders,
         weeklyDigest: form.weeklyDigest,
       });
+      if (
+        notifState.subscribed &&
+        form.notificationTime !== currentUser?.notificationTime
+      ) {
+        try {
+          await notificationsApi.updateTime(form.notificationTime, form.timezone);
+          await auth.refreshUser();
+        } catch {
+          setSaveError("Could not save notification time — please try again.");
+          return;
+        }
+      }
     } catch {
       setSaveError("Could not save avatar — please try again.");
     } finally {
@@ -205,6 +220,29 @@ export function Profile() {
     } catch {
       setBillingError("Could not open billing portal — please try again.");
       setBillingLoading(false);
+    }
+  }
+
+  async function handlePushToggle(enabled: boolean) {
+    setPushError(null);
+    try {
+      if (enabled) {
+        await notificationsApi.enable(
+          form?.notificationTime ?? "08:00",
+          form?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+        );
+      } else {
+        await notificationsApi.disable();
+      }
+      // Sync updated notification_time back into the auth store so the dirty
+      // check doesn't falsely fire after enabling/disabling.
+      await auth.refreshUser();
+    } catch {
+      if (getNotifSnapshot().permission === "denied") {
+        setPushError("Notifications are blocked — allow them in your browser settings.");
+      } else {
+        setPushError("Could not update notification settings — please try again.");
+      }
     }
   }
 
@@ -469,14 +507,42 @@ export function Profile() {
           </label>
 
           <div className="prof__toggle-row">
-            <div>
-              <div className="prof__toggle-label">Daily study reminder</div>
-              <div className="prof__toggle-hint">Gentle email at 8 AM if you haven't studied yet.</div>
+            <div className="prof__toggle-info">
+              <Bell size={14} strokeWidth={1.8} className="prof__toggle-icon" />
+              <div>
+                <div className="prof__toggle-label">Daily study reminder</div>
+                <div className="prof__toggle-hint">
+                  {notifState.loading
+                    ? (notifState.subscribed ? "Disabling…" : "Enabling…")
+                    : notifState.permission === "denied"
+                    ? "Notifications are blocked — allow them in your browser settings."
+                    : notifState.permission === "unsupported"
+                    ? "Push notifications aren't supported in this browser."
+                    : "Browser push at your preferred time."}
+                </div>
+                {pushError && (
+                  <div className="prof__toggle-error">{pushError}</div>
+                )}
+              </div>
             </div>
-            <Switch
-              checked={form.emailReminders}
-              onChange={(v) => update("emailReminders", v)}
-            />
+            <div className="prof__toggle-right">
+              <input
+                type="time"
+                className="input prof__time-input"
+                value={form.notificationTime}
+                onChange={(e) => update("notificationTime", e.target.value)}
+                disabled={notifState.loading}
+              />
+              <Switch
+                checked={notifState.subscribed}
+                onChange={handlePushToggle}
+                disabled={
+                  notifState.permission === "denied" ||
+                  notifState.permission === "unsupported" ||
+                  notifState.loading
+                }
+              />
+            </div>
           </div>
 
           <div className="prof__toggle-row">
@@ -606,10 +672,23 @@ export function Profile() {
   );
 }
 
-function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Switch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label className="prof__switch">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={`prof__switch${disabled ? " prof__switch--disabled" : ""}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+      />
       <span />
     </label>
   );

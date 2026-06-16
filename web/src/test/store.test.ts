@@ -66,6 +66,7 @@ function makeUser(overrides: Partial<StoredUser> = {}): StoredUser {
     dailyGoal: 20,
     emailReminders: false,
     weeklyDigest: false,
+    notificationTime: "08:00",
     age: null,
     learnerTypes: [],
     onboardingCompleted: true,
