@@ -6,10 +6,16 @@ const MOCK_VAPID_KEY =
   "BAN-jUhg_sa8WdXyouUx4TZHs83qeOrIoWXVEM3nlrrawKwGqwA0bkLjfQrXvdSQbNQcep-4SJn9rCIjPAHD3-4";
 
 /**
- * Replaces navigator.serviceWorker entirely so SW registration always
+ * Mocks the Service Worker + PushManager APIs so SW registration always
  * "succeeds" in headless CI — real SW support is irrelevant for these tests.
  * preSubscribed controls whether pushManager.getSubscription() finds an
  * existing subscription (used by the disable-flow test).
+ *
+ * Strategy: try Object.defineProperty on navigator first; fall back to
+ * mutating the existing serviceWorker container if the property is
+ * non-configurable (common in CI headless Chrome builds).
+ * Also mocks Notification.permission to "default" so init() never reads
+ * "denied" and disables the switch.
  */
 function mockSwScript(preSubscribed = false) {
   return `
@@ -44,19 +50,47 @@ function mockSwScript(preSubscribed = false) {
     dispatchEvent: () => false,
   };
 
-  Object.defineProperty(navigator, "serviceWorker", {
-    get: () => ({
-      register: () => Promise.resolve(mockReg),
-      ready: Promise.resolve(mockReg),
-      getRegistration: () => Promise.resolve(mockReg),
-      getRegistrations: () => Promise.resolve([mockReg]),
-      controller: null,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      dispatchEvent: () => false,
-    }),
-    configurable: true,
-  });
+  const mockSwContainer = {
+    register: () => Promise.resolve(mockReg),
+    ready: Promise.resolve(mockReg),
+    getRegistration: () => Promise.resolve(mockReg),
+    getRegistrations: () => Promise.resolve([mockReg]),
+    controller: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  };
+
+  // Try to replace navigator.serviceWorker entirely.
+  // Falls back to mutating the existing container if defineProperty throws
+  // (happens when the property is non-configurable in some CI Chrome builds).
+  try {
+    Object.defineProperty(navigator, "serviceWorker", {
+      get: () => mockSwContainer,
+      configurable: true,
+    });
+  } catch (_) {
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.register = () => Promise.resolve(mockReg);
+      navigator.serviceWorker.getRegistration = () => Promise.resolve(mockReg);
+      navigator.serviceWorker.getRegistrations = () => Promise.resolve([mockReg]);
+      try {
+        Object.defineProperty(navigator.serviceWorker, "ready", {
+          get: () => Promise.resolve(mockReg),
+          configurable: true,
+        });
+      } catch (_2) {}
+    }
+  }
+
+  // In headless Chromium Notification.permission defaults to "denied".
+  // Mock it to "default" so init() doesn't mark the feature as blocked.
+  try {
+    Object.defineProperty(Notification, "permission", {
+      get: () => "default",
+      configurable: true,
+    });
+  } catch (_) {}
 })();
 `;
 }
