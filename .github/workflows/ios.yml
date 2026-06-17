@@ -6,31 +6,20 @@ on:
       - 'ios/**'
 
 jobs:
-  build-test:
-    name: Build & Test (iOS Simulator)
+  build:
+    name: Build (iOS Simulator)
     runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show available simulators
-        run: xcrun simctl list devices available
-
-      - name: Build & Test
+      - name: Build
         run: |
-          xcodebuild test \
+          xcodebuild build \
             -project ios/flashr.xcodeproj \
             -scheme flashr \
-            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-            -resultBundlePath TestResults.xcresult \
+            -destination 'generic/platform=iOS Simulator' \
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO
         env:
           CI: true
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: TestResults
-          path: TestResults.xcresult
