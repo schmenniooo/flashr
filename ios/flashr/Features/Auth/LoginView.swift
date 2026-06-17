@@ -31,11 +31,15 @@ struct LoginView: View {
                         flashrTextField("Name", text: $name)
                     }
                     flashrTextField("Email", text: $email)
+                        #if os(iOS)
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
                         .autocapitalization(.none)
+                        #endif
                     flashrTextField("Password", text: $password, isSecure: true)
+                        #if os(iOS)
                         .textContentType(isSignup ? .newPassword : .password)
+                        #endif
 
                     if let error {
                         Text(error)

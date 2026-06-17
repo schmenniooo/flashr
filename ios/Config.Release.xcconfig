@@ -5,4 +5,7 @@
 
 API_BASE_URL = https://api.flashr.io
 STOREKIT_PRODUCT_ID = io.flashr.pro.monthly
+
+// Google OAuth — iOS client ID (NOT the web client ID).
+// Same client ID as Debug — just a different bundle target in Google Console.
 GOOGLE_CLIENT_ID =

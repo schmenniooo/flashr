@@ -3,3 +3,8 @@
 
 API_BASE_URL = http://localhost:8080
 STOREKIT_PRODUCT_ID = io.flashr.pro.monthly
+
+// Google OAuth — iOS client ID (NOT the web client ID).
+// Create a new OAuth client of type "iOS" at console.cloud.google.com
+// with bundle ID io.flashr.app, then paste the generated client ID here.
+GOOGLE_CLIENT_ID =
