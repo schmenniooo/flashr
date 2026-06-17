@@ -164,7 +164,7 @@
   justify-content: center;
 }
 
-/* ── Error banner ── */
+/* ── Error / warning banners ── */
 
 .up__error {
   display: flex;
@@ -177,6 +177,36 @@
   color: #ff6b7a;
   font-size: 13px;
   font-weight: 500;
+}
+
+.up__warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255, 185, 50, 0.08);
+  border: 1px solid rgba(255, 185, 50, 0.3);
+  border-radius: var(--radius-md);
+  color: #ffd166;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ── Char counter in AI chat textarea ── */
+
+.up__char-count {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-muted);
+  text-align: right;
+  letter-spacing: 0.03em;
+  transition: color var(--transition-fast);
+}
+.up__char-count--warn {
+  color: #ffd166;
+}
+.up__char-count--over {
+  color: #ff6b7a;
 }
 
 /* ── Drop zone drag state ── */
@@ -356,13 +386,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
-.up__review-target {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 240px;
-}
-
 .up__select {
   background: var(--color-card);
   border: 1px solid var(--color-border);
@@ -572,6 +595,21 @@
   color: var(--color-text);
   font-size: 16px;
   margin: 0 2px;
+}
+.up__save-target {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+.up__save-target .text-meta {
+  white-space: nowrap;
+}
+.up__save-target .up__select {
+  flex: 1;
+  min-width: 0;
+  max-width: 260px;
 }
 .up__save-actions {
   display: flex;
@@ -837,6 +875,94 @@
   }
 }
 
+@media (max-width: 500px) {
+  .up__chat-input {
+    resize: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .up__steps {
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-1);
+  }
+  .up__step {
+    font-size: 10px;
+    padding: 3px 6px;
+    gap: 5px;
+  }
+  .up__step:not(:last-child)::after {
+    width: 12px;
+    margin-left: 6px;
+  }
+  .up__step-n {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+  .up__save-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    z-index: 20;
+  }
+  .up__save-target {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+    flex: none;
+  }
+  .up__save-target .up__select {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .up__save-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: flex-end;
+  }
+  .up__save-actions > button {
+    flex: 1;
+    justify-content: center;
+  }
+  .up__review,
+  .up__cards-wrap {
+    padding-bottom: 200px;
+  }
+}
+
+@media (max-width: 600px) {
+  .up__review-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .up__sample {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .up__regen-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+}
+
 .up__title         { margin-top: var(--space-2); }
 .up__subtitle      { margin-top: var(--space-1); max-width: 560px; }
 .up__file-input    { display: none; }
@@ -844,5 +970,6 @@
 .up__review-icon   { vertical-align: -2px; margin-right: 6px; }
 .up__chat-subtitle { margin-top: var(--space-1); max-width: 460px; }
 .up__generating-label { margin-top: var(--space-3); }
+.up__cancel-btn { margin-top: var(--space-4); }
 .up__draft-answer-label { margin-top: var(--space-2); }
 .up__draft-done    { margin-top: var(--space-2); align-self: flex-end; }

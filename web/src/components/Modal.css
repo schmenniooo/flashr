@@ -112,3 +112,26 @@
 
 .modal__form   { display: flex; flex-direction: column; gap: var(--space-4); }
 .modal__strong { color: var(--color-text); }
+
+@media (max-width: 480px) {
+  .modal {
+    padding: var(--space-3);
+    align-items: flex-end;
+  }
+  .modal__card {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .modal__row {
+    grid-template-columns: 1fr;
+  }
+  .modal__foot {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .modal__foot .btn-ghost,
+  .modal__foot .btn-primary,
+  .modal__foot .modal__btn-danger {
+    flex: 1;
+    justify-content: center;
+  }
+}

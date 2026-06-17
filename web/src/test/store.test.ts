@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   selectTotalCards,
   selectCardsDueToday,
+  selectCardsToday,
   selectKnownCards,
   selectCurrentUser,
   selectCollections,
@@ -21,6 +22,10 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     answer: "A",
     aiGenerated: false,
     mastery: "new",
+    dueDate: null,
+    interval: 1,
+    easeFactor: 2.5,
+    repetitions: 0,
     ...overrides,
   };
 }
@@ -61,6 +66,7 @@ function makeUser(overrides: Partial<StoredUser> = {}): StoredUser {
     dailyGoal: 20,
     emailReminders: false,
     weeklyDigest: false,
+    notificationTime: "08:00",
     age: null,
     learnerTypes: [],
     onboardingCompleted: true,
@@ -74,6 +80,7 @@ function makeDb(overrides: {
   session?: Session;
   collections?: Collection[];
   folders?: Folder[];
+  cardsToday?: number;
 } = {}) {
   return {
     users: overrides.users ?? [],
@@ -82,6 +89,8 @@ function makeDb(overrides: {
     folders: overrides.folders ?? [],
     masteryMap: {},
     bootstrapping: false,
+    collectionsLoading: false,
+    cardsToday: overrides.cardsToday ?? 0,
   };
 }
 
@@ -124,14 +133,13 @@ describe("selectCardsDueToday", () => {
     expect(selectCardsDueToday(makeDb())).toBe(0);
   });
 
-  it("counts new and learning cards, excludes known", () => {
+  it("counts cards with null dueDate (never reviewed) as due", () => {
     const db = makeDb({
       collections: [
         makeCollection({
           cards: [
-            makeCard({ id: "1", mastery: "new" }),
-            makeCard({ id: "2", mastery: "learning" }),
-            makeCard({ id: "3", mastery: "known" }),
+            makeCard({ id: "1", dueDate: null }),
+            makeCard({ id: "2", dueDate: null }),
           ],
         }),
       ],
@@ -139,18 +147,45 @@ describe("selectCardsDueToday", () => {
     expect(selectCardsDueToday(db)).toBe(2);
   });
 
-  it("returns 0 when all cards are known", () => {
+  it("counts cards with a past dueDate as due", () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
     const db = makeDb({
       collections: [
         makeCollection({
-          cards: [
-            makeCard({ id: "1", mastery: "known" }),
-            makeCard({ id: "2", mastery: "known" }),
-          ],
+          cards: [makeCard({ id: "1", dueDate: yesterday })],
+        }),
+      ],
+    });
+    expect(selectCardsDueToday(db)).toBe(1);
+  });
+
+  it("excludes cards with a future dueDate", () => {
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    const db = makeDb({
+      collections: [
+        makeCollection({
+          cards: [makeCard({ id: "1", dueDate: tomorrow })],
         }),
       ],
     });
     expect(selectCardsDueToday(db)).toBe(0);
+  });
+
+  it("mixes due and not-due cards correctly", () => {
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString();
+    const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    const db = makeDb({
+      collections: [
+        makeCollection({
+          cards: [
+            makeCard({ id: "1", dueDate: null }),       // due (never reviewed)
+            makeCard({ id: "2", dueDate: yesterday }),  // due (past)
+            makeCard({ id: "3", dueDate: tomorrow }),   // not due
+          ],
+        }),
+      ],
+    });
+    expect(selectCardsDueToday(db)).toBe(2);
   });
 });
 
@@ -176,6 +211,35 @@ describe("selectKnownCards", () => {
       ],
     });
     expect(selectKnownCards(db)).toBe(2);
+  });
+
+  it("uses backend-derived mastery field", () => {
+    const future = new Date(Date.now() + 30 * 86_400_000).toISOString();
+    const db = makeDb({
+      collections: [
+        makeCollection({
+          cards: [
+            makeCard({ id: "1", mastery: "known", dueDate: future, interval: 30, repetitions: 5 }),
+            makeCard({ id: "2", mastery: "learning", dueDate: future, interval: 6, repetitions: 2 }),
+          ],
+        }),
+      ],
+    });
+    expect(selectKnownCards(db)).toBe(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// selectCardsToday
+// ─────────────────────────────────────────────────────────────
+
+describe("selectCardsToday", () => {
+  it("returns 0 by default", () => {
+    expect(selectCardsToday(makeDb())).toBe(0);
+  });
+
+  it("returns cardsToday from db", () => {
+    expect(selectCardsToday(makeDb({ cardsToday: 7 }))).toBe(7);
   });
 });
 
@@ -216,5 +280,82 @@ describe("selectFolders", () => {
   it("returns the folders array", () => {
     const folders: Folder[] = [{ name: "Medicine", emoji: "🧬", count: 2 }];
     expect(selectFolders(makeDb({ folders }))).toBe(folders);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Onboarding flag
+// ─────────────────────────────────────────────────────────────
+
+describe("onboardingCompleted", () => {
+  it("selectCurrentUser returns user with onboardingCompleted = false", () => {
+    const user = makeUser({ id: "u1", onboardingCompleted: false });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.onboardingCompleted).toBe(false);
+  });
+
+  it("selectCurrentUser returns user with onboardingCompleted = true", () => {
+    const user = makeUser({ id: "u1", onboardingCompleted: true });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.onboardingCompleted).toBe(true);
+  });
+
+  it("onboardingCompleted does not affect selectTotalCards", () => {
+    const user = makeUser({ id: "u1", onboardingCompleted: false });
+    const db = makeDb({
+      users: [user],
+      session: { userId: "u1" },
+      collections: [makeCollection({ cards: [makeCard(), makeCard()] })],
+    });
+    expect(selectTotalCards(db)).toBe(2);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Avatar URL
+// ─────────────────────────────────────────────────────────────
+
+describe("avatarUrl", () => {
+  it("selectCurrentUser returns user with avatarUrl set", () => {
+    const dataUrl = "data:image/jpeg;base64,/9j/fakedata";
+    const user = makeUser({ id: "u1", avatarUrl: dataUrl });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.avatarUrl).toBe(dataUrl);
+  });
+
+  it("selectCurrentUser returns null avatarUrl when unset", () => {
+    const user = makeUser({ id: "u1", avatarUrl: null });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.avatarUrl).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Learner types and age (onboarding fields)
+// ─────────────────────────────────────────────────────────────
+
+describe("onboarding profile fields", () => {
+  it("selectCurrentUser returns learnerTypes from user", () => {
+    const user = makeUser({ id: "u1", learnerTypes: ["university", "certifications"] });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.learnerTypes).toEqual(["university", "certifications"]);
+  });
+
+  it("selectCurrentUser returns empty learnerTypes by default", () => {
+    const user = makeUser({ id: "u1", learnerTypes: [] });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.learnerTypes).toEqual([]);
+  });
+
+  it("selectCurrentUser returns age when set", () => {
+    const user = makeUser({ id: "u1", age: 25 });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.age).toBe(25);
+  });
+
+  it("selectCurrentUser returns null age when unset", () => {
+    const user = makeUser({ id: "u1", age: null });
+    const db = makeDb({ users: [user], session: { userId: "u1" } });
+    expect(selectCurrentUser(db)?.age).toBeNull();
   });
 });

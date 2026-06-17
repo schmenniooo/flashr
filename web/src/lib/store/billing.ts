@@ -1,10 +1,10 @@
 import { api } from "../api";
 
 export const billingApi = {
-  async checkout(email: string): Promise<void> {
+  async checkout(email: string, withTrial = false): Promise<void> {
     const { url } = await api<{ url: string }>("/billing/checkout", {
       method: "POST",
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, with_trial: withTrial }),
     });
     window.location.href = url;
   },

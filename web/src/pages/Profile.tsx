@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,12 +14,33 @@ import {
   LogOut,
   AlertTriangle,
   Crown,
+  Bell,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, selectTotalCards, selectKnownCards, useDb } from "../lib/store";
+import { usePostHog } from "@posthog/react";
+import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot } from "../lib/store";
 import "./Profile.css";
+
+function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 export function Profile() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const currentUser = useDb(selectCurrentUser);
   const collectionsCount = useDb((db) => selectCollections(db).length);
   const totalCards = useDb(selectTotalCards);
@@ -29,6 +50,9 @@ export function Profile() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
     currentUser?.avatarUrl ?? null,
   );
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [prevUserId, setPrevUserId] = useState(currentUser?.id);
@@ -40,6 +64,8 @@ export function Profile() {
     }
   }
 
+  const notifState = useSyncExternalStore(subscribeNotif, getNotifSnapshot, getNotifSnapshot);
+
   const dirty = useMemo(() => {
     if (!currentUser || !form) return false;
     return (
@@ -49,18 +75,16 @@ export function Profile() {
       form.bio !== currentUser.bio ||
       form.timezone !== currentUser.timezone ||
       form.dailyGoal !== currentUser.dailyGoal ||
-      form.emailReminders !== currentUser.emailReminders ||
       form.weeklyDigest !== currentUser.weeklyDigest ||
+      (notifState.subscribed && form.notificationTime !== currentUser.notificationTime) ||
       avatarPreview !== currentUser.avatarUrl
     );
-  }, [form, avatarPreview, currentUser]);
+  }, [form, avatarPreview, currentUser, notifState.subscribed]);
 
-  // Initialise from URL params so state is ready before first render (no effect needed).
-  const [checkoutSuccess, setCheckoutSuccess] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("checkout") === "success";
-  });
+  const [pushError, setPushError] = useState<string | null>(null);
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
@@ -74,27 +98,23 @@ export function Profile() {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
-    if (fromCheckout) {
-      // Verify the Stripe Checkout Session directly so the plan is updated
-      // immediately — without waiting for the webhook to arrive.
-      const sessionId = params.get("session_id");
-      void (async () => {
-        if (sessionId) await billingApi.fulfill(sessionId).catch(() => {});
-        await auth.refreshUser();
+    // Always sync plan from Stripe on every profile mount.
+    // SyncPlan is a no-op for users with no Stripe customer (single DB query,
+    // no external call). For users with a subscription it catches any state
+    // that webhooks or FulfillCheckout may have missed — including trialing
+    // subscriptions where payment_status is no_payment_required.
+    void (async () => {
+      if (fromCheckout) {
+        const sessionId = params.get("session_id");
+        if (sessionId) await billingApi.fulfill(sessionId).catch(console.error);
+      }
+      await billingApi.sync().catch(console.error);
+      await auth.refreshUser();
+      if (fromCheckout && selectNow(selectCurrentUser)?.plan === "pro") {
+        setCheckoutSuccess(true);
         setTimeout(() => setCheckoutSuccess(false), 5000);
-      })();
-    } else if (fromPortal) {
-      // Sync plan from Stripe's live subscription state so cancellations and
-      // upgrades are reflected immediately — without waiting for the webhook.
-      void (async () => {
-        await billingApi.sync().catch(() => {});
-        await auth.refreshUser();
-      })();
-    } else {
-      // Always refresh plan on profile mount so any changes are reflected
-      // without a full page reload.
-      void auth.refreshUser();
-    }
+      }
+    })();
   }, []);
 
   const handleDeleteAccount = useCallback(async () => {
@@ -123,6 +143,7 @@ export function Profile() {
   function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatarPreview(reader.result as string);
     reader.readAsDataURL(file);
@@ -132,44 +153,104 @@ export function Profile() {
     if (!currentUser) return;
     setForm(currentUser);
     setAvatarPreview(currentUser.avatarUrl);
+    setAvatarFile(null);
+    setSaveError(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form) return;
-    auth.updateProfile({
-      firstName: form.firstName,
-      lastName: form.lastName,
-      username: form.username,
-      bio: form.bio,
-      timezone: form.timezone,
-      dailyGoal: form.dailyGoal,
-      emailReminders: form.emailReminders,
-      weeklyDigest: form.weeklyDigest,
-      avatarUrl: avatarPreview,
-    });
+    setSaveLoading(true);
+    setSaveError(null);
+    try {
+      if (avatarPreview !== currentUser?.avatarUrl) {
+        if (avatarPreview === null) {
+          await auth.removeAvatar();
+        } else if (avatarFile) {
+          const resized = await resizeImage(avatarFile);
+          await auth.saveAvatar(resized);
+          setAvatarPreview(resized);
+          setAvatarFile(null);
+          if (fileRef.current) fileRef.current.value = "";
+        }
+      }
+      auth.updateProfile({
+        firstName: form.firstName,
+        lastName: form.lastName,
+        username: form.username,
+        bio: form.bio,
+        timezone: form.timezone,
+        dailyGoal: form.dailyGoal,
+        weeklyDigest: form.weeklyDigest,
+      });
+      if (
+        notifState.subscribed &&
+        form.notificationTime !== currentUser?.notificationTime
+      ) {
+        try {
+          await notificationsApi.updateTime(form.notificationTime, form.timezone);
+          await auth.refreshUser();
+        } catch {
+          setSaveError("Could not save notification time — please try again.");
+          return;
+        }
+      }
+    } catch {
+      setSaveError("Could not save avatar — please try again.");
+    } finally {
+      setSaveLoading(false);
+    }
   }
 
   async function handleUpgrade() {
     if (!currentUser) return;
+    posthog.capture("upgrade_clicked", { plan: currentUser.plan });
     setBillingLoading(true);
+    setBillingError("");
     try {
       await billingApi.checkout(currentUser.email);
-    } finally {
+    } catch {
+      setBillingError("Could not start checkout — please try again.");
       setBillingLoading(false);
     }
   }
 
   async function handleManageSubscription() {
     setBillingLoading(true);
+    setBillingError("");
     try {
       await billingApi.portal();
-    } finally {
+    } catch {
+      setBillingError("Could not open billing portal — please try again.");
       setBillingLoading(false);
     }
   }
 
+  async function handlePushToggle(enabled: boolean) {
+    setPushError(null);
+    try {
+      if (enabled) {
+        await notificationsApi.enable(
+          form?.notificationTime ?? "08:00",
+          form?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+        );
+      } else {
+        await notificationsApi.disable();
+      }
+      // Sync updated notification_time back into the auth store so the dirty
+      // check doesn't falsely fire after enabling/disabling.
+      await auth.refreshUser();
+    } catch {
+      if (getNotifSnapshot().permission === "denied") {
+        setPushError("Notifications are blocked — allow them in your browser settings.");
+      } else {
+        setPushError("Could not update notification settings — please try again.");
+      }
+    }
+  }
+
   function handleSignOut() {
+    posthog.capture("user_signed_out");
     auth.signOut();
     navigate("/login");
   }
@@ -359,6 +440,12 @@ export function Profile() {
                   {billingLoading ? "Redirecting…" : "Upgrade to Pro"}
                 </button>
               )}
+              {billingError && (
+                <span className="prof__billing-error">{billingError}</span>
+              )}
+              <p className="prof__support-hint">
+                Questions? <a href="mailto:support@flashr.io" className="prof__support-link">support@flashr.io</a>
+              </p>
             </div>
           </div>
 
@@ -424,14 +511,42 @@ export function Profile() {
           </label>
 
           <div className="prof__toggle-row">
-            <div>
-              <div className="prof__toggle-label">Daily study reminder</div>
-              <div className="prof__toggle-hint">Gentle email at 8 AM if you haven't studied yet.</div>
+            <div className="prof__toggle-info">
+              <Bell size={14} strokeWidth={1.8} className="prof__toggle-icon" />
+              <div>
+                <div className="prof__toggle-label">Daily study reminder</div>
+                <div className="prof__toggle-hint">
+                  {notifState.loading
+                    ? (notifState.subscribed ? "Disabling…" : "Enabling…")
+                    : notifState.permission === "denied"
+                    ? "Notifications are blocked — allow them in your browser settings."
+                    : notifState.permission === "unsupported"
+                    ? "Push notifications aren't supported in this browser."
+                    : "Browser push at your preferred time."}
+                </div>
+                {pushError && (
+                  <div className="prof__toggle-error">{pushError}</div>
+                )}
+              </div>
             </div>
-            <Switch
-              checked={form.emailReminders}
-              onChange={(v) => update("emailReminders", v)}
-            />
+            <div className="prof__toggle-right">
+              <input
+                type="time"
+                className="input prof__time-input"
+                value={form.notificationTime}
+                onChange={(e) => update("notificationTime", e.target.value)}
+                disabled={notifState.loading}
+              />
+              <Switch
+                checked={notifState.subscribed}
+                onChange={handlePushToggle}
+                disabled={
+                  notifState.permission === "denied" ||
+                  notifState.permission === "unsupported" ||
+                  notifState.loading
+                }
+              />
+            </div>
           </div>
 
           <div className="prof__toggle-row">
@@ -540,19 +655,19 @@ export function Profile() {
       )}
 
       {/* ── Sticky save bar ── */}
-      {dirty && (
+      {(dirty || saveError) && (
         <div className="prof__savebar fade-in">
           <div className="prof__savebar-summary">
             <span className="prof__savebar-dot" />
-            Unsaved changes
+            {saveError ?? "Unsaved changes"}
           </div>
           <div className="prof__savebar-actions">
-            <button className="btn-ghost" onClick={handleDiscard}>
+            <button className="btn-ghost" onClick={handleDiscard} disabled={saveLoading}>
               Discard
             </button>
-            <button className="btn-primary" onClick={handleSave}>
+            <button className="btn-primary" onClick={handleSave} disabled={saveLoading || !dirty}>
               <CheckCircle2 size={14} strokeWidth={2} />
-              Save changes
+              {saveLoading ? "Saving…" : "Save changes"}
             </button>
           </div>
         </div>
@@ -561,10 +676,23 @@ export function Profile() {
   );
 }
 
-function Switch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function Switch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label className="prof__switch">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={`prof__switch${disabled ? " prof__switch--disabled" : ""}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        disabled={disabled}
+      />
       <span />
     </label>
   );

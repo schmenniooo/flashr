@@ -12,15 +12,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 
 	"github.com/smithlabs/flashr/backend/internal/ai"
+	"github.com/smithlabs/flashr/backend/internal/announcements"
 	"github.com/smithlabs/flashr/backend/internal/auth"
 	"github.com/smithlabs/flashr/backend/internal/billing"
 	"github.com/smithlabs/flashr/backend/internal/collections"
+	"github.com/smithlabs/flashr/backend/internal/notifications"
 	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/config"
 	"github.com/smithlabs/flashr/backend/pkg/db"
+	"github.com/smithlabs/flashr/backend/pkg/storage"
 )
 
 func main() {
@@ -50,6 +54,7 @@ func main() {
 
 	authSvc, err := auth.NewService(pool, auth.Config{
 		Secret:             cfg.JWTSecret,
+		SecureCookies:      cfg.SecureCookies,
 		GoogleClientID:     cfg.GoogleClientID,
 		GoogleClientSecret: cfg.GoogleClientSecret,
 		GoogleRedirectURL:  cfg.BackendURL + "/api/auth/google/callback",
@@ -74,10 +79,18 @@ func main() {
 	// Replace gin.Default() with gin.New() so we control the middleware stack.
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.MaxMultipartMemory = 500 << 20 // match upload.maxFileSize
 	r.Use(gin.Recovery())
 	r.Use(requestIDMiddleware())
 	r.Use(requestLogger())
 	r.Use(corsMiddleware(cfg.AllowedOrigins))
+	// Compress JSON responses to cut egress bandwidth — excluding the SSE
+	// streaming routes, whose incremental flushes gzip would buffer into one
+	// delayed chunk and break the "generating cards…" live UX.
+	r.Use(gzip.Gzip(gzip.DefaultCompression, gzip.WithExcludedPaths([]string{
+		"/api/ai/upload/stream",
+		"/api/ai/generate/stream",
+	})))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -103,7 +116,9 @@ func main() {
 	// Route groups with per-group request timeouts.
 	// Auth + collections: 15 s is generous for DB-only work.
 	// Billing: 30 s allows for Stripe API latency.
-	// AI: no deadline here — the Ollama client enforces a 2-minute HTTP timeout.
+	// AI: no deadline here — the Ollama client enforces a 5-minute HTTP timeout.
+	announcements.RegisterRoutes(api, cfg.GithubToken)
+
 	authSvc.RegisterRoutes(api.Group("/auth", timeoutMiddleware(15*time.Second)))
 
 	collectionsSvc := collections.NewService(pool)
@@ -116,7 +131,21 @@ func main() {
 	if cfg.OllamaURL != "" {
 		aiClient = ai.NewClient(cfg.OllamaURL, cfg.OllamaModel)
 	}
-	upload.NewService(aiClient).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
+
+	var store *storage.Client
+	if cfg.StorageEndpoint != "" && cfg.StorageAccessKeyID != "" &&
+		cfg.StorageSecretAccessKey != "" && cfg.StorageBucket != "" {
+		store = storage.New(cfg.StorageEndpoint, cfg.StorageAccessKeyID, cfg.StorageSecretAccessKey, cfg.StorageBucket)
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		if err := store.Ping(pingCtx); err != nil {
+			slog.Warn("storage bucket not reachable", "error", err)
+		} else {
+			slog.Info("storage bucket connected", "bucket", cfg.StorageBucket)
+		}
+	}
+
+	upload.NewService(aiClient, store).RegisterRoutes(api, authSvc.RequireUser(), authSvc.RequirePro())
 
 	billingSvc := billing.NewService(pool, billing.Config{
 		SecretKey:     cfg.StripeSecretKey,
@@ -124,10 +153,30 @@ func main() {
 		ProPriceID:    cfg.StripeProPriceID,
 		FrontendURL:   cfg.FrontendURL,
 	})
+	authSvc.OnBeforeUserDelete(billingSvc.DeleteCustomer)
 	billingSvc.RegisterRoutes(
 		api.Group("", timeoutMiddleware(30*time.Second)),
 		authSvc.RequireUser(),
 	)
+
+	notifSvc, err := notifications.NewService(pool, notifications.Config{
+		VAPIDPublicKey:  cfg.VAPIDPublicKey,
+		VAPIDPrivateKey: cfg.VAPIDPrivateKey,
+		VAPIDEmail:      cfg.VAPIDEmail,
+	})
+	if err != nil {
+		slog.Error("notifications service init failed", "error", err)
+		os.Exit(1)
+	}
+	notifSvc.RegisterRoutes(
+		api.Group("", timeoutMiddleware(15*time.Second)),
+		authSvc.RequireUser(),
+	)
+
+	// serverCtx lives for the full process lifetime — used by background goroutines
+	// that must outlive individual HTTP requests (e.g. the push scheduler).
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	notifSvc.StartScheduler(serverCtx)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
@@ -146,6 +195,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	slog.Info("shutting down gracefully")
+
+	serverCancel() // stop background goroutines (scheduler, etc.)
 
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutCancel()
@@ -218,10 +269,14 @@ func corsMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS")
 			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Request-Id")
+			c.Header("Access-Control-Allow-Credentials", "true")
 			c.Header("Access-Control-Max-Age", "43200")
-		}
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
+			if c.Request.Method == http.MethodOptions {
+				c.AbortWithStatus(http.StatusNoContent)
+				return
+			}
+		} else if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
 		c.Next()

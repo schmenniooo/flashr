@@ -16,7 +16,7 @@ export function PrivacyPolicy() {
 
       <main className="legal-content">
         <h1 className="legal-title">Privacy Policy</h1>
-        <p className="legal-meta">Last updated: May 2026</p>
+        <p className="legal-meta">Last updated: June 16, 2026</p>
 
         <section className="legal-section">
           <h2>1. Controller</h2>
@@ -26,10 +26,10 @@ export function PrivacyPolicy() {
           </p>
           <p>
             Ennio Schmidt<br />
-            [Street Address]<br />
-            [Postal Code, City]<br />
+            Welserstraße 3<br />
+            87463 Dietmannsried<br />
             Germany<br />
-            Email: <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
+            Email: <a href="mailto:support@flashr.io">support@flashr.io</a>
           </p>
         </section>
 
@@ -57,10 +57,12 @@ export function PrivacyPolicy() {
             folders, and documents you upload for AI-powered card generation.
           </p>
           <p>
-            Uploaded documents are processed exclusively by an <strong>AI model hosted locally
-            on our own servers</strong> (Ollama, llama3.2). Your content is never sent to
-            third-party AI services such as OpenAI or Anthropic. After card generation, uploaded
-            raw files are not permanently stored — only the flashcards you explicitly save are
+            Uploaded documents are processed exclusively by an <strong>AI model hosted on our
+            own infrastructure</strong> (Ollama, llama3.2). Your content is never sent to
+            third-party AI services such as OpenAI or Anthropic. During processing, uploaded
+            files are temporarily stored in a <strong>Railway Bucket</strong> (object storage
+            provided by Railway Corp., San Francisco, USA) and are automatically deleted as
+            soon as card generation is complete. Only the flashcards you explicitly save are
             retained in our database.
           </p>
           <p>
@@ -120,7 +122,29 @@ export function PrivacyPolicy() {
             consent given to GitHub.
           </p>
 
-          <h3>2.6 Server Logs</h3>
+          <h3>2.6 Product Analytics (PostHog)</h3>
+          <p>
+            We use <strong>PostHog</strong> to understand how users interact with flashr —
+            for example, which features are used, how study sessions go, and where users drop
+            off during onboarding. PostHog collects behavioural events (page views, clicks,
+            feature usage) along with your account ID, email address, and subscription plan
+            so that events can be linked to your account.
+          </p>
+          <p>
+            PostHog is operated by PostHog Inc. and the data is stored on PostHog's{" "}
+            <strong>EU-hosted infrastructure</strong> (eu.i.posthog.com). No data is
+            transferred to the USA in connection with PostHog. For details, see the{" "}
+            <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">
+              PostHog Privacy Policy
+            </a>.
+          </p>
+          <p>
+            Legal basis: Art. 6(1)(f) GDPR (legitimate interest in improving the service and
+            understanding user behaviour). You may object to this processing at any time by
+            contacting <a href="mailto:support@flashr.io">support@flashr.io</a>.
+          </p>
+
+          <h3>2.7 Server Logs</h3>
           <p>
             Every access to our servers automatically generates connection data (IP address,
             date/time, URL requested, HTTP status code, data transferred). This data is used
@@ -139,8 +163,10 @@ export function PrivacyPolicy() {
           <h2>3. Hosting and Infrastructure</h2>
           <p>
             flashr is hosted on <strong>Railway</strong> (Railway Corp., San Francisco, USA).
-            Data transfers to the USA are covered by the European Commission's Standard
-            Contractual Clauses. For more information, see the{" "}
+            This includes our application servers, database, and object storage (Railway Buckets),
+            where uploaded files are held temporarily during AI processing. Data transfers to the
+            USA are covered by the European Commission's Standard Contractual Clauses. For more
+            information, see the{" "}
             <a href="https://railway.com/legal/privacy" target="_blank" rel="noopener noreferrer">
               Railway Privacy Policy
             </a>.
@@ -158,7 +184,9 @@ export function PrivacyPolicy() {
           <ul>
             <li>Account data: until account deletion or upon request</li>
             <li>User content (cards, collections): until account deletion</li>
+            <li>Uploaded files (PDFs): deleted immediately after AI card generation</li>
             <li>Payment data (Stripe reference): up to 10 years per statutory commercial and tax requirements</li>
+            <li>Analytics data (PostHog): 1 year from last activity, then anonymised</li>
             <li>Server logs: 7 days</li>
           </ul>
         </section>
@@ -166,16 +194,24 @@ export function PrivacyPolicy() {
         <hr className="legal-divider" />
 
         <section className="legal-section">
-          <h2>5. Cookies</h2>
+          <h2>5. Cookies and Local Storage</h2>
           <p>
-            flashr uses only technically necessary cookies and local browser storage
-            (localStorage) for session management and authentication. No tracking or
-            advertising cookies are used.
+            flashr uses cookies and local browser storage (localStorage) for the following purposes:
           </p>
-          <p>
-            Legal basis: Art. 6(1)(f) GDPR (legitimate interest in the technical provision
-            of the service).
-          </p>
+          <ul>
+            <li>
+              <strong>Authentication:</strong> A session token and refresh cookie are used for
+              login state. These are technically necessary for the service to function.
+              Legal basis: Art. 6(1)(b) GDPR.
+            </li>
+            <li>
+              <strong>Analytics (PostHog):</strong> PostHog sets a cookie (<code>ph_*</code>) to
+              identify your browser session across page views and attribute analytics events to
+              your account. Legal basis: Art. 6(1)(f) GDPR (legitimate interest). You may object
+              by contacting <a href="mailto:support@flashr.io">support@flashr.io</a>.
+            </li>
+          </ul>
+          <p>No advertising or third-party tracking cookies are used.</p>
         </section>
 
         <hr className="legal-divider" />
@@ -193,7 +229,7 @@ export function PrivacyPolicy() {
           </ul>
           <p>
             To exercise your rights, contact us at:{" "}
-            <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>
+            <a href="mailto:support@flashr.io">support@flashr.io</a>
           </p>
           <p>
             You can also exercise your <strong>right to erasure</strong> (Art. 17 GDPR) directly

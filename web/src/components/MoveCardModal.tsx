@@ -22,7 +22,7 @@ export function MoveCardModal({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!toId) return;
-    void cardsApi.move(fromCollectionId, card.id, toId);
+    void cardsApi.move(fromCollectionId, card.id, toId).catch(() => {});
     onClose();
   }
 

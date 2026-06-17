@@ -21,15 +21,18 @@ import {
   Folder as FolderIcon,
   FileText,
   CornerDownLeft,
+  Bell,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
+import { api } from "../lib/api";
+import { STORAGE_KEYS } from "../lib/storageKeys";
 import {
   useDb,
   selectCollections,
   selectFolders,
   selectCurrentUser,
-  selectTotalCards,
   selectCardsDueToday,
+  billingApi,
 } from "../lib/store";
 import { NewFolderModal } from "./NewFolderModal";
 import "./AppShell.css";
@@ -46,10 +49,10 @@ export function AppShell() {
   const collections = useDb(selectCollections);
   const folders = useDb(selectFolders);
   const user = useDb(selectCurrentUser);
-  const totalCards = useDb(selectTotalCards);
   const cardsDueToday = useDb(selectCardsDueToday);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -75,6 +78,21 @@ export function AppShell() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname, searchParams]);
+
+  useEffect(() => {
+    api<{ version: string }[]>("/announcements")
+      .then((releases) => {
+        if (releases.length === 0) return;
+        const latest = releases[0].version;
+        const seen = localStorage.getItem(STORAGE_KEYS.LAST_SEEN_ANNOUNCEMENT);
+        setHasUnread(seen !== latest);
+      })
+      .catch(() => {});
+
+    const onSeen = () => setHasUnread(false);
+    window.addEventListener("flashr:announcement-seen", onSeen);
+    return () => window.removeEventListener("flashr:announcement-seen", onSeen);
+  }, []);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -240,6 +258,11 @@ export function AppShell() {
             <Sparkles size={16} strokeWidth={1.8} />
             Create with AI
           </NavLink>
+          <NavLink to="/app/announcements" className="shell__nav-link">
+            <Bell size={16} strokeWidth={1.8} />
+            What's new
+            {hasUnread && <span className="shell__nav-unread" />}
+          </NavLink>
         </nav>
 
         <nav className="shell__nav">
@@ -270,11 +293,21 @@ export function AppShell() {
         </nav>
 
         <div className="shell__sidebar-foot">
+          {user?.plan === "free" && (
+            <button
+              type="button"
+              className="shell__upgrade-nudge"
+              onClick={() => user && billingApi.checkout(user.email, true)}
+            >
+              <Sparkles size={13} strokeWidth={2} />
+              Get Pro
+            </button>
+          )}
           <div className="shell__streak">
             <Flame size={16} strokeWidth={2} className="shell__streak-icon" />
             <div>
-              <div className="shell__streak-val">{totalCards} cards</div>
-              <div className="shell__streak-lbl">Across all collections</div>
+              <div className="shell__streak-val">{user?.streak ?? 0} day streak</div>
+              <div className="shell__streak-lbl">Keep it up!</div>
             </div>
           </div>
           <Link to="/app/profile" className="shell__userbar">

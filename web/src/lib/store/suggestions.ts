@@ -1,6 +1,7 @@
 import { suggestions as suggestionCatalog } from "../../data/mock";
 import { state, setState } from "./db";
 import { collectionsApi } from "./collections";
+import { cardsApi } from "./cards";
 import type { Db } from "./db";
 import type { Collection, Suggestion } from "../../types";
 
@@ -102,11 +103,21 @@ export const suggestionsApi = {
       };
     });
 
-    return collectionsApi.create({
+    const collection = await collectionsApi.create({
       name: suggestion.title,
       folder: suggestion.folder,
       emoji: suggestion.emoji,
       description: suggestion.description,
     });
+
+    if (suggestion.cards?.length) {
+      await Promise.all(
+        suggestion.cards.map((c) =>
+          cardsApi.add(collection.id, { question: c.question, answer: c.answer, aiGenerated: true })
+        )
+      );
+    }
+
+    return collection;
   },
 };

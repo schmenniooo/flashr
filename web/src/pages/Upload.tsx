@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { toast } from "../lib/toast";
 import { Link, useNavigate } from "react-router-dom";
 import {
   UploadCloud,
@@ -18,11 +19,12 @@ import {
   selectCurrentUser,
   useDb,
 } from "../lib/store";
-import { api, ApiError } from "../lib/api";
+import { API_BASE, getToken } from "../lib/api";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import { AiChat } from "./upload/AiChat";
 import { ReviewStep } from "./upload/ReviewStep";
 import type { DraftCard } from "./upload/types";
+import { usePostHog } from "@posthog/react";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -30,6 +32,7 @@ type ActiveTab = "pdf" | "chat";
 
 export function Upload() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const isPro = currentUser?.plan === "pro";
@@ -43,31 +46,135 @@ export function Upload() {
   const [target, setTarget] = useState<string>(collections[0]?.id ?? "__new");
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [truncated, setTruncated] = useState(false);
+  const [skipped, setSkipped] = useState(0);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   async function handleFile(file: File) {
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Only PDF files are supported right now.");
+    const name = file.name.toLowerCase();
+    if (!name.endsWith(".pdf") && !name.endsWith(".md") && !name.endsWith(".docx") && !name.endsWith(".apkg")) {
+      setError("Only PDF, Markdown (.md), Word (.docx) and Anki (.apkg) files are supported right now.");
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setError("File too large — max 20 MB.");
+    if (file.size > 500 * 1024 * 1024) {
+      setError("File too large — max 500 MB.");
       return;
     }
+
     setError(null);
     setFileName(file.name);
     setFileSize(file.size);
+    setDrafts([]);
+    setTruncated(false);
+    setSkipped(0);
+    setIsGenerating(true);
     setStep("processing");
-    const form = new FormData();
-    form.append("file", file);
+    posthog.capture("ai_generation_started", { method: "file", file_type: name.split(".").pop(), file_size_kb: Math.round(file.size / 1024) });
+
+    abortRef.current?.abort();
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    const headers: Record<string, string> = {};
+    const token = getToken();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    let resp: Response;
     try {
-      const result = await api<{ cards: { question: string; answer: string }[] }>(
-        "/ai/upload",
-        { method: "POST", body: form }
-      );
-      setDrafts(result.cards.map((c, i) => ({ id: `d${i}`, question: c.question, answer: c.answer, keep: true })));
-      setStep("review");
-    } catch (err: unknown) {
-      setError(err instanceof ApiError && err.status === 403 ? "__pro__" : (err instanceof Error ? err.message : "Something went wrong."));
+      const form = new FormData();
+      form.append("file", file);
+      resp = await fetch(`${API_BASE}/ai/upload/stream`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        signal: abort.signal,
+        body: form,
+      });
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setError("Upload failed — check your connection.");
+      setStep("drop");
+      setIsGenerating(false);
+      return;
+    }
+
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({})) as { error?: string };
+      if (resp.status === 403) {
+        setError("__pro__");
+      } else {
+        setError(body.error ?? "Something went wrong.");
+      }
+      setStep("drop");
+      setIsGenerating(false);
+      return;
+    }
+
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let cardIndex = 0;
+    let eventType = "";
+    let eventData = "";
+    let movedToReview = false;
+
+    const flushEvent = () => {
+      if (!eventData) return;
+      try {
+        const parsed = JSON.parse(eventData) as Record<string, unknown>;
+        if (eventType === "card") {
+          const q = parsed.question as string;
+          const a = parsed.answer as string;
+          if (q && a) {
+            const idx = cardIndex++;
+            setDrafts((prev) => [...prev, { id: `d${idx}`, question: q, answer: a, keep: true }]);
+            if (!movedToReview) {
+              movedToReview = true;
+              setStep("review");
+            }
+          }
+        } else if (eventType === "meta") {
+          if (parsed.truncated) setTruncated(true);
+          if (typeof parsed.skipped === "number" && parsed.skipped > 0) setSkipped(parsed.skipped);
+        } else if (eventType === "error") {
+          setError((parsed.error as string) ?? "AI generation failed.");
+          setStep("drop");
+        }
+      } catch { /* malformed SSE data */ }
+      eventType = "";
+      eventData = "";
+    };
+
+    const processLine = (line: string) => {
+      if (line.startsWith("event:")) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith("data:")) {
+        eventData += line.slice(5).trimStart();
+      } else if (line === "") {
+        flushEvent();
+      }
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop()!;
+        for (const line of lines) processLine(line);
+      }
+      if (buf) processLine(buf);
+      flushEvent();
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+    } finally {
+      setIsGenerating(false);
+    }
+
+    if (cardIndex === 0 && step !== "drop") {
+      setError("No cards could be generated from this file.");
       setStep("drop");
     }
   }
@@ -75,17 +182,27 @@ export function Upload() {
   async function handleSave() {
     const kept = drafts.filter((d) => d.keep);
     if (kept.length === 0) return;
-    let collectionId = target;
-    if (collectionId === "__new" || !collections.find((c) => c.id === collectionId)) {
-      const name = fileName ? fileName.replace(/\.pdf$/i, "").replace(/[_-]/g, " ") : "AI Generated Cards";
-      const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
-      collectionId = created.id;
+    try {
+      let collectionId = target;
+      const isNew = collectionId === "__new" || !collections.find((c) => c.id === collectionId);
+      if (isNew) {
+        const name = newCollectionName;
+        const created = await collectionsApi.create({ name, folder: "Uncategorized", emoji: "✨", description: "Generated from your uploaded notes." });
+        collectionId = created.id;
+      }
+      await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
+      posthog.capture("ai_cards_saved", { method: "file", cards_saved: kept.length, cards_discarded: drafts.length - kept.length, collection_id: collectionId, new_collection: target === "__new" });
+      toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
+      navigate(`/app/c/${collectionId}`);
+    } catch {
+      // toast already shown by store
     }
-    await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer })));
-    navigate(`/app/c/${collectionId}`);
   }
 
   const keepCount = drafts.filter((d) => d.keep).length;
+  const newCollectionName = fileName
+    ? fileName.replace(/\.(pdf|md|docx|apkg)$/i, "").replace(/[_-]/g, " ")
+    : "AI Generated Cards";
 
   return (
     <div className="up">
@@ -104,7 +221,7 @@ export function Upload() {
 
       {!isPro && (
         <div className="up__gate">
-          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock PDF uploads and topic-based card generation." />
+          <UpgradePrompt reason="AI generation is a Pro feature. Upgrade to unlock file uploads and topic-based card generation." />
         </div>
       )}
 
@@ -115,7 +232,7 @@ export function Upload() {
             onClick={() => setActiveTab("pdf")}
           >
             <UploadCloud size={14} strokeWidth={2} />
-            Upload PDF
+            Upload file
           </button>
           <button
             className={`up__tab${activeTab === "chat" ? " up__tab--active" : ""}`}
@@ -129,7 +246,7 @@ export function Upload() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,.md,.docx,.apkg"
           className="up__file-input"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -153,7 +270,7 @@ export function Upload() {
             </ol>
 
             {error && (error === "__pro__" ? (
-              <UpgradePrompt reason="AI generation from PDFs is a Pro feature." />
+              <UpgradePrompt reason="AI generation from files is a Pro feature." />
             ) : (
               <div className="up__error">
                 <AlertCircle size={14} strokeWidth={2} />
@@ -167,9 +284,22 @@ export function Upload() {
             {step === "processing" && (
               <ProcessingStep fileName={fileName!} fileSize={fileSize} />
             )}
+            {step === "review" && truncated && (
+              <div className="up__warning">
+                <AlertCircle size={14} strokeWidth={2} />
+                Your file was too large to process in full — only part of the text was used to generate cards. Consider splitting the file for better coverage.
+              </div>
+            )}
+            {step === "review" && skipped > 0 && (
+              <div className="up__warning">
+                <AlertCircle size={14} strokeWidth={2} />
+                {skipped} note{skipped === 1 ? "" : "s"} were skipped — they may be image-only or have empty fields.
+              </div>
+            )}
             {step === "review" && (
               <ReviewStep
                 drafts={drafts}
+                isGenerating={isGenerating}
                 onToggle={(id) => setDrafts((d) => d.map((c) => (c.id === id ? { ...c, keep: !c.keep } : c)))}
                 onEdit={(id, field, value) => setDrafts((d) => d.map((c) => (c.id === id ? { ...c, [field]: value } : c)))}
                 editingId={editingId}
@@ -180,6 +310,7 @@ export function Upload() {
                 onBack={() => setStep("drop")}
                 onSave={handleSave}
                 collections={collections}
+                newCollectionName={newCollectionName}
               />
             )}
           </>
@@ -211,7 +342,7 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
         </div>
         <div className="up__drop-text">
           <h2 className="text-h2">Drop a file here or click to upload</h2>
-          <p className="text-body">PDF — up to 20 MB</p>
+          <p className="text-body">PDF, Markdown, Word or Anki — up to 500 MB</p>
         </div>
         <div className="up__drop-badges">
           <span className="badge">
@@ -229,7 +360,16 @@ function DropStep({ onPick, onDrop }: { onPick: () => void; onDrop: (file: File)
           <span className="badge">
             <FileText size={10} strokeWidth={2} className="up__badge-icon" /> PDF
           </span>
-          <span className="badge up__badge--muted">DOCX · GoodNotes · Notability — coming soon</span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Markdown
+          </span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Word
+          </span>
+          <span className="badge">
+            <FileText size={10} strokeWidth={2} className="up__badge-icon" /> Anki
+          </span>
+          <span className="badge up__badge--muted">GoodNotes · Notability — coming soon</span>
         </div>
       </div>
     </>
@@ -254,11 +394,11 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
 
       <ul className="up__proc-list">
         <li className="up__proc-item up__proc-item--done">
-          <CheckCircle2 size={14} strokeWidth={2} /> PDF uploaded
+          <CheckCircle2 size={14} strokeWidth={2} /> File uploaded
         </li>
         <li className="up__proc-item up__proc-item--active">
           <Loader2 size={14} className="up__spin" strokeWidth={2} /> Extracting text &amp; generating cards…
-          <span className="text-meta">~ 30 s</span>
+          <span className="text-meta">~ 30 s – a few min for large decks</span>
         </li>
         <li className="up__proc-item">
           <span className="up__proc-dot" /> Review &amp; save
@@ -267,7 +407,7 @@ function ProcessingStep({ fileName, fileSize }: { fileName: string; fileSize: nu
       </ul>
 
       <p className="up__proc-tip text-body">
-        Large PDFs can take up to a minute. Hang tight — we'll show you the cards when they're ready.
+        Large files can take a few minutes to process. Hang tight — we'll show you the cards when they're ready.
       </p>
     </div>
   );

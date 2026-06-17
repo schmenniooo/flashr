@@ -13,6 +13,7 @@ Before making changes, consult these canonical documents:
 
 - [ROADMAP.md](ROADMAP.md) — Full product roadmap: phases (Foundation → MVP → Growth → Native Mobile → Platform), database schema, Go package structure, and forward-looking architecture constraints. The roadmap is the source of truth for what to build and — importantly — what schema fields / packages to scaffold now even if they belong to later phases (`srs_metadata`, `is_public`, `upload_jobs`, `srs/` and `sharing/` packages).
 - [GUIDELINES.md](GUIDELINES.md) — Brand & design system: color tokens, typography (DM Sans), component styles, spacing scale, iconography (Lucide), motion, voice & tone. Any UI work must use these tokens and rules.
+- [ANNOUNCEMENTS.md](ANNOUNCEMENTS.md) — User-facing changelog. **You MUST add an entry here for every feature addition, bug fix, or notable change you ship.** Bump the semantic version (patch for fixes, minor for features, major for breaking changes), set the date to today, and write a short user-facing description. Never leave this file stale.
 
 ---
 
@@ -182,6 +183,22 @@ backend/
 - **Webhooks** remain registered and process events, but they are a *secondary* sync — not the primary source of truth for the post-redirect flow.
 
 **Relevant files:** `backend/internal/billing/billing.go` (`FulfillCheckout`, `SyncPlan`), `backend/internal/billing/http.go` (`/billing/fulfill`, `/billing/sync`), `web/src/pages/Profile.tsx` (calls fulfill/sync before refreshUser), `web/src/lib/store/billing.ts` (`fulfill`, `sync`).
+
+---
+
+## Worktrees
+
+When working in a git worktree (path contains `.claude/worktrees/`), copy both env files from the real repo before starting anything — the worktree won't have them:
+
+```bash
+# Frontend — Vite's loadEnv reads from process.cwd() (web/)
+cp /Users/ennio/_projects/flashr/web/.env /Users/ennio/_projects/flashr/.claude/worktrees/<worktree-name>/web/.env
+
+# Backend — Go server reads from backend/
+cp /Users/ennio/_projects/flashr/backend/.env /Users/ennio/_projects/flashr/.claude/worktrees/<worktree-name>/backend/.env
+```
+
+Do this once at the start of the session.
 
 ---
 

@@ -1,5 +1,6 @@
 import { api } from "../api";
 import { state, setState, recountFolders } from "./db";
+import { toast } from "../toast";
 
 export const foldersApi = {
   create(name: string, emoji = "📁") {
@@ -7,6 +8,7 @@ export const foldersApi = {
       if (db.folders.some((f) => f.name === name)) return db;
       return { ...db, folders: [...db.folders, { name, emoji, count: 0 }] };
     });
+    toast.success(`Folder "${name}" created`);
   },
 
   rename(oldName: string, newName: string) {
@@ -21,6 +23,7 @@ export const foldersApi = {
         collections: db.collections.map((c) => c.folder === oldName ? { ...c, folder: trimmed } : c),
       };
     });
+    toast.success(`Folder renamed to "${trimmed}"`);
     void Promise.all(
       affected.map((c) =>
         api(`/collections/${c.id}`, {
@@ -40,6 +43,7 @@ export const foldersApi = {
         c.folder === name ? { ...c, folder: "" } : c,
       ),
     }));
+    toast.success(`Folder "${name}" deleted`);
     void Promise.all(
       affected.map((c) =>
         api(`/collections/${c.id}`, {

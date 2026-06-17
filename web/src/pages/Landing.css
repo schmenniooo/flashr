@@ -400,6 +400,38 @@
   margin: 0 0 var(--space-7) 0;
 }
 
+/* ─── Trust strip ─────────────────────────────────────────── */
+
+.landing-trust-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.landing-trust-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+.landing-trust-item svg {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.landing-trust-sep {
+  color: var(--color-border);
+  font-size: 14px;
+  line-height: 1;
+}
+
 /* ─── Features ────────────────────────────────────────────── */
 
 .landing-features {
@@ -418,7 +450,7 @@
 
 .landing-features-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--space-5);
 }
 
@@ -467,6 +499,129 @@
   color: var(--color-muted);
   line-height: 1.7;
   margin: 0;
+}
+
+/* ─── Import / Replace Anki ───────────────────────────────── */
+
+.landing-import {
+  padding: var(--space-9) 0;
+  border-top: 1px solid var(--color-border);
+  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 100%);
+}
+
+.landing-import-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-9);
+  align-items: center;
+}
+
+.landing-import-title {
+  margin-bottom: var(--space-4);
+}
+
+.landing-import-sub {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--color-muted);
+  margin: 0 0 var(--space-6) 0;
+  max-width: 440px;
+}
+
+.landing-import-sub strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.landing-import-formats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.landing-format-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.landing-format-card--highlight {
+  border-color: rgba(108, 99, 255, 0.35);
+  background: linear-gradient(135deg, rgba(108, 99, 255, 0.07) 0%, var(--color-card) 60%);
+}
+
+.landing-format-card:hover {
+  border-color: rgba(108, 99, 255, 0.4);
+  box-shadow: 0 4px 20px rgba(108, 99, 255, 0.08);
+}
+
+.landing-format-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+}
+
+.landing-format-card--highlight .landing-format-icon {
+  color: var(--color-accent);
+  border-color: rgba(108, 99, 255, 0.25);
+  background: rgba(108, 99, 255, 0.08);
+}
+
+.landing-format-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.landing-format-ext {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+
+.landing-format-name {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.landing-format-badge {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  background: rgba(108, 99, 255, 0.12);
+  border: 1px solid rgba(108, 99, 255, 0.25);
+  border-radius: 20px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .landing-import-inner {
+    grid-template-columns: 1fr;
+    gap: var(--space-7);
+  }
+
+  .landing-import-sub {
+    max-width: 100%;
+  }
 }
 
 /* ─── How It Works ────────────────────────────────────────── */
@@ -630,9 +785,26 @@
   justify-content: center;
 }
 
+.landing-plan-trial-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--color-muted);
+  margin: calc(var(--space-3) * -1) 0 0;
+}
+
+.landing-plan-promo-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  opacity: 0.7;
+  margin: 0;
+}
+
 .landing-plan-features {
   list-style: none;
-  margin: 0;
+  margin: auto 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -746,6 +918,14 @@
   margin: 0;
 }
 
+.landing-faq-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.landing-faq-link:hover {
+  text-decoration: underline;
+}
+
 /* ─── Final CTA ───────────────────────────────────────────── */
 
 .landing-cta {
@@ -851,6 +1031,28 @@
   opacity: 1;
 }
 
+.landing-footer-social {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.landing-footer-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  color: var(--color-muted);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.landing-footer-social-link:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
 /* ─── Scroll animations ───────────────────────────────────── */
 
 [data-animate] {
@@ -866,6 +1068,7 @@
 
 .landing-feature-card:nth-child(2)[data-animate] { transition-delay: 0.1s; }
 .landing-feature-card:nth-child(3)[data-animate] { transition-delay: 0.2s; }
+.landing-feature-card:nth-child(4)[data-animate] { transition-delay: 0.3s; }
 
 .landing-step:nth-child(2)[data-animate] { transition-delay: 0.1s; }
 .landing-step:nth-child(3)[data-animate] { transition-delay: 0.2s; }

@@ -15,6 +15,7 @@ import {
 import { Wordmark } from "../lib/logo";
 import { auth, useDb, selectCurrentUser } from "../lib/store";
 import type { LearnerType } from "../types";
+import { usePostHog } from "@posthog/react";
 import "./Onboarding.css";
 
 type Step = 0 | 1 | 2;
@@ -65,6 +66,7 @@ const LEARNER_OPTIONS: {
 
 export function Onboarding() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
   const user = useDb(selectCurrentUser);
   const [step, setStep] = useState<Step>(0);
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
@@ -75,6 +77,8 @@ export function Onboarding() {
   const [learnerTypes, setLearnerTypes] = useState<LearnerType[]>(
     user?.learnerTypes ?? [],
   );
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function toggleLearnerType(value: LearnerType) {
     setLearnerTypes((prev) =>
@@ -93,19 +97,28 @@ export function Onboarding() {
     (step === 1 && ageValid) ||
     (step === 2 && learnerTypes.length > 0);
 
-  function next() {
+  async function next() {
     if (!canContinue) return;
     if (step < 2) {
       setStep((s) => ((s + 1) as Step));
       return;
     }
-    auth.completeOnboarding({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      age: ageNum,
-      learnerTypes,
-    });
-    navigate("/app", { replace: true });
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await auth.completeOnboarding({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        age: ageNum,
+        learnerTypes,
+      });
+      posthog.capture("onboarding_completed", { learner_types: learnerTypes, age: ageNum });
+      navigate("/app", { replace: true });
+    } catch {
+      setSaveError("Something went wrong — please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function back() {
@@ -243,12 +256,15 @@ export function Onboarding() {
           </div>
         )}
 
+        {saveError && (
+          <p className="onb__error">{saveError}</p>
+        )}
         <div className="onb__actions">
           <button
             type="button"
             className="btn-ghost onb__back"
             onClick={back}
-            disabled={step === 0}
+            disabled={step === 0 || saving}
           >
             <ArrowLeft size={14} strokeWidth={2} />
             Back
@@ -257,10 +273,10 @@ export function Onboarding() {
             type="button"
             className="btn-primary onb__next"
             onClick={next}
-            disabled={!canContinue}
+            disabled={!canContinue || saving}
           >
-            {step === 2 ? "Finish" : "Continue"}
-            <ArrowRight size={14} strokeWidth={2} />
+            {step === 2 ? (saving ? "Saving…" : "Finish") : "Continue"}
+            {!saving && <ArrowRight size={14} strokeWidth={2} />}
           </button>
         </div>
       </main>
