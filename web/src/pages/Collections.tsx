@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter, Trash2, X, Pencil } from "lucide-react";
+import { Plus, Sparkles, Grid3x3, List, ArrowUpDown, Filter, Trash2, X, Pencil, Check } from "lucide-react";
 import {
   foldersApi,
   selectCollections,
@@ -18,6 +18,28 @@ import { UpgradePrompt } from "../components/UpgradePrompt";
 import type { Collection } from "../lib/store";
 import "./Collections.css";
 
+type SortKey = "name-asc" | "name-desc" | "cards-desc" | "cards-asc" | "progress-desc" | "progress-asc" | "created-desc" | "created-asc";
+type FilterKey = "all" | "not-started" | "in-progress" | "mastered" | "ai";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "name-asc",      label: "Name A–Z" },
+  { key: "name-desc",     label: "Name Z–A" },
+  { key: "cards-desc",    label: "Most cards" },
+  { key: "cards-asc",     label: "Fewest cards" },
+  { key: "progress-desc", label: "Progress: highest" },
+  { key: "progress-asc",  label: "Progress: lowest" },
+  { key: "created-desc",  label: "Newest" },
+  { key: "created-asc",   label: "Oldest" },
+];
+
+const FILTER_OPTIONS: { key: FilterKey; label: string }[] = [
+  { key: "all",         label: "All" },
+  { key: "not-started", label: "Not started" },
+  { key: "in-progress", label: "In progress" },
+  { key: "mastered",    label: "Mastered" },
+  { key: "ai",          label: "Has AI cards" },
+];
+
 const FREE_COLLECTION_LIMIT = 3;
 
 export function Collections() {
@@ -32,6 +54,12 @@ export function Collections() {
   const [searchParams, setSearchParams] = useSearchParams();
   const folderParam = searchParams.get("folder");
   const [filter, setFilter] = useState<string>(folderParam ?? "All");
+  const [sort, setSort] = useState<SortKey>("name-asc");
+  const [filterType, setFilterType] = useState<FilterKey>("all");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null);
@@ -44,6 +72,15 @@ export function Collections() {
     setFilter(folderParam ?? "All");
   }
 
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      if (sortOpen && sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+      if (filterOpen && filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [sortOpen, filterOpen]);
+
   function selectFilter(value: string) {
     setFilter(value);
     if (value === "All") {
@@ -54,8 +91,28 @@ export function Collections() {
     setSearchParams(searchParams, { replace: true });
   }
 
-  const filtered =
+  const folderFiltered =
     filter === "All" ? collections : collections.filter((c) => c.folder === filter);
+
+  const typeFiltered =
+    filterType === "all"         ? folderFiltered :
+    filterType === "not-started" ? folderFiltered.filter((c) => c.progress === 0) :
+    filterType === "in-progress" ? folderFiltered.filter((c) => c.progress > 0 && c.progress < 100) :
+    filterType === "mastered"    ? folderFiltered.filter((c) => c.progress === 100) :
+    folderFiltered.filter((c) => c.cards.some((card) => card.aiGenerated));
+
+  const displayed = [...typeFiltered].sort((a, b) => {
+    switch (sort) {
+      case "name-asc":      return a.name.localeCompare(b.name);
+      case "name-desc":     return b.name.localeCompare(a.name);
+      case "cards-desc":    return b.cards.length - a.cards.length;
+      case "cards-asc":     return a.cards.length - b.cards.length;
+      case "progress-desc": return b.progress - a.progress;
+      case "progress-asc":  return a.progress - b.progress;
+      case "created-desc":  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      case "created-asc":   return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
+  });
 
   return (
     <div className="cols">
@@ -130,8 +187,52 @@ export function Collections() {
           </button>
         </div>
         <div className="cols__view">
-          <button className="cols__icon-btn" title="Filter"><Filter size={14} strokeWidth={1.8} /></button>
-          <button className="cols__icon-btn" title="Sort"><ArrowUpDown size={14} strokeWidth={1.8} /></button>
+          <div className="cols__dropdown-wrap" ref={filterRef}>
+            <button
+              className={`cols__icon-btn ${filterType !== "all" ? "cols__icon-btn--active" : ""}`}
+              title="Filter"
+              onClick={() => { setFilterOpen((o) => !o); setSortOpen(false); }}
+            >
+              <Filter size={14} strokeWidth={1.8} />
+            </button>
+            {filterOpen && (
+              <div className="cols__dropdown">
+                {FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    className={`cols__dropdown-item ${filterType === opt.key ? "cols__dropdown-item--active" : ""}`}
+                    onClick={() => { setFilterType(opt.key); setFilterOpen(false); }}
+                  >
+                    {opt.label}
+                    {filterType === opt.key && <Check size={12} strokeWidth={2.5} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="cols__dropdown-wrap" ref={sortRef}>
+            <button
+              className={`cols__icon-btn ${sort !== "name-asc" ? "cols__icon-btn--active" : ""}`}
+              title="Sort"
+              onClick={() => { setSortOpen((o) => !o); setFilterOpen(false); }}
+            >
+              <ArrowUpDown size={14} strokeWidth={1.8} />
+            </button>
+            {sortOpen && (
+              <div className="cols__dropdown">
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    className={`cols__dropdown-item ${sort === opt.key ? "cols__dropdown-item--active" : ""}`}
+                    onClick={() => { setSort(opt.key); setSortOpen(false); }}
+                  >
+                    {opt.label}
+                    {sort === opt.key && <Check size={12} strokeWidth={2.5} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="cols__view-toggle">
             <button className={`cols__icon-btn ${view === "grid" ? "cols__icon-btn--active" : ""}`} onClick={() => setView("grid")} title="Grid">
               <Grid3x3 size={14} strokeWidth={1.8} />
@@ -143,11 +244,15 @@ export function Collections() {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {displayed.length === 0 ? (
         <div className="cols__empty">
           <span className="text-meta">Nothing here yet</span>
           <h2 className="text-h2 cols__empty-title">
-            {filter === "All" ? "Create your first collection." : `No collections in ${filter} — add one?`}
+            {filterType !== "all"
+              ? `No collections match this filter.`
+              : filter === "All"
+              ? "Create your first collection."
+              : `No collections in ${filter} — add one?`}
           </h2>
           <p className="text-body cols__empty-body">
             Collections hold your cards. Group them by subject, course, or whatever makes sense to you.
@@ -163,13 +268,13 @@ export function Collections() {
         </div>
       ) : view === "grid" ? (
         <div className="cols__grid">
-          {filtered.map((c) => (
+          {displayed.map((c) => (
             <CollectionCard key={c.id} collection={c} onEdit={() => setEditingCollection(c)} />
           ))}
         </div>
       ) : (
         <div className="cols__list">
-          {filtered.map((c) => (
+          {displayed.map((c) => (
             <div key={c.id} className="cols__row" onClick={() => navigate(`/app/c/${c.id}`)}>
               <span className="cols__row-emoji">{c.emoji}</span>
               <div className="cols__row-main">

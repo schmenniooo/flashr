@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -54,12 +55,37 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// signUp creates a fresh user and returns their ID and bearer token.
+// signUp creates a fresh user and returns their ID and access token.
 func signUp(t *testing.T, email string) (userID, token string) {
 	t.Helper()
-	u, tok, _, err := testAuthSvc.SignUp(context.Background(), email, "password123", "Test User")
+	u, pair, err := testAuthSvc.SignUp(context.Background(), email, "password123", "Test User")
 	require.NoError(t, err)
-	return u.ID, tok
+	return u.ID, pair.AccessToken
+}
+
+// doWithCookie fires a request that includes an extra cookie value.
+// Used for testing the /refresh and /logout endpoints.
+func doWithCookie(t *testing.T, method, path string, body any, token, cookieName, cookieValue string) *httptest.ResponseRecorder {
+	t.Helper()
+	var reqBody *bytes.Buffer
+	if body != nil {
+		b, err := json.Marshal(body)
+		require.NoError(t, err)
+		reqBody = bytes.NewBuffer(b)
+	} else {
+		reqBody = &bytes.Buffer{}
+	}
+	req := httptest.NewRequest(method, path, reqBody)
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: cookieValue})
+	w := httptest.NewRecorder()
+	testRouter.ServeHTTP(w, req)
+	return w
 }
 
 // uniqueEmail returns an email address that is unique within this test run.

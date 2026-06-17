@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
   X,
@@ -9,26 +9,52 @@ import {
   ArrowLeft,
   ArrowRight,
   RotateCcw,
+  CalendarClock,
 } from "lucide-react";
-import { cardsApi, collectionsApi, selectCollection, selectCurrentUser, useDb } from "../lib/store";
-import type { Collection } from "../lib/store";
+import { cardsApi, collectionsApi, selectCardsToday, selectCollection, selectCurrentUser, useDb } from "../lib/store";
+import type { Card, Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
+import { usePostHog } from "@posthog/react";
 import "./Study.css";
 
 type Rating = "again" | "hard" | "good" | "easy";
 
+function isDue(card: Card): boolean {
+  return !card.dueDate || new Date(card.dueDate) <= new Date();
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 export function Study() {
   const { id } = useParams();
+  const posthog = usePostHog();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);
+  const cardsToday = useDb(selectCardsToday);
 
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [ratings, setRatings] = useState<Record<string, Rating>>({});
   const [finished, setFinished] = useState(false);
+  const [studyAll, setStudyAll] = useState(false);
 
-  const card = collection?.cards[index];
-  const total = collection?.cards.length ?? 0;
+  // Compute the shuffled deck once on mount (or when studyAll is toggled).
+  const deck = useMemo<Card[]>(() => {
+    if (!collection) return [];
+    const pool = studyAll ? collection.cards : collection.cards.filter(isDue);
+    return shuffle(pool);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collection?.id, studyAll]);
+
+  const card = deck[index];
+  const total = deck.length;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -55,12 +81,51 @@ export function Study() {
   if (collection.cards.length === 0)
     return <Navigate to={`/app/c/${collection.id}`} replace />;
 
+  // "All caught up" state — no cards due and not yet overridden.
+  if (deck.length === 0 && !studyAll) {
+    const nextDue = collection.cards
+      .filter((k) => k.dueDate)
+      .map((k) => new Date(k.dueDate!))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+
+    return (
+      <div className="study">
+        <StudyTopBar collection={collection} total={collection.cards.length} index={0} streak={currentUser?.streak ?? 0} />
+        <div className="study__done fade-in">
+          <div className="study__done-icon">
+            <CalendarClock size={56} strokeWidth={1.5} />
+          </div>
+          <span className="text-meta">All caught up</span>
+          <h1 className="text-display" style={{ maxWidth: 560 }}>
+            No cards are due right now.{" "}
+            {nextDue && `Next review: ${nextDue.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}.`}
+          </h1>
+          <div className="study__done-cta">
+            <Link to={`/app/c/${collection.id}`} className="btn-ghost">
+              Back to collection
+            </Link>
+            <button className="btn-primary" onClick={() => setStudyAll(true)}>
+              Study all cards
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function next() {
-    if (!collection) return;
     if (index < total - 1) {
       setIndex((i) => i + 1);
       setRevealed(false);
     } else {
+      const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
+      posthog.capture("study_session_completed", {
+        collection_id: collection?.id,
+        collection_name: collection?.name,
+        total_cards: total,
+        cards_known: known,
+        cards_missed: total - known,
+      });
       setFinished(true);
     }
   }
@@ -74,10 +139,15 @@ export function Study() {
 
   function rate(r: Rating) {
     if (!card || !collection) return;
+    posthog.capture("card_rated", {
+      rating: r,
+      collection_id: collection.id,
+      collection_name: collection.name,
+      card_id: card.id,
+      ai_generated: card.aiGenerated,
+    });
     setRatings((old) => ({ ...old, [card.id]: r }));
-    const mastery =
-      r === "again" ? "new" : r === "hard" || r === "good" ? "learning" : "known";
-    cardsApi.setMastery(collection.id, card.id, mastery);
+    cardsApi.review(collection.id, card.id, r);
     collectionsApi.touch(collection.id);
     setTimeout(() => next(), 180);
   }
@@ -93,12 +163,19 @@ export function Study() {
           </div>
           <span className="text-meta">Session complete</span>
           <h1 className="text-display" style={{ maxWidth: 560 }}>
-            Nice work, Ennio. You made it through {total} cards.
+            Nice work, {currentUser?.firstName}. You made it through {total} cards.
           </h1>
           <div className="study__done-stats">
             <div><strong>{known}</strong><span>got it</span></div>
             <div><strong>{total - known}</strong><span>coming back</span></div>
-            <div><strong>+1</strong><span>streak day</span></div>
+            <div>
+              <strong>{cardsToday} / {currentUser?.dailyGoal ?? 20}</strong>
+              <span>cards today</span>
+            </div>
+            <div>
+              <strong>{currentUser?.streak ?? 0}</strong>
+              <span>{cardsToday >= (currentUser?.dailyGoal ?? 20) ? "day streak 🔥" : "day streak"}</span>
+            </div>
           </div>
           <div className="study__done-cta">
             <Link to={`/app/c/${collection.id}`} className="btn-ghost">

@@ -1,8 +1,23 @@
-import { api, ApiError, setToken } from "../api";
+import posthog from "posthog-js";
+import { api, ApiError, setToken, API_BASE } from "../api";
 import { state, setState, seedCollections, seedFolders } from "./db";
 import { collectionsApi } from "./collections";
+import { STORAGE_KEYS } from "../storageKeys";
 import type { StoredUser } from "./db";
 import type { LearnerType } from "../../types";
+
+// ─────────────────────────────────────────────────────────────
+// Session-expired event
+// Fired by api.ts when a token refresh fails mid-session.
+// ─────────────────────────────────────────────────────────────
+
+if (typeof window !== "undefined") {
+  window.addEventListener("flashr:logout", () => {
+    setToken(null);
+    localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
+    setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
+  });
+}
 
 // ─────────────────────────────────────────────────────────────
 // Backend types
@@ -13,14 +28,21 @@ type BackendUser = {
   email: string;
   name?: string;
   streak: number;
+  daily_goal: number;
   plan: "free" | "pro";
   plan_expires_at?: string | null;
   created_at: string;
+  onboarding_completed: boolean;
+  age?: number | null;
+  learner_types?: string[];
+  avatar_url?: string | null;
+  notification_time?: string | null;
+  notification_tz?: string | null;
 };
 
 type AuthResponse = {
   token: string;
-  expires_at: number;
+  expires_at: string;
   user: BackendUser;
 };
 
@@ -49,16 +71,17 @@ function shadowFromBackend(
       month: "long",
       year: "numeric",
     }),
-    avatarUrl: null,
+    avatarUrl: bu.avatar_url ?? null,
     bio: "",
-    timezone: "Europe/Berlin",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     language: "English",
-    dailyGoal: 20,
+    dailyGoal: bu.daily_goal ?? 20,
     emailReminders: true,
     weeklyDigest: false,
-    age: null,
-    learnerTypes: [],
-    onboardingCompleted: false,
+    notificationTime: bu.notification_time?.slice(0, 5) ?? "08:00",
+    age: bu.age ?? null,
+    learnerTypes: (bu.learner_types ?? []) as LearnerType[],
+    onboardingCompleted: bu.onboarding_completed,
     dismissedSuggestions: [],
   };
 }
@@ -69,13 +92,33 @@ function adoptBackendUser(
 ) {
   setState((db) => {
     const existing = db.users.find((u) => u.id === bu.id);
-    const user = existing
-      ? { ...existing, email: bu.email, streak: bu.streak ?? existing.streak, plan: bu.plan ?? existing.plan, planExpiresAt: bu.plan_expires_at ?? null }
-      : shadowFromBackend(bu, hint);
+    let user: StoredUser;
+    if (existing) {
+      user = {
+        ...existing,
+        email: bu.email,
+        streak: bu.streak ?? existing.streak,
+        dailyGoal: bu.daily_goal ?? existing.dailyGoal,
+        plan: bu.plan ?? existing.plan,
+        planExpiresAt: bu.plan_expires_at ?? null,
+        onboardingCompleted: bu.onboarding_completed,
+        age: bu.age ?? existing.age,
+        learnerTypes: (bu.learner_types as LearnerType[]) ?? existing.learnerTypes,
+        avatarUrl: bu.avatar_url ?? null,
+        notificationTime: bu.notification_time?.slice(0, 5) ?? existing.notificationTime,
+      };
+    } else {
+      user = shadowFromBackend(bu, hint);
+    }
+    const switchingUser = db.session?.userId !== bu.id;
     return {
       ...db,
       users: [...db.users.filter((u) => u.id !== bu.id), user],
       session: { userId: bu.id },
+      // Clear previous user's data when the active account changes so there is
+      // never a window where one user's session is paired with another's collections.
+      collections: switchingUser ? [] : db.collections,
+      folders: switchingUser ? [] : db.folders,
     };
   });
 }
@@ -140,6 +183,12 @@ export const auth = {
       setToken(token);
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
+      posthog.identify(res.user.id, {
+        email: res.user.email,
+        name: res.user.name ?? "",
+        plan: res.user.plan,
+      });
+      posthog.capture("user_signed_in", { method: "oauth" });
       void collectionsApi.load().catch(console.error);
       return { ok: true };
     } catch (err) {
@@ -151,8 +200,27 @@ export const auth = {
   async bootstrap(): Promise<void> {
     try {
       if (!state.session) return;
+
+      // Fulfill a pending Stripe checkout before any routing happens.
+      // Profile.tsx normally does this, but new users get redirected to
+      // /onboarding by RequireOnboarded before Profile ever mounts, which
+      // drops the session_id from the URL and leaves the plan as free.
+      const urlParams = new URLSearchParams(window.location.search);
+      const checkoutSessionId = urlParams.get("session_id");
+      if (urlParams.get("checkout") === "success" && checkoutSessionId) {
+        await api("/billing/fulfill", {
+          method: "POST",
+          body: JSON.stringify({ session_id: checkoutSessionId }),
+        }).catch(() => {});
+      }
+
       const res = await api<{ user: BackendUser }>("/auth/me");
       adoptBackendUser(res.user);
+      posthog.identify(res.user.id, {
+        email: res.user.email,
+        name: res.user.name ?? "",
+        plan: res.user.plan,
+      });
       await collectionsApi.load();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -175,29 +243,41 @@ export const auth = {
     }));
   },
 
-  completeOnboarding(input: {
+  async completeOnboarding(input: {
     firstName: string;
     lastName?: string;
     age: number;
     learnerTypes: LearnerType[];
-  }) {
-    const session = state.session;
-    if (!session) return;
-    setState((db) => ({
-      ...db,
-      users: db.users.map((u) =>
-        u.id === session.userId
-          ? {
-              ...u,
-              firstName: input.firstName,
-              lastName: input.lastName ?? u.lastName,
-              age: input.age,
-              learnerTypes: input.learnerTypes,
-              onboardingCompleted: true,
-            }
-          : u,
-      ),
-    }));
+  }): Promise<void> {
+    if (!state.session) return;
+    const fullName = [input.firstName, input.lastName ?? ""]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join(" ");
+    const res = await api<{ user: BackendUser }>("/auth/onboarding", {
+      method: "POST",
+      body: JSON.stringify({
+        name: fullName,
+        age: input.age,
+        learner_types: input.learnerTypes,
+      }),
+    });
+    adoptBackendUser(res.user);
+  },
+
+  async saveAvatar(dataUrl: string): Promise<void> {
+    const res = await api<{ user: BackendUser }>("/auth/avatar", {
+      method: "POST",
+      body: JSON.stringify({ avatar_url: dataUrl }),
+    });
+    adoptBackendUser(res.user);
+  },
+
+  async removeAvatar(): Promise<void> {
+    const res = await api<{ user: BackendUser }>("/auth/avatar", {
+      method: "DELETE",
+    });
+    adoptBackendUser(res.user);
   },
 
   async refreshUser(): Promise<void> {
@@ -221,18 +301,33 @@ export const auth = {
   },
 
   signOut() {
+    // Fire-and-forget: revoke the refresh cookie server-side so it can't be reused.
+    fetch(`${API_BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
     setToken(null);
+    localStorage.removeItem(STORAGE_KEYS.AI_CHAT_DRAFT);
     setState((db) => ({ ...db, session: null, collections: [], folders: [] }));
+    posthog.reset();
   },
 
   updateProfile(patch: Partial<Omit<StoredUser, "id" | "password" | "email">>) {
     const session = state.session;
     if (!session) return;
+    // Apply locally first for instant feedback.
     setState((db) => ({
       ...db,
       users: db.users.map((u) =>
         u.id === session.userId ? { ...u, ...patch } : u,
       ),
     }));
+    // Persist backend-backed fields — only when they actually changed.
+    const currentUser = state.users.find((u) => u.id === session.userId);
+    if (patch.dailyGoal !== undefined && patch.dailyGoal !== currentUser?.dailyGoal) {
+      api<{ user: BackendUser }>("/auth/me", {
+        method: "PATCH",
+        body: JSON.stringify({ daily_goal: patch.dailyGoal }),
+      })
+        .then((res) => adoptBackendUser(res.user))
+        .catch(() => {});
+    }
   },
 };

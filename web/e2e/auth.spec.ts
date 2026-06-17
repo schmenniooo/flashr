@@ -49,7 +49,7 @@ test.describe("auth", () => {
     await page.getByLabel(/your name/i).fill("Test User");
     await page.getByLabel(/^email$/i).fill(email);
     await page.locator(passwordInput("signup")).fill("testpass123");
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox", { name: /I agree to the Terms/i }).check();
     await page.getByRole("button", { name: "Create account", exact: true }).click();
 
     await page.waitForURL("**/onboarding");
@@ -59,8 +59,11 @@ test.describe("auth", () => {
   test("sign-out from profile returns to login", async ({ page }) => {
     await signInAsDemo(page);
     await page.goto("/app/profile");
-    await page.getByRole("button", { name: /^sign out$/i }).click();
-    await page.waitForURL("**/login");
+    // Click triggers immediate session clear + React unmount, so race with waitForURL.
+    await Promise.all([
+      page.waitForURL("**/login"),
+      page.getByRole("button", { name: /^sign out$/i }).click(),
+    ]);
     await expect(page).toHaveURL(/\/login$/);
   });
 });

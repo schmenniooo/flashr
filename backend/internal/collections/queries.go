@@ -2,10 +2,13 @@ package collections
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/smithlabs/flashr/backend/internal/srs"
 )
 
 // listForUser fetches all collections with their cards for a given user.
@@ -13,7 +16,7 @@ func (s *Service) listForUser(ctx context.Context, userID string) ([]Collection,
 	rows, err := s.pool.Query(ctx, `
 		SELECT
 			c.id, c.name, COALESCE(c.folder,''), c.emoji, c.description, c.is_public, c.created_at,
-			k.id, k.question, k.answer, k.ai_generated, k.created_at
+			k.id, k.question, k.answer, k.ai_generated, k.created_at, k.srs_metadata
 		FROM collections c
 		LEFT JOIN cards k ON k.collection_id = c.id
 		WHERE c.user_id = $1
@@ -31,7 +34,7 @@ func (s *Service) getOne(ctx context.Context, id, userID string) (Collection, er
 	rows, err := s.pool.Query(ctx, `
 		SELECT
 			c.id, c.name, COALESCE(c.folder,''), c.emoji, c.description, c.is_public, c.created_at,
-			k.id, k.question, k.answer, k.ai_generated, k.created_at
+			k.id, k.question, k.answer, k.ai_generated, k.created_at, k.srs_metadata
 		FROM collections c
 		LEFT JOIN cards k ON k.collection_id = c.id
 		WHERE c.id = $1 AND c.user_id = $2
@@ -65,10 +68,11 @@ func scanCollections(rows pgx.Rows) ([]Collection, error) {
 			kQ, kA                             *string
 			kAI                                *bool
 			kAt                                *time.Time
+			kSRS                               []byte
 		)
 		if err := rows.Scan(
 			&cID, &cName, &cFolder, &cEmoji, &cDesc, &cPublic, &cAt,
-			&kID, &kQ, &kA, &kAI, &kAt,
+			&kID, &kQ, &kA, &kAI, &kAt, &kSRS,
 		); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
@@ -81,9 +85,22 @@ func scanCollections(rows pgx.Rows) ([]Collection, error) {
 		}
 		if kID != nil {
 			card := Card{ID: *kID, Question: *kQ, Answer: *kA, AIGenerated: *kAI, CreatedAt: *kAt}
+			card.applyMeta(parseSRSMeta(kSRS))
 			i := index[cID]
 			result[i].Cards = append(result[i].Cards, card)
 		}
 	}
 	return result, rows.Err()
+}
+
+// parseSRSMeta unmarshals a JSONB srs_metadata value; returns nil if empty.
+func parseSRSMeta(raw []byte) *srs.Meta {
+	if len(raw) == 0 {
+		return nil
+	}
+	var m srs.Meta
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil
+	}
+	return &m
 }

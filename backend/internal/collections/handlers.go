@@ -1,13 +1,16 @@
 package collections
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/smithlabs/flashr/backend/internal/auth"
+	"github.com/smithlabs/flashr/backend/internal/srs"
 	"github.com/smithlabs/flashr/backend/pkg/domain"
 )
 
@@ -159,8 +162,9 @@ func (s *Service) createCard(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var body struct {
-		Question string `json:"question" binding:"required"`
-		Answer   string `json:"answer" binding:"required"`
+		Question    string `json:"question" binding:"required"`
+		Answer      string `json:"answer" binding:"required"`
+		AIGenerated bool   `json:"ai_generated"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "question and answer are required"})
@@ -208,10 +212,10 @@ func (s *Service) createCard(c *gin.Context) {
 
 	var card Card
 	err = tx.QueryRow(ctx, `
-		INSERT INTO cards (collection_id, question, answer)
-		VALUES ($1, $2, $3)
+		INSERT INTO cards (collection_id, question, answer, ai_generated)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, question, answer, ai_generated, created_at
-	`, colID, body.Question, body.Answer).Scan(
+	`, colID, body.Question, body.Answer, body.AIGenerated).Scan(
 		&card.ID, &card.Question, &card.Answer, &card.AIGenerated, &card.CreatedAt,
 	)
 	if err != nil {
@@ -292,4 +296,120 @@ func (s *Service) deleteCard(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (s *Service) reviewCard(c *gin.Context) {
+	var body struct {
+		Rating string `json:"rating" binding:"required"`
+		Date   string `json:"date"` // client's local date YYYY-MM-DD; falls back to UTC today
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "rating is required"})
+		return
+	}
+
+	// Resolve the review date from the client-supplied local date.
+	reviewDate, err := time.Parse("2006-01-02", body.Date)
+	if err != nil {
+		reviewDate = time.Now().UTC()
+	}
+	dateStr := reviewDate.Format("2006-01-02")
+
+	userID := auth.UserIDFromContext(c)
+	cardID := c.Param("id")
+	ctx := c.Request.Context()
+
+	// Fetch current srs_metadata, verifying ownership through the collection join.
+	var rawMeta []byte
+	err = s.pool.QueryRow(ctx, `
+		SELECT cards.srs_metadata
+		FROM cards
+		JOIN collections ON collections.id = cards.collection_id
+		WHERE cards.id = $1 AND collections.user_id = $2
+	`, cardID, userID).Scan(&rawMeta)
+	if errors.Is(err, pgx.ErrNoRows) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "card not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load card"})
+		return
+	}
+
+	meta := parseSRSMeta(rawMeta)
+	if meta == nil {
+		m := srs.NewMeta()
+		meta = &m
+	}
+
+	updated := srs.Apply(*meta, srs.RatingToQuality(body.Rating))
+
+	metaJSON, err := json.Marshal(updated)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not encode srs metadata"})
+		return
+	}
+
+	var card Card
+	err = s.pool.QueryRow(ctx, `
+		UPDATE cards SET srs_metadata = $2
+		WHERE id = $1
+		RETURNING id, question, answer, ai_generated, created_at, srs_metadata
+	`, cardID, metaJSON).Scan(
+		&card.ID, &card.Question, &card.Answer, &card.AIGenerated, &card.CreatedAt, &rawMeta,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not save review"})
+		return
+	}
+	card.applyMeta(&updated)
+
+	// ── Streak / daily-goal logic ─────────────────────────────────────────────
+
+	// Increment today's review count (upsert).
+	var cardsToday int
+	err = s.pool.QueryRow(ctx, `
+		INSERT INTO daily_reviews (user_id, date, count)
+		VALUES ($1, $2, 1)
+		ON CONFLICT (user_id, date) DO UPDATE SET count = daily_reviews.count + 1
+		RETURNING count
+	`, userID, dateStr).Scan(&cardsToday)
+	if err != nil {
+		// Non-fatal — return the card without progress fields on failure.
+		c.JSON(http.StatusOK, card)
+		return
+	}
+
+	var dailyGoal, streak int
+	var streakUpdatedOn *time.Time
+	err = s.pool.QueryRow(ctx, `
+		SELECT daily_goal, streak, streak_updated_on FROM users WHERE id = $1
+	`, userID).Scan(&dailyGoal, &streak, &streakUpdatedOn)
+	if err != nil {
+		c.JSON(http.StatusOK, card)
+		return
+	}
+
+	goalMet := cardsToday >= dailyGoal
+	newStreak, streakChanged := ComputeNewStreak(cardsToday, dailyGoal, streak, streakUpdatedOn, dateStr)
+	if streakChanged {
+		_, _ = s.pool.Exec(ctx,
+			`UPDATE users SET streak = $2, streak_updated_on = $3 WHERE id = $1`,
+			userID, newStreak, dateStr,
+		)
+	}
+
+	c.JSON(http.StatusOK, struct {
+		Card
+		CardsToday int  `json:"cards_today"`
+		DailyGoal  int  `json:"daily_goal"`
+		Streak     int  `json:"streak"`
+		GoalMet    bool `json:"goal_met"`
+	}{
+		Card:       card,
+		CardsToday: cardsToday,
+		DailyGoal:  dailyGoal,
+		Streak:     newStreak,
+		GoalMet:    goalMet,
+	})
 }

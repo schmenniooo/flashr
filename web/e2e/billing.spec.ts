@@ -62,6 +62,7 @@ async function mockBackend(
           plan,
           plan_expires_at: null,
           created_at: new Date().toISOString(),
+          onboarding_completed: true,
         },
       }),
     })
@@ -134,6 +135,7 @@ test.describe("profile — plan badge", () => {
             plan: "pro",
             plan_expires_at: expiryDate,
             created_at: new Date().toISOString(),
+            onboarding_completed: true,
           },
         }),
       })
@@ -203,6 +205,7 @@ test.describe("post-checkout success", () => {
             plan: "pro",
             plan_expires_at: null,
             created_at: new Date().toISOString(),
+            onboarding_completed: true,
           },
         }),
       })
@@ -228,14 +231,16 @@ test.describe("post-checkout success", () => {
 // ── Landing page Pro CTA ──────────────────────────────────────────────────────
 
 test.describe("landing page — Pro CTA", () => {
-  test("Get Pro button stores checkout intent and navigates to signup", async ({ page }) => {
+  test("trial CTA stores checkout intent + trial intent and navigates to signup", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: /get pro/i }).click();
+    await page.getByRole("button", { name: /start 7-day free trial/i }).first().click();
     await page.waitForURL("**/signup");
 
-    const intent = await page.evaluate(() => sessionStorage.getItem("checkout_intent"));
+    const intent = await page.evaluate(() => sessionStorage.getItem("flashr:checkout-intent:v1"));
+    const trialIntent = await page.evaluate(() => sessionStorage.getItem("flashr:trial-intent:v1"));
     expect(intent).toBe("pro");
+    expect(trialIntent).toBe("1");
   });
 });
 

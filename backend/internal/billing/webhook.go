@@ -82,14 +82,18 @@ func (s *Service) handleCheckoutCompleted(ctx context.Context, sess *stripe.Chec
 	if sess.Subscription == nil {
 		return nil
 	}
-	_, err := s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = $1,
 		    stripe_subscription_id = $2,
 		    plan_expires_at = NULL
 		WHERE stripe_customer_id = $3
 	`, domain.PlanPro, sess.Subscription.ID, sess.Customer.ID)
-	return err
+	if err != nil {
+		return err
+	}
+	slog.Info("billing: webhook checkout completed", "customer_id", sess.Customer.ID, "subscription_id", sess.Subscription.ID, "rows_affected", tag.RowsAffected())
+	return nil
 }
 
 func (s *Service) handleSubscriptionUpdated(ctx context.Context, sub *stripe.Subscription) error {
@@ -110,25 +114,33 @@ func (s *Service) handleSubscriptionUpdated(ctx context.Context, sub *stripe.Sub
 	}
 
 	// Match on subscription ID so events for other/old subscriptions don't overwrite the plan.
-	_, err := s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = $1,
 		    plan_expires_at = $2
 		WHERE stripe_subscription_id = $3
 	`, plan, expiresAt, sub.ID)
-	return err
+	if err != nil {
+		return err
+	}
+	slog.Info("billing: webhook subscription updated", "subscription_id", sub.ID, "plan", plan, "rows_affected", tag.RowsAffected())
+	return nil
 }
 
 func (s *Service) handleSubscriptionDeleted(ctx context.Context, sub *stripe.Subscription) error {
 	// Keep plan active until end of billing period so the user gets what they paid for.
 	expiresAt := time.Unix(sub.CurrentPeriodEnd, 0).UTC()
 	// Match on subscription ID — only downgrade the user whose subscription was actually deleted.
-	_, err := s.pool.Exec(ctx, `
+	tag, err := s.pool.Exec(ctx, `
 		UPDATE users
 		SET plan = $1,
 		    stripe_subscription_id = NULL,
 		    plan_expires_at = $2
 		WHERE stripe_subscription_id = $3
 	`, domain.PlanFree, expiresAt, sub.ID)
-	return err
+	if err != nil {
+		return err
+	}
+	slog.Info("billing: webhook subscription deleted", "subscription_id", sub.ID, "rows_affected", tag.RowsAffected())
+	return nil
 }

@@ -7,12 +7,19 @@ const MOCK_CARDS = [
   { question: "What is a component?", answer: "A reusable piece of UI that accepts props and returns JSX." },
 ];
 
-function mockGenerate(page: Page, cards = MOCK_CARDS) {
-  return page.route("**/api/ai/generate", (route) =>
+function sseBody(cards: typeof MOCK_CARDS): string {
+  return (
+    cards.map((c) => `event: card\ndata: ${JSON.stringify(c)}\n\n`).join("") +
+    "event: done\ndata: {}\n\n"
+  );
+}
+
+function mockGenerateStream(page: Page, cards = MOCK_CARDS) {
+  return page.route("**/api/ai/generate/stream", (route) =>
     route.fulfill({
       status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ cards }),
+      contentType: "text/event-stream",
+      body: sseBody(cards),
     })
   );
 }
@@ -25,8 +32,8 @@ test.describe("AI chat — generate cards from topic", () => {
 
   // ── Tabs ────────────────────────────────────────────────────────────────
 
-  test("PDF tab is active by default and shows the drop zone", async ({ page }) => {
-    await expect(page.getByRole("button", { name: "Upload PDF", exact: true })).toHaveClass(/up__tab--active/);
+  test("upload tab is active by default and shows the drop zone", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "Upload file", exact: true })).toHaveClass(/up__tab--active/);
     await expect(page.locator(".up__drop")).toBeVisible();
   });
 
@@ -37,9 +44,9 @@ test.describe("AI chat — generate cards from topic", () => {
     await expect(page.locator(".up__drop")).not.toBeAttached();
   });
 
-  test("switching back to the PDF tab restores the drop zone", async ({ page }) => {
+  test("switching back to the upload tab restores the drop zone", async ({ page }) => {
     await page.getByRole("button", { name: "Describe a topic" }).click();
-    await page.getByRole("button", { name: "Upload PDF", exact: true }).click();
+    await page.getByRole("button", { name: "Upload file", exact: true }).click();
     await expect(page.locator(".up__drop")).toBeVisible();
     await expect(page.locator(".up__chat")).not.toBeAttached();
   });
@@ -53,8 +60,8 @@ test.describe("AI chat — generate cards from topic", () => {
 
   test("clicking an example chip populates the textarea and enables the button", async ({ page }) => {
     await page.getByRole("button", { name: "Describe a topic" }).click();
-    await page.getByRole("button", { name: /AWS S3 and IAM/i }).click();
-    await expect(page.locator(".up__chat-input")).toHaveValue(/AWS S3 and IAM/);
+    await page.getByRole("button", { name: /Macroeconomics/i }).click();
+    await expect(page.locator(".up__chat-input")).toHaveValue(/Macroeconomics/);
     await expect(page.getByRole("button", { name: /generate cards/i })).toBeEnabled();
   });
 
@@ -68,7 +75,7 @@ test.describe("AI chat — generate cards from topic", () => {
   // ── Generation ──────────────────────────────────────────────────────────
 
   test("generates cards and renders the review list", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
@@ -78,7 +85,7 @@ test.describe("AI chat — generate cards from topic", () => {
   });
 
   test("save bar shows the correct initial kept count", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
@@ -87,7 +94,7 @@ test.describe("AI chat — generate cards from topic", () => {
   });
 
   test("composer stays visible after generation and button becomes Regenerate", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
@@ -97,7 +104,7 @@ test.describe("AI chat — generate cards from topic", () => {
   });
 
   test("shows an error banner when the API returns an error", async ({ page }) => {
-    await page.route("**/api/ai/generate", (route) =>
+    await page.route("**/api/ai/generate/stream", (route) =>
       route.fulfill({
         status: 500,
         contentType: "application/json",
@@ -116,17 +123,17 @@ test.describe("AI chat — generate cards from topic", () => {
   // ── Regenerate ──────────────────────────────────────────────────────────
 
   test("regenerating replaces the card list with new results", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
     await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
 
-    await page.route("**/api/ai/generate", (route) =>
+    await page.route("**/api/ai/generate/stream", (route) =>
       route.fulfill({
         status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ cards: MOCK_CARDS.slice(0, 2) }),
+        contentType: "text/event-stream",
+        body: sseBody(MOCK_CARDS.slice(0, 2)),
       })
     );
 
@@ -135,26 +142,43 @@ test.describe("AI chat — generate cards from topic", () => {
     await expect(page.locator(".up__draft")).toHaveCount(2);
   });
 
-  test("error after regeneration preserves the existing cards", async ({ page }) => {
-    await mockGenerate(page);
+  test("cards are cleared when regeneration starts", async ({ page }) => {
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
     await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
 
-    await page.route("**/api/ai/generate", (route) =>
-      route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "fail" }) })
-    );
+    // Block the second request so we can observe the cleared state mid-flight.
+    await page.route("**/api/ai/generate/stream", async (route) => {
+      await new Promise((r) => setTimeout(r, 300));
+      route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "fail" }) });
+    });
     await page.getByRole("button", { name: /regenerate/i }).click();
 
-    await expect(page.locator(".up__error")).toBeVisible();
+    // Cards are cleared immediately when regeneration begins.
+    await expect(page.locator(".up__draft")).toHaveCount(0);
+  });
+
+  // ── Discard ─────────────────────────────────────────────────────────────
+
+  test("Discard button resets to the empty state", async ({ page }) => {
+    await mockGenerateStream(page);
+    await page.getByRole("button", { name: "Describe a topic" }).click();
+    await page.locator(".up__chat-input").fill("React hooks for beginners");
+    await page.getByRole("button", { name: /generate cards/i }).click();
     await expect(page.locator(".up__draft")).toHaveCount(MOCK_CARDS.length);
+
+    await page.getByRole("button", { name: /discard/i }).click();
+
+    await expect(page.getByRole("heading", { name: /what do you want to study/i })).toBeVisible();
+    await expect(page.locator(".up__draft")).toHaveCount(0);
   });
 
   // ── Card interactions ────────────────────────────────────────────────────
 
   test("skipping a card decrements the save bar count", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
@@ -164,7 +188,7 @@ test.describe("AI chat — generate cards from topic", () => {
   });
 
   test("save button is disabled when all cards are skipped", async ({ page }) => {
-    await mockGenerate(page, [MOCK_CARDS[0]]);
+    await mockGenerateStream(page, [MOCK_CARDS[0]]);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
@@ -174,7 +198,7 @@ test.describe("AI chat — generate cards from topic", () => {
   });
 
   test("pencil opens inline edit mode, Done closes it", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
     await page.getByRole("button", { name: "Describe a topic" }).click();
     await page.locator(".up__chat-input").fill("React hooks for beginners");
     await page.getByRole("button", { name: /generate cards/i }).click();
@@ -190,7 +214,7 @@ test.describe("AI chat — generate cards from topic", () => {
   // ── Save ────────────────────────────────────────────────────────────────
 
   test("saving cards to a new collection navigates to the collection", async ({ page }) => {
-    await mockGenerate(page);
+    await mockGenerateStream(page);
 
     const collectionId = "e2e-chat-col";
     await page.route("**/api/collections", async (route) => {

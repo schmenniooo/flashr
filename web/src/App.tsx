@@ -2,6 +2,9 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { RequireAuth, RequireOnboarded } from "./components/RequireAuth";
+import { AppLoader } from "./components/AppLoader";
+import { Toaster } from "./components/Toaster";
+import { useDb, selectCollectionsLoading, selectSession } from "./lib/store";
 
 // Core pages — eagerly loaded. They're always accessed post-login and
 // their combined weight is small; lazy-loading them only adds a Suspense
@@ -16,6 +19,7 @@ import { Study } from "./pages/Study";
 import { Upload } from "./pages/Upload";
 import { Profile } from "./pages/Profile";
 import { Onboarding } from "./pages/Onboarding";
+import { Announcements } from "./pages/Announcements";
 
 // Infrequent pages — lazy is fine, no user-visible flicker expected.
 const Imprint = lazy(() => import("./pages/Imprint").then(m => ({ default: m.Imprint })));
@@ -58,12 +62,28 @@ const router = createBrowserRouter([
       { path: "c/:id/study", element: <Study /> },
       { path: "upload", element: <Upload /> },
       { path: "profile", element: <Profile /> },
+      { path: "announcements", element: <Announcements /> },
     ],
   },
 ]);
 
+function GlobalLoader() {
+  const session = useDb(selectSession);
+  const collectionsLoading = useDb(selectCollectionsLoading);
+  // Show when a logged-in user is waiting for their collections to arrive.
+  // The bootstrap+no-session case is handled by RequireAuth.
+  if (!session || !collectionsLoading) return null;
+  return <AppLoader />;
+}
+
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <GlobalLoader />
+      <RouterProvider router={router} />
+      <Toaster />
+    </>
+  );
 }
 
 export default App;

@@ -16,11 +16,7 @@ import (
 
 // ─── OAuth state (stateless HMAC token) ──────────────────────────────────────
 
-// GenerateState produces a self-verifying state token: "<unix_ts>.<hmac_hex>".
-// No server-side storage required — VerifyState checks the signature and TTL.
-func (s *Service) GenerateState() string { return generateState(s.secret) }
-
-// VerifyState checks the HMAC signature and rejects tokens older than 10 minutes.
+func (s *Service) GenerateState() string          { return generateState(s.secret) }
 func (s *Service) VerifyState(state string) error { return verifyState(s.secret, state) }
 
 func generateState(secret []byte) string {
@@ -48,18 +44,13 @@ func verifyState(secret []byte, state string) error {
 	return nil
 }
 
-// GenerateStateForTest and VerifyStateForTest expose the package-level state
-// functions for unit tests without requiring a Service instance.
 func GenerateStateForTest(secret []byte) string        { return generateState(secret) }
 func VerifyStateForTest(secret []byte, s string) error { return verifyState(secret, s) }
 
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 
-func (s *Service) GoogleEnabled() bool { return s.googleOAuth != nil }
-
-func (s *Service) GoogleAuthURL(state string) string {
-	return s.googleOAuth.AuthCodeURL(state)
-}
+func (s *Service) GoogleEnabled() bool               { return s.googleOAuth != nil }
+func (s *Service) GoogleAuthURL(state string) string { return s.googleOAuth.AuthCodeURL(state) }
 
 type googleUserInfo struct {
 	Sub   string `json:"sub"`
@@ -67,27 +58,26 @@ type googleUserInfo struct {
 	Name  string `json:"name"`
 }
 
-// GoogleCallback exchanges the authorization code for a user session.
-func (s *Service) GoogleCallback(ctx context.Context, code string) (User, string, time.Time, error) {
+func (s *Service) GoogleCallback(ctx context.Context, code string) (User, TokenPair, error) {
 	tok, err := s.googleOAuth.Exchange(ctx, code)
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: exchange code: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("google: exchange code: %w", err)
 	}
 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v3/userinfo", nil)
 	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: fetch userinfo: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("google: fetch userinfo: %w", err)
 	}
 	defer resp.Body.Close()
 
 	var info googleUserInfo
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("google: decode userinfo: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("google: decode userinfo: %w", err)
 	}
 	if info.Email == "" {
-		return User{}, "", time.Time{}, errors.New("google: no email in userinfo")
+		return User{}, TokenPair{}, errors.New("google: no email in userinfo")
 	}
 
 	return s.OAuthUpsert(ctx, info.Email, info.Name, "google")
@@ -95,11 +85,8 @@ func (s *Service) GoogleCallback(ctx context.Context, code string) (User, string
 
 // ─── GitHub OAuth ─────────────────────────────────────────────────────────────
 
-func (s *Service) GithubEnabled() bool { return s.githubOAuth != nil }
-
-func (s *Service) GithubAuthURL(state string) string {
-	return s.githubOAuth.AuthCodeURL(state)
-}
+func (s *Service) GithubEnabled() bool               { return s.githubOAuth != nil }
+func (s *Service) GithubAuthURL(state string) string { return s.githubOAuth.AuthCodeURL(state) }
 
 type githubUserInfo struct {
 	Login string  `json:"login"`
@@ -113,11 +100,10 @@ type githubEmail struct {
 	Verified bool   `json:"verified"`
 }
 
-// GithubCallback exchanges the authorization code for a user session.
-func (s *Service) GithubCallback(ctx context.Context, code string) (User, string, time.Time, error) {
+func (s *Service) GithubCallback(ctx context.Context, code string) (User, TokenPair, error) {
 	tok, err := s.githubOAuth.Exchange(ctx, code)
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("github: exchange code: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("github: exchange code: %w", err)
 	}
 
 	doReq := func(url string, out any) error {
@@ -135,17 +121,16 @@ func (s *Service) GithubCallback(ctx context.Context, code string) (User, string
 
 	var info githubUserInfo
 	if err := doReq("https://api.github.com/user", &info); err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("github: fetch user: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("github: fetch user: %w", err)
 	}
 
 	email := ""
 	if info.Email != nil && *info.Email != "" {
 		email = *info.Email
 	} else {
-		// Email is private — fetch from the emails endpoint.
 		var emails []githubEmail
 		if err := doReq("https://api.github.com/user/emails", &emails); err != nil {
-			return User{}, "", time.Time{}, fmt.Errorf("github: fetch emails: %w", err)
+			return User{}, TokenPair{}, fmt.Errorf("github: fetch emails: %w", err)
 		}
 		for _, e := range emails {
 			if e.Primary && e.Verified {
@@ -155,22 +140,24 @@ func (s *Service) GithubCallback(ctx context.Context, code string) (User, string
 		}
 	}
 	if email == "" {
-		return User{}, "", time.Time{}, errors.New("github: no verified email found")
+		return User{}, TokenPair{}, errors.New("github: no verified email found")
 	}
 
 	name := info.Name
 	if name == "" {
 		name = info.Login
 	}
-
 	return s.OAuthUpsert(ctx, email, name, "github")
 }
 
 // ─── Shared upsert ───────────────────────────────────────────────────────────
 
 // OAuthUpsert inserts or links a user by email for the given provider and issues
-// a JWT. Exported so integration tests can call it directly.
-func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string) (User, string, time.Time, error) {
+// a token pair. Exported so integration tests can call it directly.
+func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string) (User, TokenPair, error) {
+	if email == "" {
+		return User{}, TokenPair{}, errors.New("oauth upsert: email is required")
+	}
 	var u User
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO users (email, name, oauth_provider)
@@ -178,14 +165,14 @@ func (s *Service) OAuthUpsert(ctx context.Context, email, name, provider string)
 		ON CONFLICT (email) DO UPDATE
 		  SET oauth_provider = EXCLUDED.oauth_provider,
 		      name = COALESCE(users.name, NULLIF(EXCLUDED.name, ''))
-		RETURNING id, email, COALESCE(name, ''), streak, plan, plan_expires_at, created_at
-	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
+		RETURNING id, email, COALESCE(name, ''), streak, daily_goal, plan, plan_expires_at, created_at
+	`, normaliseEmail(email), name, provider).Scan(&u.ID, &u.Email, &u.Name, &u.Streak, &u.DailyGoal, &u.Plan, &u.PlanExpiresAt, &u.CreatedAt)
 	if err != nil {
-		return User{}, "", time.Time{}, fmt.Errorf("oauth upsert: %w", err)
+		return User{}, TokenPair{}, fmt.Errorf("oauth upsert: %w", err)
 	}
-	token, expires, err := s.issueToken(u.ID, u.Plan)
+	pair, err := s.issueTokenPair(ctx, u.ID, u.Plan)
 	if err != nil {
-		return User{}, "", time.Time{}, err
+		return User{}, TokenPair{}, err
 	}
-	return u, token, expires, nil
+	return u, pair, nil
 }

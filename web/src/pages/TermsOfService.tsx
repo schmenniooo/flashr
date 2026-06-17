@@ -53,7 +53,7 @@ export function TermsOfService() {
             You must provide accurate and complete information when creating your account. You are
             responsible for maintaining the security of your account credentials and for all
             activity that occurs under your account. Notify us immediately at{" "}
-            <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a> if you suspect
+            <a href="mailto:support@flashr.io">support@flashr.io</a> if you suspect
             unauthorized access.
           </p>
           <p>
@@ -98,7 +98,7 @@ export function TermsOfService() {
           </p>
           <p>
             To request a refund within the withdrawal period, contact us at{" "}
-            <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>.
+            <a href="mailto:support@flashr.io">support@flashr.io</a>.
           </p>
 
           <h3>4.5 Taxes</h3>
@@ -229,7 +229,7 @@ export function TermsOfService() {
           </p>
           <p>
             We encourage you to contact us first at{" "}
-            <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a> for any dispute.
+            <a href="mailto:support@flashr.io">support@flashr.io</a> for any dispute.
             The European Commission's Online Dispute Resolution platform is available at{" "}
             <a
               href="https://ec.europa.eu/consumers/odr"
@@ -283,7 +283,7 @@ export function TermsOfService() {
           <h2>15. Contact</h2>
           <p>
             Questions about these Terms? Reach us at{" "}
-            <a href="mailto:ennio.nick@gmail.com">ennio.nick@gmail.com</a>.
+            <a href="mailto:support@flashr.io">support@flashr.io</a>.
           </p>
           <p>
             Operator: Ennio Schmidt, Deutschland. Full contact details in the{" "}

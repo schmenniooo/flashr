@@ -365,6 +365,22 @@
   margin-top: var(--space-2);
 }
 
+@media (max-width: 480px) {
+  .study__top {
+    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
+  }
+  .study__progress-bar {
+    display: none;
+  }
+  .study__top-divider {
+    display: none;
+  }
+  .study__streak {
+    display: none;
+  }
+}
+
 @media (max-width: 820px) {
   .study__content {
     grid-template-columns: 1fr;
@@ -385,5 +401,17 @@
   .study__done-stats {
     flex-wrap: wrap;
     gap: var(--space-2);
+  }
+  .study__ratings {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .study__rate {
+    padding: 10px var(--space-2);
+  }
+  .study__rate-kbd {
+    display: none;
+  }
+  .study__rate-label {
+    margin-top: 0;
   }
 }

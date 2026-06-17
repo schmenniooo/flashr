@@ -1,12 +1,21 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X } from "lucide-react";
+import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare, PackageOpen, FileText, FileCode, ShieldCheck, Trash2, Lock } from "lucide-react";
 import { Wordmark } from "../lib/logo";
+import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Landing.css";
 
 export function Landing() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
+
+  function goToTrialSignup() {
+    try {
+      sessionStorage.setItem(STORAGE_KEYS.CHECKOUT_INTENT, "pro");
+      sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+    } catch { /* sessionStorage unavailable */ }
+    navigate("/signup");
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
@@ -39,7 +48,7 @@ export function Landing() {
           </Link>
           <div className="landing-nav-links">
             <a href="#features" className="landing-nav-link">Features</a>
-            <a href="#how-it-works" className="landing-nav-link">How it works</a>
+            <a href="#import" className="landing-nav-link">Import</a>
             <a href="#pricing" className="landing-nav-link">Pricing</a>
           </div>
           <div className="landing-nav-actions">
@@ -60,14 +69,14 @@ export function Landing() {
               </span>
             </h1>
             <p className="landing-subheadline">
-              Drop a PDF or connect your notes. flashr generates flashcards with AI — so you can focus on learning, not formatting.
+              Upload PDFs, import Anki decks, or just describe a topic in chat — flashr generates flashcards with AI so you can focus on learning, not formatting.
             </p>
             <div className="landing-hero-ctas">
               <Link to="/signup" className="landing-btn-primary landing-btn-large">
                 Start for free <ArrowRight size={16} strokeWidth={2} />
               </Link>
-              <a href="#how-it-works" className="landing-btn-ghost landing-btn-large">
-                See how it works
+              <a href="#features" className="landing-btn-ghost landing-btn-large">
+                See features
               </a>
             </div>
           </div>
@@ -110,7 +119,7 @@ export function Landing() {
               </div>
               <h3 className="landing-feature-title">Upload & Parse</h3>
               <p className="landing-feature-desc">
-                Upload PDFs, GoodNotes exports, or plain text. We handle the rest.
+                Upload PDFs, Markdown, Word docs, or Anki packages (.apkg) — flashr handles parsing so you can focus on studying.
               </p>
             </div>
             <div className="landing-feature-card" data-animate>
@@ -131,35 +140,83 @@ export function Landing() {
                 Spaced repetition built in. Study on desktop or mobile — your cards sync everywhere.
               </p>
             </div>
+            <div className="landing-feature-card" data-animate>
+              <div className="landing-feature-icon landing-feature-icon--accent">
+                <MessageSquare size={22} strokeWidth={1.5} />
+              </div>
+              <h3 className="landing-feature-title">Chat to Generate</h3>
+              <p className="landing-feature-desc">
+                No file? No problem. Just describe a topic and flashr's AI will generate a full deck through conversation.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="landing-how" id="how-it-works">
+      <section className="landing-import" id="import">
         <div className="landing-section-inner">
-          <p className="landing-section-label" data-animate>How it works</p>
-          <h2 className="landing-section-title" data-animate>Up and running in under a minute</h2>
-          <div className="landing-steps">
-            <div className="landing-step" data-animate>
-              <span className="landing-step-num">01</span>
-              <h4 className="landing-step-title">Upload your notes</h4>
-              <p className="landing-step-desc">
-                Drag in a PDF, export from GoodNotes, or paste raw text — any format works.
+          <div className="landing-import-inner">
+            <div className="landing-import-text" data-animate>
+              <p className="landing-section-label">Import</p>
+              <h2 className="landing-section-title landing-import-title">
+                Replace Anki.<br />Keep everything.
+              </h2>
+              <p className="landing-import-sub">
+                Already studying on Anki? Import your <strong>.apkg</strong> decks directly — every card comes with you. Drop in Markdown notes, Word docs, PDFs, or plain text and flashr generates new cards with AI on top of what you already have.
               </p>
+              <Link to="/signup" className="landing-btn-primary">
+                Try it free <ArrowRight size={14} strokeWidth={2} />
+              </Link>
             </div>
-            <div className="landing-step" data-animate>
-              <span className="landing-step-num">02</span>
-              <h4 className="landing-step-title">AI generates cards</h4>
-              <p className="landing-step-desc">
-                flashr reads your content and creates a full deck of flashcards in seconds.
-              </p>
-            </div>
-            <div className="landing-step" data-animate>
-              <span className="landing-step-num">03</span>
-              <h4 className="landing-step-title">Start studying</h4>
-              <p className="landing-step-desc">
-                Review your deck with spaced repetition — flashr keeps track of what you need most.
-              </p>
+            <div className="landing-import-formats" data-animate>
+              <div className="landing-format-card landing-format-card--highlight">
+                <div className="landing-format-icon">
+                  <PackageOpen size={20} strokeWidth={1.5} />
+                </div>
+                <div className="landing-format-info">
+                  <span className="landing-format-ext">.apkg</span>
+                  <span className="landing-format-name">Anki decks</span>
+                </div>
+                <span className="landing-format-badge">New</span>
+              </div>
+              <div className="landing-format-card landing-format-card--highlight">
+                <div className="landing-format-icon">
+                  <FileCode size={20} strokeWidth={1.5} />
+                </div>
+                <div className="landing-format-info">
+                  <span className="landing-format-ext">.md</span>
+                  <span className="landing-format-name">Markdown notes</span>
+                </div>
+                <span className="landing-format-badge">New</span>
+              </div>
+              <div className="landing-format-card landing-format-card--highlight">
+                <div className="landing-format-icon">
+                  <FileText size={20} strokeWidth={1.5} />
+                </div>
+                <div className="landing-format-info">
+                  <span className="landing-format-ext">.docx</span>
+                  <span className="landing-format-name">Word documents</span>
+                </div>
+                <span className="landing-format-badge">New</span>
+              </div>
+              <div className="landing-format-card">
+                <div className="landing-format-icon">
+                  <FileUp size={20} strokeWidth={1.5} />
+                </div>
+                <div className="landing-format-info">
+                  <span className="landing-format-ext">.pdf</span>
+                  <span className="landing-format-name">PDF documents</span>
+                </div>
+              </div>
+              <div className="landing-format-card">
+                <div className="landing-format-icon">
+                  <FileText size={20} strokeWidth={1.5} />
+                </div>
+                <div className="landing-format-info">
+                  <span className="landing-format-ext">.txt</span>
+                  <span className="landing-format-name">Plain text</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -186,8 +243,8 @@ export function Landing() {
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 50 cards per collection</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI card generation</li>
-                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> PDF upload</li>
-                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> App integrations</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> AI chat — generate by topic</li>
+                <li><X size={14} strokeWidth={2} className="landing-feat-no" /> Import PDF, Anki, Markdown & more</li>
               </ul>
             </div>
 
@@ -203,23 +260,38 @@ export function Landing() {
               </div>
               <button
                 className="landing-btn-primary landing-plan-cta"
-                onClick={() => {
-                  sessionStorage.setItem("checkout_intent", "pro");
-                  navigate("/signup");
-                }}
+                onClick={goToTrialSignup}
               >
-                Get Pro →
+                Start 7-day free trial →
               </button>
+              <p className="landing-plan-trial-note">Then €7.99/month — cancel anytime</p>
+              <p className="landing-plan-promo-hint">Have a promo code? Apply it at checkout.</p>
               <ul className="landing-plan-features">
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited collections</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Unlimited cards</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Cloud sync</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI card generation</li>
-                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> PDF upload</li>
-                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> App integrations</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> AI chat — generate by topic</li>
+                <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> Import PDF, Anki, Markdown & more</li>
               </ul>
             </div>
 
+          </div>
+          <div className="landing-trust-strip">
+            <span className="landing-trust-item">
+              <Lock size={13} strokeWidth={2} />
+              Cancel anytime
+            </span>
+            <span className="landing-trust-sep" aria-hidden="true">·</span>
+            <span className="landing-trust-item">
+              <Trash2 size={13} strokeWidth={2} />
+              Files never stored
+            </span>
+            <span className="landing-trust-sep" aria-hidden="true">·</span>
+            <span className="landing-trust-item">
+              <ShieldCheck size={13} strokeWidth={2} />
+              No hidden fees
+            </span>
           </div>
         </div>
       </section>
@@ -242,7 +314,12 @@ export function Landing() {
 
             <details className="landing-faq-item">
               <summary className="landing-faq-q">What file formats are supported?</summary>
-              <p className="landing-faq-a">Currently PDF, GoodNotes exports, and plain text. Support for Notability, Word (.docx), and image-based notes (via OCR) is on the roadmap.</p>
+              <p className="landing-faq-a">PDF, Markdown (.md), Anki decks (.apkg), Word documents (.docx), GoodNotes exports, and plain text. Support for Notability and image-based notes (via OCR) is on the roadmap.</p>
+            </details>
+
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">Can I import my existing Anki decks?</summary>
+              <p className="landing-faq-a">Yes. Export any deck from Anki as an .apkg file and upload it directly to flashr — all your cards are imported instantly. You can then keep studying as-is or use AI to expand the deck further.</p>
             </details>
 
             <details className="landing-faq-item">
@@ -260,6 +337,11 @@ export function Landing() {
               <p className="landing-faq-a">Never. flashr earns money through subscriptions only. Your notes and cards are never shared with third parties, advertisers, or used to train AI models.</p>
             </details>
 
+            <details className="landing-faq-item">
+              <summary className="landing-faq-q">I have a question — how do I contact you?</summary>
+              <p className="landing-faq-a">Email us at <a href="mailto:support@flashr.io" className="landing-faq-link">support@flashr.io</a> — we reply within 24 hours.</p>
+            </details>
+
           </div>
         </div>
       </section>
@@ -268,10 +350,10 @@ export function Landing() {
         <div className="landing-cta-glow" aria-hidden="true" />
         <div className="landing-section-inner landing-section-inner--narrow" data-animate>
           <h2 className="landing-cta-title">Stop copying notes.<br />Start retaining them.</h2>
-          <Link to="/signup" className="landing-btn-primary landing-btn-large">
-            Get started free
-          </Link>
-          <p className="landing-cta-caption">Free plan available — no card required</p>
+          <button className="landing-btn-primary landing-btn-large" onClick={goToTrialSignup}>
+            Start free trial <ArrowRight size={16} strokeWidth={2} />
+          </button>
+          <p className="landing-cta-caption">7-day free Pro trial — cancel anytime</p>
         </div>
       </section>
 
@@ -280,11 +362,40 @@ export function Landing() {
           <Wordmark size={18} />
           <nav className="landing-footer-nav">
             <a href="#features" className="landing-footer-link">Features</a>
-            <a href="#how-it-works" className="landing-footer-link">How it works</a>
+            <a href="#import" className="landing-footer-link">Import</a>
             <a href="#pricing" className="landing-footer-link">Pricing</a>
             <a href="#faq" className="landing-footer-link">FAQ</a>
+            <a href="mailto:support@flashr.io" className="landing-footer-link">Contact</a>
             <Link to="/login" className="landing-footer-link">Log in</Link>
           </nav>
+          <div className="landing-footer-social">
+            <a
+              href="https://www.linkedin.com/company/115812262"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="landing-footer-social-link"
+              aria-label="flashr on LinkedIn"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                <rect x="2" y="9" width="4" height="12"/>
+                <circle cx="4" cy="4" r="2"/>
+              </svg>
+            </a>
+            <a
+              href="https://www.instagram.com/flashr.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="landing-footer-social-link"
+              aria-label="flashr on Instagram"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+              </svg>
+            </a>
+          </div>
         </div>
         <div className="landing-footer-sub">
           <p className="landing-footer-copy">© {new Date().getFullYear()} flashr</p>

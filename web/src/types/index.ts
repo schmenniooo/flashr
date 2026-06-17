@@ -22,6 +22,7 @@ export type User = {
   dailyGoal: number;
   emailReminders: boolean;
   weeklyDigest: boolean;
+  notificationTime: string; // "HH:MM" preferred push reminder time, default "08:00"
   age: number | null;
   learnerTypes: LearnerType[];
   onboardingCompleted: boolean;
@@ -34,6 +35,10 @@ export type Card = {
   answer: string;
   aiGenerated: boolean;
   mastery: "new" | "learning" | "known";
+  dueDate: string | null;
+  interval: number;
+  easeFactor: number;
+  repetitions: number;
 };
 
 export type Collection = {
@@ -63,4 +68,5 @@ export type Suggestion = {
   description: string;
   folder: string;
   folderEmoji: string;
+  cards?: { question: string; answer: string }[];
 };

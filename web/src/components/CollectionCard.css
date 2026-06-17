@@ -60,10 +60,18 @@
   color: var(--color-muted);
   cursor: pointer;
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--transition-base), color var(--transition-base), border-color var(--transition-base);
 }
 .colcard:hover .colcard__edit-btn {
   opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .colcard__edit-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 .colcard__edit-btn:hover {
   color: var(--color-text);

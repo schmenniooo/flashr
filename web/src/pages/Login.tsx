@@ -12,7 +12,10 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Wordmark } from "../lib/logo";
+import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
+import { STORAGE_KEYS } from "../lib/storageKeys";
+import { usePostHog } from "@posthog/react";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -25,6 +28,7 @@ export function Login() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
+  const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>(pathname === "/signup" ? "signup" : "signin");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(() => {
@@ -32,26 +36,36 @@ export function Login() {
     return code ? (OAUTH_ERRORS[code] ?? "Something went wrong — please try again.") : null;
   });
   const [submitting, setSubmitting] = useState(false);
+  const [wantsTrial, setWantsTrial] = useState(() => {
+    try {
+      return sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
+    } catch { return false; }
+  });
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
   });
 
-  const hasProIntent = () => sessionStorage.getItem("checkout_intent") === "pro";
+  const hasProIntent = () => sessionStorage.getItem(STORAGE_KEYS.CHECKOUT_INTENT) === "pro";
 
   function clearIntent() {
-    sessionStorage.removeItem("checkout_intent");
+    sessionStorage.removeItem(STORAGE_KEYS.CHECKOUT_INTENT);
   }
 
   async function redirectAfterAuth(defaultPath: string) {
     if (hasProIntent()) {
       clearIntent();
+      let withTrial = false;
+      try {
+        withTrial = sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
+        sessionStorage.removeItem(STORAGE_KEYS.TRIAL_INTENT);
+      } catch { /* ignore */ }
       const user = selectNow(selectCurrentUser);
       if (user?.plan === "pro") {
         navigate("/app");
       } else {
-        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "");
+        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "", withTrial);
       }
     } else {
       navigate(defaultPath);
@@ -83,7 +97,20 @@ export function Login() {
               lastName: form.name.split(" ").slice(1).join(" "),
             });
       if (res.ok) {
-        await redirectAfterAuth(mode === "signup" ? "/onboarding" : "/app");
+        const user = selectNow(selectCurrentUser);
+        if (mode === "signup") {
+          if (user) posthog.identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
+          posthog.capture("user_signed_up", { method: "email" });
+          if (wantsTrial) {
+            await billingApi.checkout(form.email, true);
+          } else {
+            await redirectAfterAuth("/onboarding");
+          }
+        } else {
+          if (user) posthog.identify(user.id, { email: user.email, plan: user.plan });
+          posthog.capture("user_signed_in", { method: "email" });
+          await redirectAfterAuth("/app");
+        }
       } else {
         setError(res.error);
       }
@@ -172,14 +199,30 @@ export function Login() {
           <div className="auth__oauth">
             <button
               className="auth__oauth-btn"
-              onClick={() => { window.location.href = "/api/auth/google"; }}
+              onClick={() => {
+                try {
+                  if (mode === "signup" && wantsTrial)
+                    sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                } catch {
+                  // sessionStorage unavailable (e.g. private mode) — proceed anyway
+                }
+                window.location.href = `${API_BASE}/auth/google`;
+              }}
             >
               <GoogleIcon />
               Continue with Google
             </button>
             <button
               className="auth__oauth-btn"
-              onClick={() => { window.location.href = "/api/auth/github"; }}
+              onClick={() => {
+                try {
+                  if (mode === "signup" && wantsTrial)
+                    sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                } catch {
+                  // sessionStorage unavailable (e.g. private mode) — proceed anyway
+                }
+                window.location.href = `${API_BASE}/auth/github`;
+              }}
             >
               <GithubIcon />
               Continue with GitHub
@@ -275,16 +318,32 @@ export function Login() {
             </label>
 
             {mode === "signup" && (
-              <label className="auth__check">
-                <input type="checkbox" required />
-                <span>
-                  I agree to the{" "}
-                  <Link to="/terms">Terms of Service</Link>{" "}
-                  and{" "}
-                  <Link to="/privacy">Privacy Policy</Link>
-                  .
-                </span>
-              </label>
+              <>
+                <label className="auth__check auth__check--trial">
+                  <input
+                    type="checkbox"
+                    checked={wantsTrial}
+                    onChange={(e) => setWantsTrial(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Start with a 7-day free Pro trial</strong>
+                    <span className="auth__check-sub">
+                      Enter payment details — no charge until the trial ends. Cancel any time.
+                    </span>
+                  </span>
+                </label>
+
+                <label className="auth__check">
+                  <input type="checkbox" required />
+                  <span>
+                    I agree to the{" "}
+                    <Link to="/terms">Terms of Service</Link>{" "}
+                    and{" "}
+                    <Link to="/privacy">Privacy Policy</Link>
+                    .
+                  </span>
+                </label>
+              </>
             )}
 
             <button

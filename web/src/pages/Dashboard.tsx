@@ -23,6 +23,7 @@ import {
   suggestionsApi,
   useDb,
 } from "../lib/store";
+import { usePostHog } from "@posthog/react";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -41,6 +42,7 @@ import { CollectionCard } from "../components/CollectionCard";
 import "./Dashboard.css";
 
 export function Dashboard() {
+  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const suggestions = useDb(selectSuggestionsForUser);
@@ -51,7 +53,10 @@ export function Dashboard() {
 
   async function handleAcceptSuggestion(id: string) {
     const created = await suggestionsApi.accept(id);
-    if (created) navigate(`/app/c/${created.id}`);
+    if (created) {
+      posthog.capture("suggestion_accepted", { suggestion_id: id, collection_id: created.id });
+      navigate(`/app/c/${created.id}`);
+    }
   }
 
   const recentActivity = useMemo(() => {
@@ -84,7 +89,7 @@ export function Dashboard() {
         <div className="dash__head-cta">
           <Link to="/app/upload" className="btn-primary">
             <Sparkles size={14} strokeWidth={2} />
-            Create cards from PDF
+            Create cards
           </Link>
         </div>
       </header>
@@ -264,9 +269,9 @@ export function Dashboard() {
               <Upload size={20} strokeWidth={1.8} />
             </div>
             <div>
-              <h3 className="text-h2">Got a lecture as a PDF?</h3>
+              <h3 className="text-h2">Turn any material into flashcards</h3>
               <p className="text-body">
-                Drop it in — flashr reads it and builds the cards for you. You review, we do the rest.
+                Upload a PDF, Word doc, or Markdown file — or just describe a topic — and flashr builds the cards for you.
               </p>
             </div>
             <div className="dash__upload-cta-arrow">

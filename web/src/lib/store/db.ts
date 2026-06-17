@@ -32,6 +32,9 @@ export type Db = {
   masteryMap: Record<string, Card["mastery"]>;
   // transient — never persisted, always resets to true on load
   bootstrapping: boolean;
+  collectionsLoading: boolean;
+  // cards reviewed today (from review API responses, resets on reload)
+  cardsToday: number;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -52,6 +55,8 @@ function freshDb(): Db {
     folders: [],
     masteryMap: {},
     bootstrapping: true,
+    collectionsLoading: false,
+    cardsToday: 0,
   };
 }
 
@@ -89,6 +94,8 @@ function readDb(): Db {
       users: parsed.users.map(migrateUser),
       masteryMap: parsed.masteryMap ?? {},
       bootstrapping: true,
+      collectionsLoading: false,
+      cardsToday: 0,
     };
   } catch {
     const fresh = freshDb();
@@ -160,6 +167,7 @@ export function selectNow<T>(selector: (db: Db) => T): T {
 // ─────────────────────────────────────────────────────────────
 
 export const selectBootstrapping = (db: Db) => db.bootstrapping;
+export const selectCollectionsLoading = (db: Db) => db.collectionsLoading;
 export const selectSession = (db: Db) => db.session;
 export const selectCurrentUser = (db: Db): StoredUser | null => {
   if (!db.session) return null;
@@ -171,10 +179,16 @@ export const selectCollection = (id: string) => (db: Db) =>
   db.collections.find((c) => c.id === id);
 export const selectTotalCards = (db: Db) =>
   db.collections.reduce((s, c) => s + c.cards.length, 0);
-export const selectCardsDueToday = (db: Db) =>
-  db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery !== "known").length, 0);
+export const selectCardsDueToday = (db: Db) => {
+  const now = new Date();
+  return db.collections.reduce(
+    (s, c) => s + c.cards.filter((k) => !k.dueDate || new Date(k.dueDate) <= now).length,
+    0,
+  );
+};
 export const selectKnownCards = (db: Db) =>
   db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery === "known").length, 0);
+export const selectCardsToday = (db: Db) => db.cardsToday;
 
 // ─────────────────────────────────────────────────────────────
 // Shared helpers (used across action modules)

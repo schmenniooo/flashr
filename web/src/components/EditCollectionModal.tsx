@@ -39,7 +39,7 @@ export function EditCollectionModal({
       folder,
       emoji: emoji || "📚",
       description: description.trim(),
-    });
+    }).catch(() => {});
     onClose();
   }
 
