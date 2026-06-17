@@ -1,9 +1,6 @@
 name: iOS CI
 
 on:
-  push:
-    paths:
-      - 'ios/**'
   pull_request:
     paths:
       - 'ios/**'
@@ -15,9 +12,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer
 
       - name: Build & Test
         run: |
