@@ -36,9 +36,22 @@
 		7590805F2FE2B04F0011C3C8 /* Config.Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.Release.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		759080622FE2B5DF0011C3C8 /* Exceptions for "flashr" folder in "flashr" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7522C7772FE2A8F500ECA4BA /* flashr */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7522C77A2FE2A8F500ECA4BA /* flashr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				759080622FE2B5DF0011C3C8 /* Exceptions for "flashr" folder in "flashr" target */,
+			);
 			path = flashr;
 			sourceTree = "<group>";
 		};
@@ -411,6 +424,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = flashr/Info.plist;
 				"INFOPLIST_FILE[sdk=*]" = "";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -456,6 +470,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = flashr/Info.plist;
 				"INFOPLIST_FILE[sdk=*]" = "";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
