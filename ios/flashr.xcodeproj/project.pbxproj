@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		7590805E2FE2B0460011C3C8 /* Config.Debug.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 7590805D2FE2B0460011C3C8 /* Config.Debug.xcconfig */; };
+		759080602FE2B04F0011C3C8 /* Config.Release.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 7590805F2FE2B04F0011C3C8 /* Config.Release.xcconfig */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		7522C7882FE2A8F700ECA4BA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +32,8 @@
 		7522C7782FE2A8F500ECA4BA /* flashr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = flashr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7522C7872FE2A8F700ECA4BA /* flashrTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = flashrTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7522C7912FE2A8F700ECA4BA /* flashrUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = flashrUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7590805D2FE2B0460011C3C8 /* Config.Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.Debug.xcconfig; sourceTree = "<group>"; };
+		7590805F2FE2B04F0011C3C8 /* Config.Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.Release.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -79,6 +86,8 @@
 				7522C78A2FE2A8F700ECA4BA /* flashrTests */,
 				7522C7942FE2A8F700ECA4BA /* flashrUITests */,
 				7522C7792FE2A8F500ECA4BA /* Products */,
+				7590805D2FE2B0460011C3C8 /* Config.Debug.xcconfig */,
+				7590805F2FE2B04F0011C3C8 /* Config.Release.xcconfig */,
 			);
 			sourceTree = "<group>";
 		};
@@ -212,6 +221,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7590805E2FE2B0460011C3C8 /* Config.Debug.xcconfig in Resources */,
+				759080602FE2B04F0011C3C8 /* Config.Release.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -271,6 +282,7 @@
 /* Begin XCBuildConfiguration section */
 		7522C7992FE2A8F700ECA4BA /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7590805D2FE2B0460011C3C8 /* Config.Debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -333,6 +345,7 @@
 		};
 		7522C79A2FE2A8F700ECA4BA /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7590805F2FE2B04F0011C3C8 /* Config.Release.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -398,6 +411,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=*]" = flashr/Resources/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -442,6 +456,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=*]" = flashr/Resources/Info.plist;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
