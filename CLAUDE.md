@@ -4,7 +4,7 @@
 
 AI-powered Flashcard SaaS. Users create flashcards, organize them into collections, and auto-generate them from existing notes (GoodNotes, Notability, PDFs) via AI.
 
-**Stack:** React · Go (Monolith) · PostgreSQL · Railway · Ollama (self-hosted on Railway)
+**Stack:** React · Go (Monolith) · PostgreSQL · Railway · Ollama (self-hosted on Railway) · Swift/SwiftUI (iOS & macOS)
 **Domain:** flashr.io
 
 ## Project Documents
@@ -14,6 +14,7 @@ Before making changes, consult these canonical documents:
 - [ROADMAP.md](ROADMAP.md) — Full product roadmap: phases (Foundation → MVP → Growth → Native Mobile → Platform), database schema, Go package structure, and forward-looking architecture constraints. The roadmap is the source of truth for what to build and — importantly — what schema fields / packages to scaffold now even if they belong to later phases (`srs_metadata`, `is_public`, `upload_jobs`, `srs/` and `sharing/` packages).
 - [GUIDELINES.md](GUIDELINES.md) — Brand & design system: color tokens, typography (DM Sans), component styles, spacing scale, iconography (Lucide), motion, voice & tone. Any UI work must use these tokens and rules.
 - [ANNOUNCEMENTS.md](ANNOUNCEMENTS.md) — User-facing changelog. **You MUST add an entry here for every feature addition, bug fix, or notable change you ship.** Bump the semantic version (patch for fixes, minor for features, major for breaking changes), set the date to today, and write a short user-facing description. Never leave this file stale.
+- [MOBILE_ROADMAP.md](MOBILE_ROADMAP.md) — iOS & macOS implementation plan: Xcode project structure, phase timeline (iPhone → iPad → macOS), StoreKit 2 billing, CI/CD, design tokens in SwiftUI, and App Store requirements.
 
 ---
 
@@ -165,6 +166,138 @@ backend/
 - **Unit tests:** `test/unit/` — no database (AI prompt parsing, auth helpers, upload validation)
 - **Integration tests:** `test/integration/` — require a real PostgreSQL instance
 - **No Ollama in tests:** pass `nil` as `*ai.Client` to `upload.NewService` for the "not configured" path
+
+---
+
+## iOS & macOS (`/ios`)
+
+### Stack
+
+- **Language:** Swift 5.9+ · SwiftUI
+- **Targets:** iOS 17+ (iPhone & iPad) · macOS 14+ (native — no Catalyst)
+- **Bundle ID:** `io.flashr.app`
+- **Billing:** StoreKit 2 (product ID `io.flashr.pro.monthly`) — Stripe remains for web only
+- **Distribution:** iPhone/iPad via App Store · macOS via GitHub Releases + Sparkle auto-update
+
+### Source structure
+
+```
+ios/
+├── flashr.xcodeproj
+└── flashr/
+    ├── App/
+    │   ├── flashrApp.swift         # @main entry — injects AuthStore as environment object
+    │   └── AppDelegate.swift       # APNs registration (#if os(iOS))
+    ├── Core/
+    │   ├── DesignSystem.swift      # Brand tokens: Color.flashr*, Font.flashr*, Radius.*
+    │   ├── Network/
+    │   │   ├── APIClient.swift     # URLSession wrapper — reads API_BASE_URL from Config.xcconfig,
+    │   │   │                       #   injects Authorization: Bearer on every request
+    │   │   └── Endpoints.swift     # All API endpoint path constants
+    │   ├── Auth/
+    │   │   ├── AuthManager.swift   # @MainActor ObservableObject — login, signup, Google OAuth,
+    │   │   │                       #   logout, token refresh
+    │   │   └── KeychainHelper.swift # read/write/delete JWT — never UserDefaults
+    │   ├── Models/
+    │   │   ├── Card.swift
+    │   │   ├── Collection.swift
+    │   │   └── User.swift
+    │   └── Store/
+    │       ├── AuthStore.swift
+    │       ├── CollectionStore.swift  # ObservableObject — mirrors web store pattern
+    │       └── CardStore.swift
+    ├── Features/
+    │   ├── Auth/
+    │   │   ├── LoginView.swift
+    │   │   ├── SignupView.swift
+    │   │   └── OAuthCallbackView.swift
+    │   ├── Collections/
+    │   │   ├── CollectionsView.swift
+    │   │   ├── CollectionDetailView.swift
+    │   │   └── CreateCollectionSheet.swift
+    │   ├── Cards/
+    │   │   ├── CardEditorView.swift
+    │   │   └── CardRowView.swift
+    │   ├── Study/
+    │   │   ├── StudyView.swift        # rotation3DEffect flip + SM-2 rating buttons
+    │   │   └── StudyCompleteView.swift
+    │   ├── Upload/
+    │   │   ├── UploadView.swift       # DocumentPickerViewController + AI topic input
+    │   │   └── ReviewView.swift       # Draft cards review before saving
+    │   ├── Billing/
+    │   │   ├── UpgradeView.swift      # StoreKit 2 paywall shown at Free plan limits
+    │   │   └── BillingManager.swift   # Product.products(), product.purchase(), restore
+    │   └── Profile/
+    │       └── ProfileView.swift
+    ├── Platform/
+    │   ├── iOS/
+    │   │   ├── AppShell+iOS.swift     # TabView (iPhone) / NavigationSplitView (iPad)
+    │   │   └── ShareExtension/        # GoodNotes → flashr (Phase 2)
+    │   └── macOS/
+    │       ├── AppShell+macOS.swift   # 3-column NavigationSplitView + NSToolbar
+    │       └── MenuBarExtra.swift     # Streak + cards due today in menu bar (optional)
+    └── Resources/
+        ├── Assets.xcassets
+        ├── Fonts/                     # DM Sans TTF files — registered in Info.plist
+        │   ├── DMSans-Regular.ttf
+        │   ├── DMSans-SemiBold.ttf
+        │   └── DMSans-Bold.ttf
+        └── flashr.entitlements        # Push Notifications, App Groups (Share Extension)
+```
+
+### Design system
+
+All brand tokens live in `Core/DesignSystem.swift` — never hardcode hex values elsewhere:
+
+```swift
+Color.flashrBg          // #0D0F14
+Color.flashrSurface     // #161923
+Color.flashrCard        // #1E2332
+Color.flashrAccent      // #6C63FF  ← only CTA color
+Color.flashrAccentLight // #8B85FF
+Color.flashrText        // #F0F2FF
+Color.flashrMuted       // #8890A4
+Color.flashrBorder      // #2A2F45
+
+Font.flashrH1           // DMSans-Bold 28pt
+Font.flashrH2           // DMSans-SemiBold 20pt
+Font.flashrBody         // DMSans-Regular 14pt
+Font.flashrMeta         // DMSans-SemiBold 11pt
+
+Radius.sm / .md / .lg / .xl  // 8 / 12 / 16 / 24 pt
+
+// Accent glow — use sparingly, only on accent elements
+.shadow(color: Color.flashrAccent.opacity(0.3), radius: 10, x: 0, y: 4)
+```
+
+DM Sans TTF files must be listed under `UIAppFonts` (iOS) and `NSFontFileName` (macOS) in `Info.plist`. SwiftUI Previews will crash silently if the font isn't registered.
+
+### Build configurations
+
+Environment config lives in `Config.xcconfig` per scheme — never hardcode in source:
+
+```
+// Debug
+API_BASE_URL = http://localhost:8080
+
+// Release
+API_BASE_URL  = https://api.flashr.io
+GOOGLE_CLIENT_ID = <from Google Console>
+STOREKIT_PRODUCT_ID = io.flashr.pro.monthly
+```
+
+### Key architecture decisions
+
+- **Token storage** — JWT always in Keychain (`KeychainHelper.swift`). Never `UserDefaults`. `AuthManager` is `@MainActor ObservableObject` injected at app root.
+- **Platform split via `#if os(...)`** — business logic (stores, models, API client) is shared. Platform-specific UI is isolated to `Platform/iOS/` and `Platform/macOS/`. No Catalyst.
+- **StoreKit 2 + backend sync** — after a successful purchase, `BillingManager` calls `POST /api/billing/ios-fulfill` to sync `plan='pro'` into the DB. The web plan and iOS plan write the same `users.plan` column. The `billing_source` column (`'stripe'` | `'apple'`) tracks origin.
+- **macOS distribution** — outside the App Store via GitHub Releases + Sparkle 2. Every `git tag v*` triggers `.github/workflows/macos-release.yml` which builds, notarizes (once Apple Developer Account is set up), and publishes a `.dmg`.
+
+### Testing
+
+- **Unit tests (`flashrTests`):** `APIClientTests` (mock URLSession), `BillingManagerTests` (mock StoreKit), `SRSTests` (SM-2 algorithm port from Go `internal/srs`)
+- **UI tests (`flashrUITests`):** login flow, create collection → add card → study, upload flow (mock API), upgrade paywall trigger
+- **CI:** `.github/workflows/ios.yml` — runs `xcodebuild test` on `macos-15` runner against iPhone 16 simulator on every push/PR touching `ios/**`
 
 ---
 

@@ -20,6 +20,7 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/auth"
 	"github.com/smithlabs/flashr/backend/internal/billing"
 	"github.com/smithlabs/flashr/backend/internal/collections"
+	"github.com/smithlabs/flashr/backend/internal/ios"
 	"github.com/smithlabs/flashr/backend/internal/notifications"
 	"github.com/smithlabs/flashr/backend/internal/upload"
 	"github.com/smithlabs/flashr/backend/pkg/config"
@@ -156,6 +157,11 @@ func main() {
 	authSvc.OnBeforeUserDelete(billingSvc.DeleteCustomer)
 	billingSvc.RegisterRoutes(
 		api.Group("", timeoutMiddleware(30*time.Second)),
+		authSvc.RequireUser(),
+	)
+
+	ios.NewService(pool).RegisterRoutes(
+		api.Group("", timeoutMiddleware(15*time.Second)),
 		authSvc.RequireUser(),
 	)
 

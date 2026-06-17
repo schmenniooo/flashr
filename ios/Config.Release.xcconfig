@@ -1,0 +1,11 @@
+// Release / App Store build — points to production API.
+// In Xcode: Project → Info → Configurations → Release → set this file.
+// Never hardcode credentials in source; add sensitive values as Xcode env vars
+// or via CI secrets.
+
+API_BASE_URL = https://api.flashr.io
+STOREKIT_PRODUCT_ID = io.flashr.pro.monthly
+
+// Google OAuth — iOS client ID (NOT the web client ID).
+// Same client ID as Debug — just a different bundle target in Google Console.
+GOOGLE_CLIENT_ID =

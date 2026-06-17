@@ -304,6 +304,14 @@ func (s *Service) ensureCustomer(ctx context.Context, userID, email string) (str
 	return c.ID, nil
 }
 
+// IOSWebhook handles Apple server-to-server subscription notifications.
+// Phase 1 stub: logs the raw payload and returns nil.
+// Phase 2: verify Apple JWS signature and parse signed transaction payload.
+func (s *Service) IOSWebhook(ctx context.Context, payload []byte) error {
+	slog.Info("billing: ios webhook received", "payload_bytes", len(payload))
+	return nil
+}
+
 func (s *Service) customerID(ctx context.Context, userID string) (string, error) {
 	var id *string
 	err := s.pool.QueryRow(ctx,

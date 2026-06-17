@@ -1,0 +1,25 @@
+name: iOS CI
+
+on:
+  pull_request:
+    paths:
+      - 'ios/**'
+
+jobs:
+  build:
+    name: Build (iOS Simulator)
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          xcodebuild build \
+            -project ios/flashr.xcodeproj \
+            -scheme flashr \
+            -destination 'generic/platform=iOS Simulator' \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO
+        env:
+          CI: true

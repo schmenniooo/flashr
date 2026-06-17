@@ -2,6 +2,7 @@ package billing
 
 import (
 	"errors"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,10 +10,16 @@ import (
 )
 
 // RegisterRoutes mounts billing endpoints.
-// The webhook route is intentionally outside the auth middleware — Stripe
-// authenticates via HMAC signature on the payload instead.
+// The webhook routes are intentionally outside the auth middleware — they
+// authenticate via HMAC (Stripe) or Apple signature instead.
+//
+// NOTE: /billing/ios-fulfill is intentionally absent. It will be added in
+// Phase 2 once Apple JWS signed-transaction verification is implemented.
+// Mounting an unverified fulfill endpoint would let any authenticated user
+// self-promote to Pro without a real purchase.
 func (s *Service) RegisterRoutes(rg *gin.RouterGroup, requireUser gin.HandlerFunc) {
 	rg.POST("/billing/webhook", s.handleWebhook)
+	rg.POST("/billing/ios-webhook", s.handleIOSWebhook)
 
 	protected := rg.Group("/billing", requireUser)
 	protected.POST("/checkout", s.handleCheckout)
@@ -63,6 +70,22 @@ func (s *Service) handleSync(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// handleIOSWebhook receives Apple server-to-server subscription notifications.
+// Apple authenticates via a signed JWS payload — no Bearer token is present.
+// Phase 1 stub: logs and returns 200. Real JWS verification added in Phase 2.
+func (s *Service) handleIOSWebhook(c *gin.Context) {
+	payload, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<20))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "could not read body"})
+		return
+	}
+	if err := s.IOSWebhook(c.Request.Context(), payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "webhook processing failed"})
+		return
+	}
+	c.Status(http.StatusOK)
 }
 
 func (s *Service) handlePortal(c *gin.Context) {
