@@ -13,12 +13,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Show available simulators
+        run: xcrun simctl list devices available
+
       - name: Build & Test
         run: |
           xcodebuild test \
             -project ios/flashr.xcodeproj \
             -scheme flashr \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
             -resultBundlePath TestResults.xcresult \
             -skipPackagePluginValidation \
             CODE_SIGNING_ALLOWED=NO
