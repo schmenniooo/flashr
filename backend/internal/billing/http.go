@@ -9,7 +9,6 @@ import (
 	"github.com/smithlabs/flashr/backend/internal/auth"
 )
 
-
 // RegisterRoutes mounts billing endpoints.
 // The webhook routes are intentionally outside the auth middleware — they
 // authenticate via HMAC (Stripe) or Apple signature instead.
