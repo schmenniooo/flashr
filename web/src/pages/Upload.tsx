@@ -1,3 +1,4 @@
+import { capture } from "../lib/analytics";
 import { useRef, useState } from "react";
 import { toast } from "../lib/toast";
 import { Link, useNavigate } from "react-router-dom";
@@ -24,7 +25,6 @@ import { UpgradePrompt } from "../components/UpgradePrompt";
 import { AiChat } from "./upload/AiChat";
 import { ReviewStep } from "./upload/ReviewStep";
 import type { DraftCard } from "./upload/types";
-import { usePostHog } from "@posthog/react";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -32,7 +32,6 @@ type ActiveTab = "pdf" | "chat";
 
 export function Upload() {
   const navigate = useNavigate();
-  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const isPro = currentUser?.plan === "pro";
@@ -72,7 +71,7 @@ export function Upload() {
     setStep("processing");
     const fileExt = name.split(".").pop() ?? "";
     if (fileExt !== "apkg") {
-      posthog.capture("ai_generation_started", { source: "file", file_type: fileExt, file_size_kb: Math.round(file.size / 1024) });
+      capture("ai_generation_started", { source: "file", file_type: fileExt, file_size_kb: Math.round(file.size / 1024) });
     }
 
     abortRef.current?.abort();
@@ -172,9 +171,9 @@ export function Upload() {
       flushEvent();
       if (cardIndex > 0) {
         if (fileExt === "apkg") {
-          posthog.capture("apkg_imported", { card_count: cardIndex });
+          capture("apkg_imported", { card_count: cardIndex });
         } else {
-          posthog.capture("ai_generated", { card_count: cardIndex, source: "file", file_type: fileExt });
+          capture("ai_generated", { card_count: cardIndex, source: "file", file_type: fileExt });
         }
       }
     } catch (err) {
@@ -202,7 +201,7 @@ export function Upload() {
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
       const savedFileExt = fileName?.toLowerCase().split(".").pop() ?? "";
-      posthog.capture("cards_saved", { card_count: kept.length, skipped: drafts.length - kept.length, source: savedFileExt === "apkg" ? "anki" : "ai", collection_id: collectionId });
+      capture("cards_saved", { card_count: kept.length, skipped: drafts.length - kept.length, source: savedFileExt === "apkg" ? "anki" : "ai", collection_id: collectionId });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       navigate(`/app/c/${collectionId}`);
     } catch {

@@ -1,3 +1,4 @@
+import { capture, identify } from "../lib/analytics";
 import { useState } from "react";
 import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import {
@@ -15,7 +16,6 @@ import { Wordmark } from "../lib/logo";
 import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import { STORAGE_KEYS } from "../lib/storageKeys";
-import { usePostHog } from "@posthog/react";
 import "./Login.css";
 
 type Mode = "signin" | "signup";
@@ -28,7 +28,6 @@ export function Login() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
-  const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>(pathname === "/signup" ? "signup" : "signin");
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(() => {
@@ -86,7 +85,7 @@ export function Login() {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
-    if (mode === "signup") posthog.capture("signup_started", { method: "email" });
+    if (mode === "signup") capture("signup_started", { method: "email" });
     try {
       const res =
         mode === "signin"
@@ -100,16 +99,16 @@ export function Login() {
       if (res.ok) {
         const user = selectNow(selectCurrentUser);
         if (mode === "signup") {
-          if (user) posthog.identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
-          posthog.capture("signup_completed", { method: "email" });
+          if (user) identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
+          capture("signup_completed", { method: "email" });
           if (wantsTrial) {
             await billingApi.checkout(form.email, true);
           } else {
             await redirectAfterAuth("/onboarding");
           }
         } else {
-          if (user) posthog.identify(user.id, { email: user.email, plan: user.plan });
-          posthog.capture("login_completed", { method: "email" });
+          if (user) identify(user.id, { email: user.email, plan: user.plan });
+          capture("login_completed", { method: "email" });
           await redirectAfterAuth("/app");
         }
       } else {
@@ -208,7 +207,7 @@ export function Login() {
                 } catch {
                   // sessionStorage unavailable (e.g. private mode) — proceed anyway
                 }
-                if (mode === "signup") posthog.capture("signup_started", { method: "google" });
+                if (mode === "signup") capture("signup_started", { method: "google" });
                 window.location.href = `${API_BASE}/auth/google`;
               }}
             >
@@ -225,7 +224,7 @@ export function Login() {
                 } catch {
                   // sessionStorage unavailable (e.g. private mode) — proceed anyway
                 }
-                if (mode === "signup") posthog.capture("signup_started", { method: "github" });
+                if (mode === "signup") capture("signup_started", { method: "github" });
                 window.location.href = `${API_BASE}/auth/github`;
               }}
             >

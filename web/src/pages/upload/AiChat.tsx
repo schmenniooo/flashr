@@ -1,3 +1,4 @@
+import { capture } from "../../lib/analytics";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "../../lib/toast";
 import {
@@ -15,7 +16,6 @@ import { UpgradePrompt } from "../../components/UpgradePrompt";
 import { DraftCardItem } from "./DraftCardItem";
 import type { DraftCard, Level } from "./types";
 import type { LearnerType } from "../../types";
-import { usePostHog } from "@posthog/react";
 
 type ChatState = "idle" | "generating" | "results";
 
@@ -125,7 +125,6 @@ export function AiChat({
   collections: { id: string; emoji: string; name: string }[];
   navigate: (to: string) => void;
 }) {
-  const posthog = usePostHog();
   const currentUser = useDb(selectCurrentUser);
   const allCollections = useDb(selectCollections);
   const userId = currentUser?.id ?? "";
@@ -154,7 +153,7 @@ export function AiChat({
 
   async function handleGenerate() {
     if (!prompt.trim() || isLoading) return;
-    posthog.capture("ai_generation_started", { source: "topic", card_count: count, level, prompt_length: prompt.trim().length });
+    capture("ai_generation_started", { source: "topic", card_count: count, level, prompt_length: prompt.trim().length });
     setChatState("generating");
     setDrafts([]);
     setError(null);
@@ -244,7 +243,7 @@ export function AiChat({
     }
 
     if (cardIndex > 0) {
-      posthog.capture("ai_generated", { card_count: cardIndex, source: "topic" });
+      capture("ai_generated", { card_count: cardIndex, source: "topic" });
     }
     setChatState(cardIndex > 0 ? "results" : "idle");
   }
@@ -277,7 +276,7 @@ export function AiChat({
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
-      posthog.capture("cards_saved", { card_count: kept.length, skipped: drafts.length - kept.length, source: "ai", collection_id: collectionId });
+      capture("cards_saved", { card_count: kept.length, skipped: drafts.length - kept.length, source: "ai", collection_id: collectionId });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       clearChatDraft();
       navigate(`/app/c/${collectionId}`);

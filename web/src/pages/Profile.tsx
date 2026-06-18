@@ -1,3 +1,4 @@
+import { capture } from "../lib/analytics";
 import { useMemo, useRef, useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import {
@@ -16,7 +17,6 @@ import {
   Crown,
   Bell,
 } from "lucide-react";
-import { usePostHog } from "@posthog/react";
 import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot } from "../lib/store";
 import "./Profile.css";
 
@@ -40,7 +40,6 @@ function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
 
 export function Profile() {
   const navigate = useNavigate();
-  const posthog = usePostHog();
   const currentUser = useDb(selectCurrentUser);
   const collectionsCount = useDb((db) => selectCollections(db).length);
   const totalCards = useDb(selectTotalCards);
@@ -204,7 +203,7 @@ export function Profile() {
 
   async function handleUpgrade() {
     if (!currentUser) return;
-    posthog.capture("upgrade_clicked", { source: "profile" });
+    capture("upgrade_clicked", { source: "profile" });
     setBillingLoading(true);
     setBillingError("");
     try {
@@ -250,7 +249,7 @@ export function Profile() {
   }
 
   function handleSignOut() {
-    posthog.capture("user_signed_out");
+    capture("user_signed_out");
     auth.signOut();
     navigate("/login");
   }

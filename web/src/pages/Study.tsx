@@ -1,3 +1,4 @@
+import { capture } from "../lib/analytics";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
@@ -14,7 +15,6 @@ import {
 import { cardsApi, collectionsApi, selectCardsToday, selectCollection, selectCurrentUser, useDb } from "../lib/store";
 import type { Card, Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
-import { usePostHog } from "@posthog/react";
 import "./Study.css";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -34,7 +34,6 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function Study() {
   const { id } = useParams();
-  const posthog = usePostHog();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);
   const cardsToday = useDb(selectCardsToday);
@@ -60,7 +59,7 @@ export function Study() {
   useEffect(() => {
     if (deck.length === 0) return;
     startTimeRef.current = Date.now();
-    posthog.capture("study_session_started", {
+    capture("study_session_started", {
       collection_id: collection?.id,
       card_count: deck.length,
       mode: studyAll ? "all" : "srs",
@@ -130,7 +129,7 @@ export function Study() {
       setIndex((i) => i + 1);
       setRevealed(false);
     } else {
-      posthog.capture("study_session_completed", {
+      capture("study_session_completed", {
         collection_id: collection?.id,
         cards_reviewed: total,
         duration_seconds: Math.round((Date.now() - startTimeRef.current) / 1000),
@@ -148,7 +147,7 @@ export function Study() {
 
   function rate(r: Rating) {
     if (!card || !collection) return;
-    posthog.capture("card_rated", {
+    capture("card_rated", {
       rating: r,
       collection_id: collection.id,
       collection_name: collection.name,

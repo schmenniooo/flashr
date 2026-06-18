@@ -34,7 +34,7 @@ import {
   selectCardsDueToday,
   billingApi,
 } from "../lib/store";
-import posthog from "posthog-js";
+import { capture } from "../lib/analytics";
 import { NewFolderModal } from "./NewFolderModal";
 import "./AppShell.css";
 
@@ -300,7 +300,7 @@ export function AppShell() {
               className="shell__upgrade-nudge"
               onClick={() => {
                 if (!user) return;
-                posthog.capture("upgrade_clicked", { source: "sidebar" });
+                capture("upgrade_clicked", { source: "sidebar" });
                 billingApi.checkout(user.email, true);
               }}
             >

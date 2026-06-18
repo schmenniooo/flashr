@@ -1,3 +1,4 @@
+import { capture } from "../lib/analytics";
 import { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -23,7 +24,6 @@ import {
   suggestionsApi,
   useDb,
 } from "../lib/store";
-import { usePostHog } from "@posthog/react";
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -42,7 +42,6 @@ import { CollectionCard } from "../components/CollectionCard";
 import "./Dashboard.css";
 
 export function Dashboard() {
-  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const suggestions = useDb(selectSuggestionsForUser);
@@ -54,7 +53,7 @@ export function Dashboard() {
   async function handleAcceptSuggestion(id: string) {
     const created = await suggestionsApi.accept(id);
     if (created) {
-      posthog.capture("suggestion_accepted", { suggestion_id: id, collection_id: created.id });
+      capture("suggestion_accepted", { suggestion_id: id, collection_id: created.id });
       navigate(`/app/c/${created.id}`);
     }
   }
