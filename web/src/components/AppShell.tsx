@@ -34,6 +34,7 @@ import {
   selectCardsDueToday,
   billingApi,
 } from "../lib/store";
+import posthog from "posthog-js";
 import { NewFolderModal } from "./NewFolderModal";
 import "./AppShell.css";
 
@@ -297,7 +298,11 @@ export function AppShell() {
             <button
               type="button"
               className="shell__upgrade-nudge"
-              onClick={() => user && billingApi.checkout(user.email, true)}
+              onClick={() => {
+                if (!user) return;
+                posthog.capture("upgrade_clicked", { source: "sidebar" });
+                billingApi.checkout(user.email, true);
+              }}
             >
               <Sparkles size={13} strokeWidth={2} />
               Get Pro

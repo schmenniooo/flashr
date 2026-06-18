@@ -11,10 +11,11 @@ import { notificationsApi } from './lib/store/notifications'
 import posthog from 'posthog-js'
 import { PostHogProvider } from '@posthog/react'
 
-posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN, {
-  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-  defaults: '2026-01-30',
-  capture_pageview: 'history_change',
+posthog.init('phc_y7Tm8rPR2wMcBaT5aAMjJcjrt85Z3kpDkABvyLmxAF8v', {
+  api_host: 'https://eu.i.posthog.com',
+  capture_pageview: true,
+  capture_pageleave: true,
+  autocapture: false,
 })
 
 void auth.bootstrap().then(() => notificationsApi.init())

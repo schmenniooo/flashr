@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Crown, X } from "lucide-react";
 import { billingApi, selectCurrentUser, useDb } from "../lib/store";
+import { usePostHog } from "@posthog/react";
 import "./UpgradePrompt.css";
 
 interface Props {
@@ -8,14 +9,22 @@ interface Props {
 }
 
 export function UpgradePrompt({ reason }: Props) {
+  const posthog = usePostHog();
   const currentUser = useDb(selectCurrentUser);
   const [loading, setLoading] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!currentUser || currentUser.plan !== "free") return;
+    posthog.capture("upgrade_prompt_shown", { trigger: reason });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!currentUser || currentUser.plan !== "free" || dismissed) return null;
 
   async function handleUpgrade() {
     if (!currentUser) return;
+    posthog.capture("upgrade_clicked", { source: "limit_gate" });
     setLoading(true);
     try {
       await billingApi.checkout(currentUser.email);

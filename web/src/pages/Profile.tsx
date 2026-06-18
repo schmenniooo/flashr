@@ -204,7 +204,7 @@ export function Profile() {
 
   async function handleUpgrade() {
     if (!currentUser) return;
-    posthog.capture("upgrade_clicked", { plan: currentUser.plan });
+    posthog.capture("upgrade_clicked", { source: "profile" });
     setBillingLoading(true);
     setBillingError("");
     try {

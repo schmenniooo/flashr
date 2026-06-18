@@ -86,6 +86,7 @@ export function Login() {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    if (mode === "signup") posthog.capture("signup_started", { method: "email" });
     try {
       const res =
         mode === "signin"
@@ -100,7 +101,7 @@ export function Login() {
         const user = selectNow(selectCurrentUser);
         if (mode === "signup") {
           if (user) posthog.identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
-          posthog.capture("user_signed_up", { method: "email" });
+          posthog.capture("signup_completed", { method: "email" });
           if (wantsTrial) {
             await billingApi.checkout(form.email, true);
           } else {
@@ -108,7 +109,7 @@ export function Login() {
           }
         } else {
           if (user) posthog.identify(user.id, { email: user.email, plan: user.plan });
-          posthog.capture("user_signed_in", { method: "email" });
+          posthog.capture("login_completed", { method: "email" });
           await redirectAfterAuth("/app");
         }
       } else {
@@ -203,9 +204,11 @@ export function Login() {
                 try {
                   if (mode === "signup" && wantsTrial)
                     sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                  sessionStorage.setItem(STORAGE_KEYS.OAUTH_METHOD, JSON.stringify({ method: "google", mode }));
                 } catch {
                   // sessionStorage unavailable (e.g. private mode) — proceed anyway
                 }
+                if (mode === "signup") posthog.capture("signup_started", { method: "google" });
                 window.location.href = `${API_BASE}/auth/google`;
               }}
             >
@@ -218,9 +221,11 @@ export function Login() {
                 try {
                   if (mode === "signup" && wantsTrial)
                     sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
+                  sessionStorage.setItem(STORAGE_KEYS.OAUTH_METHOD, JSON.stringify({ method: "github", mode }));
                 } catch {
                   // sessionStorage unavailable (e.g. private mode) — proceed anyway
                 }
+                if (mode === "signup") posthog.capture("signup_started", { method: "github" });
                 window.location.href = `${API_BASE}/auth/github`;
               }}
             >

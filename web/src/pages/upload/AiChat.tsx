@@ -154,7 +154,7 @@ export function AiChat({
 
   async function handleGenerate() {
     if (!prompt.trim() || isLoading) return;
-    posthog.capture("ai_generation_started", { method: "topic", card_count: count, level, prompt_length: prompt.trim().length });
+    posthog.capture("ai_generation_started", { source: "topic", card_count: count, level, prompt_length: prompt.trim().length });
     setChatState("generating");
     setDrafts([]);
     setError(null);
@@ -243,6 +243,9 @@ export function AiChat({
       if ((err as Error).name === "AbortError") return;
     }
 
+    if (cardIndex > 0) {
+      posthog.capture("ai_generated", { card_count: cardIndex, source: "topic" });
+    }
     setChatState(cardIndex > 0 ? "results" : "idle");
   }
 
@@ -274,7 +277,7 @@ export function AiChat({
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
-      posthog.capture("ai_cards_saved", { method: "topic", cards_saved: kept.length, cards_discarded: drafts.length - kept.length, collection_id: collectionId, new_collection: target === "__new" });
+      posthog.capture("cards_saved", { card_count: kept.length, skipped: drafts.length - kept.length, source: "ai", collection_id: collectionId });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       clearChatDraft();
       navigate(`/app/c/${collectionId}`);

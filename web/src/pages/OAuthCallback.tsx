@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Wordmark } from "../lib/logo";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
 import { STORAGE_KEYS } from "../lib/storageKeys";
+import { usePostHog } from "@posthog/react";
 import "../components/RequireAuth.css";
 
 export function OAuthCallback() {
   const navigate = useNavigate();
+  const posthog = usePostHog();
 
   useEffect(() => {
     // Token is in the URL fragment (#token=…) so it never appears in server
@@ -25,6 +27,22 @@ export function OAuthCallback() {
         return;
       }
       const user = selectNow(selectCurrentUser);
+
+      const oauthRaw = sessionStorage.getItem(STORAGE_KEYS.OAUTH_METHOD);
+      sessionStorage.removeItem(STORAGE_KEYS.OAUTH_METHOD);
+      if (oauthRaw) {
+        try {
+          const { method, mode } = JSON.parse(oauthRaw) as { method: string; mode: string };
+          if (mode === "signup") {
+            if (user) posthog.identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
+            posthog.capture("signup_completed", { method });
+          } else {
+            if (user) posthog.identify(user.id, { email: user.email, plan: user.plan });
+            posthog.capture("login_completed", { method });
+          }
+        } catch { /* malformed */ }
+      }
+
       const hasTrialIntent = sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
       const hasProIntent = sessionStorage.getItem(STORAGE_KEYS.CHECKOUT_INTENT) === "pro";
       if (hasTrialIntent && user?.plan !== "pro") {
