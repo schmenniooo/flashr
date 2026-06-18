@@ -8,6 +8,13 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.8.1
+  date: 2026-06-18
+  title: Under-the-hood improvements
+  description: >
+    Internal analytics improvements to help us understand how the app is used
+    and make flashr better over time. No user-facing changes.
+
 - version: 1.8.0
   date: 2026-06-11
   title: Daily push reminders

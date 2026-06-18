@@ -1,3 +1,4 @@
+import { capture, identify } from "../lib/analytics";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Wordmark } from "../lib/logo";
@@ -25,6 +26,22 @@ export function OAuthCallback() {
         return;
       }
       const user = selectNow(selectCurrentUser);
+
+      const oauthRaw = sessionStorage.getItem(STORAGE_KEYS.OAUTH_METHOD);
+      sessionStorage.removeItem(STORAGE_KEYS.OAUTH_METHOD);
+      if (oauthRaw) {
+        try {
+          const { method, mode } = JSON.parse(oauthRaw) as { method: string; mode: string };
+          if (mode === "signup") {
+            if (user) identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
+            capture("signup_completed", { method });
+          } else {
+            if (user) identify(user.id, { email: user.email, plan: user.plan });
+            capture("login_completed", { method });
+          }
+        } catch { /* malformed */ }
+      }
+
       const hasTrialIntent = sessionStorage.getItem(STORAGE_KEYS.TRIAL_INTENT) === "1";
       const hasProIntent = sessionStorage.getItem(STORAGE_KEYS.CHECKOUT_INTENT) === "pro";
       if (hasTrialIntent && user?.plan !== "pro") {

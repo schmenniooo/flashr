@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { capture } from "../lib/analytics";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import {
   X,
@@ -14,7 +15,6 @@ import {
 import { cardsApi, collectionsApi, selectCardsToday, selectCollection, selectCurrentUser, useDb } from "../lib/store";
 import type { Card, Collection } from "../lib/store";
 import { Wordmark } from "../lib/logo";
-import { usePostHog } from "@posthog/react";
 import "./Study.css";
 
 type Rating = "again" | "hard" | "good" | "easy";
@@ -34,7 +34,6 @@ function shuffle<T>(arr: T[]): T[] {
 
 export function Study() {
   const { id } = useParams();
-  const posthog = usePostHog();
   const collection = useDb(selectCollection(id ?? ""));
   const currentUser = useDb(selectCurrentUser);
   const cardsToday = useDb(selectCardsToday);
@@ -44,6 +43,7 @@ export function Study() {
   const [ratings, setRatings] = useState<Record<string, Rating>>({});
   const [finished, setFinished] = useState(false);
   const [studyAll, setStudyAll] = useState(false);
+  const startTimeRef = useRef<number>(0);
 
   // Compute the shuffled deck once on mount (or when studyAll is toggled).
   const deck = useMemo<Card[]>(() => {
@@ -55,6 +55,17 @@ export function Study() {
 
   const card = deck[index];
   const total = deck.length;
+
+  useEffect(() => {
+    if (deck.length === 0) return;
+    startTimeRef.current = Date.now();
+    capture("study_session_started", {
+      collection_id: collection?.id,
+      card_count: deck.length,
+      mode: studyAll ? "all" : "srs",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deck]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -118,13 +129,10 @@ export function Study() {
       setIndex((i) => i + 1);
       setRevealed(false);
     } else {
-      const known = Object.values(ratings).filter((r) => r === "good" || r === "easy").length;
-      posthog.capture("study_session_completed", {
+      capture("study_session_completed", {
         collection_id: collection?.id,
-        collection_name: collection?.name,
-        total_cards: total,
-        cards_known: known,
-        cards_missed: total - known,
+        cards_reviewed: total,
+        duration_seconds: Math.round((Date.now() - startTimeRef.current) / 1000),
       });
       setFinished(true);
     }
@@ -139,7 +147,7 @@ export function Study() {
 
   function rate(r: Rating) {
     if (!card || !collection) return;
-    posthog.capture("card_rated", {
+    capture("card_rated", {
       rating: r,
       collection_id: collection.id,
       collection_name: collection.name,

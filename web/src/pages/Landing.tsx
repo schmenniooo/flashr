@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare, PackageOpen, FileText, FileCode, ShieldCheck, Trash2, Lock } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import { STORAGE_KEYS } from "../lib/storageKeys";
+import { capture } from "../lib/analytics";
 import "./Landing.css";
 
 export function Landing() {
@@ -10,6 +11,8 @@ export function Landing() {
   const [scrolled, setScrolled] = useState(false);
 
   function goToTrialSignup() {
+    capture("cta_clicked", { cta: "start_trial", source: "landing_hero" });
+    capture("upgrade_clicked", { source: "landing" });
     try {
       sessionStorage.setItem(STORAGE_KEYS.CHECKOUT_INTENT, "pro");
       sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
@@ -21,6 +24,23 @@ export function Landing() {
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const tracked = { 25: false, 50: false, 75: false, 100: false };
+    const handleScroll = () => {
+      const scrollable = document.body.scrollHeight - window.innerHeight;
+      if (scrollable <= 0) return;
+      const pct = Math.round((window.scrollY / scrollable) * 100);
+      for (const depth of [25, 50, 75, 100] as const) {
+        if (pct >= depth && !tracked[depth]) {
+          capture("scroll_depth", { depth, page: "landing" });
+          tracked[depth] = true;
+        }
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
@@ -53,7 +73,7 @@ export function Landing() {
           </div>
           <div className="landing-nav-actions">
             <Link to="/login" className="landing-nav-login-btn">Log in</Link>
-            <Link to="/signup" className="landing-btn-primary landing-nav-cta">Get started</Link>
+            <Link to="/signup" className="landing-btn-primary landing-nav-cta" onClick={() => capture("cta_clicked", { cta: "try_free", source: "landing_nav" })}>Get started</Link>
           </div>
         </div>
       </nav>
@@ -72,7 +92,7 @@ export function Landing() {
               Upload PDFs, import Anki decks, or just describe a topic in chat — flashr generates flashcards with AI so you can focus on learning, not formatting.
             </p>
             <div className="landing-hero-ctas">
-              <Link to="/signup" className="landing-btn-primary landing-btn-large">
+              <Link to="/signup" className="landing-btn-primary landing-btn-large" onClick={() => capture("cta_clicked", { cta: "try_free", source: "landing_hero" })}>
                 Start for free <ArrowRight size={16} strokeWidth={2} />
               </Link>
               <a href="#features" className="landing-btn-ghost landing-btn-large">
@@ -164,7 +184,7 @@ export function Landing() {
               <p className="landing-import-sub">
                 Already studying on Anki? Import your <strong>.apkg</strong> decks directly — every card comes with you. Drop in Markdown notes, Word docs, PDFs, or plain text and flashr generates new cards with AI on top of what you already have.
               </p>
-              <Link to="/signup" className="landing-btn-primary">
+              <Link to="/signup" className="landing-btn-primary" onClick={() => capture("cta_clicked", { cta: "try_free", source: "landing_import" })}>
                 Try it free <ArrowRight size={14} strokeWidth={2} />
               </Link>
             </div>
@@ -237,7 +257,7 @@ export function Landing() {
                 </div>
                 <p className="landing-plan-desc">Get started and build your first decks manually.</p>
               </div>
-              <Link to="/signup" className="landing-btn-ghost landing-plan-cta">Get started free</Link>
+              <Link to="/signup" className="landing-btn-ghost landing-plan-cta" onClick={() => capture("cta_clicked", { cta: "try_free", source: "landing_pricing" })}>Get started free</Link>
               <ul className="landing-plan-features">
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 3 collections</li>
                 <li><Check size={14} strokeWidth={2} className="landing-feat-yes" /> 50 cards per collection</li>

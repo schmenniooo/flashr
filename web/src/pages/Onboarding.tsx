@@ -1,3 +1,4 @@
+import { capture } from "../lib/analytics";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,7 +16,6 @@ import {
 import { Wordmark } from "../lib/logo";
 import { auth, useDb, selectCurrentUser } from "../lib/store";
 import type { LearnerType } from "../types";
-import { usePostHog } from "@posthog/react";
 import "./Onboarding.css";
 
 type Step = 0 | 1 | 2;
@@ -66,7 +66,6 @@ const LEARNER_OPTIONS: {
 
 export function Onboarding() {
   const navigate = useNavigate();
-  const posthog = usePostHog();
   const user = useDb(selectCurrentUser);
   const [step, setStep] = useState<Step>(0);
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
@@ -112,7 +111,7 @@ export function Onboarding() {
         age: ageNum,
         learnerTypes,
       });
-      posthog.capture("onboarding_completed", { learner_types: learnerTypes, age: ageNum });
+      capture("onboarding_completed", { learner_types: learnerTypes, age: ageNum });
       navigate("/app", { replace: true });
     } catch {
       setSaveError("Something went wrong — please try again.");

@@ -1,3 +1,4 @@
+import { capture } from "../lib/analytics";
 import { useRef, useState } from "react";
 import { toast } from "../lib/toast";
 import { Link, useNavigate } from "react-router-dom";
@@ -24,7 +25,6 @@ import { UpgradePrompt } from "../components/UpgradePrompt";
 import { AiChat } from "./upload/AiChat";
 import { ReviewStep } from "./upload/ReviewStep";
 import type { DraftCard } from "./upload/types";
-import { usePostHog } from "@posthog/react";
 import "./Upload.css";
 
 type Step = "drop" | "processing" | "review";
@@ -32,7 +32,6 @@ type ActiveTab = "pdf" | "chat";
 
 export function Upload() {
   const navigate = useNavigate();
-  const posthog = usePostHog();
   const collections = useDb(selectCollections);
   const currentUser = useDb(selectCurrentUser);
   const isPro = currentUser?.plan === "pro";
@@ -70,7 +69,10 @@ export function Upload() {
     setSkipped(0);
     setIsGenerating(true);
     setStep("processing");
-    posthog.capture("ai_generation_started", { method: "file", file_type: name.split(".").pop(), file_size_kb: Math.round(file.size / 1024) });
+    const fileExt = name.split(".").pop() ?? "";
+    if (fileExt !== "apkg") {
+      capture("ai_generation_started", { source: "file", file_type: fileExt, file_size_kb: Math.round(file.size / 1024) });
+    }
 
     abortRef.current?.abort();
     const abort = new AbortController();
@@ -167,6 +169,13 @@ export function Upload() {
       }
       if (buf) processLine(buf);
       flushEvent();
+      if (cardIndex > 0) {
+        if (fileExt === "apkg") {
+          capture("apkg_imported", { card_count: cardIndex });
+        } else {
+          capture("ai_generated", { card_count: cardIndex, source: "file", file_type: fileExt });
+        }
+      }
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
     } finally {
@@ -191,7 +200,8 @@ export function Upload() {
         collectionId = created.id;
       }
       await Promise.all(kept.map((d) => cardsApi.add(collectionId, { question: d.question, answer: d.answer, aiGenerated: true })));
-      posthog.capture("ai_cards_saved", { method: "file", cards_saved: kept.length, cards_discarded: drafts.length - kept.length, collection_id: collectionId, new_collection: target === "__new" });
+      const savedFileExt = fileName?.toLowerCase().split(".").pop() ?? "";
+      capture("cards_saved", { card_count: kept.length, skipped: drafts.length - kept.length, source: savedFileExt === "apkg" ? "anki" : "ai", collection_id: collectionId });
       toast.success(`${kept.length} card${kept.length === 1 ? "" : "s"} saved`);
       navigate(`/app/c/${collectionId}`);
     } catch {

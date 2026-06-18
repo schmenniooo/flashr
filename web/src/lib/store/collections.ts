@@ -1,4 +1,4 @@
-import posthog from "posthog-js";
+import { capture } from "../analytics";
 import { api } from "../api";
 import { state, setState, recalcProgress, recountFolders } from "./db";
 import { toast } from "../toast";
@@ -122,7 +122,7 @@ export const collectionsApi = {
           : db.folders;
         return { ...db, collections, folders: recountFolders(folders, collections) };
       });
-      posthog.capture("collection_created", { collection_name: col.name, folder: col.folder });
+      capture("collection_created", { collection_name: col.name, folder: col.folder });
       toast.success(`Collection "${col.name}" created`);
       return col;
     } catch (err) {
