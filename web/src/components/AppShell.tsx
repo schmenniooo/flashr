@@ -98,8 +98,20 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    return () => { delete document.documentElement.dataset.theme; };
+    if (theme !== "system") {
+      document.documentElement.dataset.theme = theme;
+      return () => { delete document.documentElement.dataset.theme; };
+    }
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      document.documentElement.dataset.theme = mq.matches ? "dark" : "light";
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      delete document.documentElement.dataset.theme;
+    };
   }, [theme]);
 
   useEffect(() => {
