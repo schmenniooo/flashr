@@ -18,6 +18,7 @@ import {
   Bell,
   Moon,
   Sun,
+  Monitor,
 } from "lucide-react";
 import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot, selectTheme, setTheme } from "../lib/store";
 import "./Profile.css";
@@ -293,6 +294,14 @@ export function Profile() {
             <span className="prof__appearance-hint">Takes effect across the entire app.</span>
           </div>
           <div className="prof__theme-toggle">
+            <button
+              type="button"
+              className={`prof__theme-btn${theme === "system" ? " prof__theme-btn--active" : ""}`}
+              onClick={() => setTheme("system")}
+            >
+              <Monitor size={14} strokeWidth={1.8} />
+              System
+            </button>
             <button
               type="button"
               className={`prof__theme-btn${theme === "dark" ? " prof__theme-btn--active" : ""}`}

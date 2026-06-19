@@ -35,7 +35,7 @@ export type Db = {
   collectionsLoading: boolean;
   // cards reviewed today (from review API responses, resets on reload)
   cardsToday: number;
-  theme: "dark" | "light";
+  theme: "dark" | "light" | "system";
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ function freshDb(): Db {
     bootstrapping: true,
     collectionsLoading: false,
     cardsToday: 0,
-    theme: "dark",
+    theme: "system",
   };
 }
 
@@ -98,7 +98,7 @@ function readDb(): Db {
       bootstrapping: true,
       collectionsLoading: false,
       cardsToday: 0,
-      theme: parsed.theme ?? "dark",
+      theme: parsed.theme ?? "system",
     };
   } catch {
     const fresh = freshDb();
@@ -193,7 +193,7 @@ export const selectKnownCards = (db: Db) =>
   db.collections.reduce((s, c) => s + c.cards.filter((k) => k.mastery === "known").length, 0);
 export const selectCardsToday = (db: Db) => db.cardsToday;
 export const selectTheme = (db: Db) => db.theme;
-export function setTheme(t: "dark" | "light") {
+export function setTheme(t: "dark" | "light" | "system") {
   setState((db) => ({ ...db, theme: t }));
 }
 

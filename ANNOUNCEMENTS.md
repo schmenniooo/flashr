@@ -8,6 +8,14 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.8.2
+  date: 2026-06-19
+  title: System theme support
+  description: >
+    flashr now follows your OS dark/light mode preference by default.
+    New users automatically get the right look without any setup.
+    You can still override to Dark or Light anytime in Profile → Appearance.
+
 - version: 1.8.1
   date: 2026-06-18
   title: Under-the-hood improvements
