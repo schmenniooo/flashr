@@ -365,6 +365,22 @@
   margin-top: var(--space-2);
 }
 
+/* ── Light mode overrides ── */
+
+[data-theme="light"] .study {
+  background:
+    radial-gradient(1000px 500px at 50% -200px, rgba(108, 99, 255, 0.06), transparent 70%),
+    var(--color-bg);
+}
+
+[data-theme="light"] .study__top {
+  background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+}
+
+[data-theme="light"] .study__card-face {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
 @media (max-width: 480px) {
   .study__top {
     padding: var(--space-3) var(--space-4);

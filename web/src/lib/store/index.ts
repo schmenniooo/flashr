@@ -15,6 +15,8 @@ export {
   selectCardsDueToday,
   selectCardsToday,
   selectKnownCards,
+  selectTheme,
+  setTheme,
 } from "./db";
 
 // Domain actions

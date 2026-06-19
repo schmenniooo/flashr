@@ -36,6 +36,7 @@
   --transition-fast: 0.1s ease;
   --transition-base: 0.2s ease;
   --transition-slow: 0.35s ease;
+  --transition-theme: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 
   --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -48,4 +49,8 @@
   --color-text:    #1A1A2E;
   --color-muted:   #6870A0;
   --color-border:  #DDE0F0;
+
+  --shadow-card:   0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-button: 0 4px 16px rgba(108, 99, 255, 0.3);
+  --shadow-glow:   0 0 30px rgba(108, 99, 255, 0.15);
 }
