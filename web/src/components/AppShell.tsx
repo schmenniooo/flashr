@@ -32,6 +32,7 @@ import {
   selectFolders,
   selectCurrentUser,
   selectCardsDueToday,
+  selectTheme,
   billingApi,
 } from "../lib/store";
 import { capture } from "../lib/analytics";
@@ -51,6 +52,7 @@ export function AppShell() {
   const folders = useDb(selectFolders);
   const user = useDb(selectCurrentUser);
   const cardsDueToday = useDb(selectCardsDueToday);
+  const theme = useDb(selectTheme);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
@@ -94,6 +96,11 @@ export function AppShell() {
     window.addEventListener("flashr:announcement-seen", onSeen);
     return () => window.removeEventListener("flashr:announcement-seen", onSeen);
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    return () => { delete document.documentElement.dataset.theme; };
+  }, [theme]);
 
   useEffect(() => {
     if (!sidebarOpen) return;

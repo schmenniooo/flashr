@@ -91,6 +91,7 @@ function makeDb(overrides: {
     bootstrapping: false,
     collectionsLoading: false,
     cardsToday: overrides.cardsToday ?? 0,
+    theme: "dark" as const,
   };
 }
 

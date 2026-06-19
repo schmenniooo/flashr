@@ -578,11 +578,11 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-5);
-  background: rgba(22, 25, 35, 0.9);
+  background: color-mix(in srgb, var(--color-surface) 95%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(108, 99, 255, 0.3);
   border-radius: var(--radius-lg);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25);
 }
 .up__save-summary {
   display: inline-flex;
@@ -853,7 +853,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(13, 15, 20, 0.5);
+  background: color-mix(in srgb, var(--color-bg) 70%, transparent);
   border-radius: var(--radius-lg);
   z-index: 10;
   backdrop-filter: blur(2px);

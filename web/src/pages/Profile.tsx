@@ -16,8 +16,10 @@ import {
   AlertTriangle,
   Crown,
   Bell,
+  Moon,
+  Sun,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot } from "../lib/store";
+import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot, selectTheme, setTheme } from "../lib/store";
 import "./Profile.css";
 
 function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
@@ -44,6 +46,7 @@ export function Profile() {
   const collectionsCount = useDb((db) => selectCollections(db).length);
   const totalCards = useDb(selectTotalCards);
   const knownCards = useDb(selectKnownCards);
+  const theme = useDb(selectTheme);
 
   const [form, setForm] = useState(currentUser);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
@@ -277,6 +280,38 @@ export function Profile() {
           </p>
         </div>
       </header>
+
+      {/* ── Appearance ── */}
+      <section className="prof__section">
+        <div className="prof__section-head">
+          <h2 className="text-h2">Appearance</h2>
+          <p className="text-body">Choose how flashr looks for you.</p>
+        </div>
+        <div className="prof__card prof__appearance">
+          <div className="prof__appearance-label">
+            <span className="prof__appearance-title">Theme</span>
+            <span className="prof__appearance-hint">Takes effect across the entire app.</span>
+          </div>
+          <div className="prof__theme-toggle">
+            <button
+              type="button"
+              className={`prof__theme-btn${theme === "dark" ? " prof__theme-btn--active" : ""}`}
+              onClick={() => setTheme("dark")}
+            >
+              <Moon size={14} strokeWidth={1.8} />
+              Dark
+            </button>
+            <button
+              type="button"
+              className={`prof__theme-btn${theme === "light" ? " prof__theme-btn--active" : ""}`}
+              onClick={() => setTheme("light")}
+            >
+              <Sun size={14} strokeWidth={1.8} />
+              Light
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* ── Identity card ── */}
       <section className="prof__section">
