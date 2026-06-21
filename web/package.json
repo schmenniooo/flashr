@@ -17,11 +17,11 @@
   "dependencies": {
     "@fontsource/dm-sans": "^5.2.8",
     "@posthog/react": "^1.10.2",
-    "lucide-react": "^1.18.0",
-    "posthog-js": "^1.386.8",
+    "lucide-react": "^1.21.0",
+    "posthog-js": "^1.391.2",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-router-dom": "^7.17.0"
+    "react-router-dom": "^7.18.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -30,11 +30,11 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.3.0",
+    "eslint": "^10.5.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.6.0",
-    "happy-dom": "^20.10.4",
+    "happy-dom": "^20.10.6",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.61.1",
     "vite": "^8.0.16",
