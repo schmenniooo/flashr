@@ -2,8 +2,8 @@ import { api } from "../api";
 import { capture } from "../analytics";
 
 export const billingApi = {
-  async checkout(email: string, withTrial = false): Promise<void> {
-    capture("checkout_started", { plan: "pro_monthly" });
+  async checkout(email: string, withTrial = false, source = "unknown"): Promise<void> {
+    capture("checkout_started", { plan: "pro_monthly", with_trial: withTrial, source });
     const { url } = await api<{ url: string }>("/billing/checkout", {
       method: "POST",
       body: JSON.stringify({ email, with_trial: withTrial }),
