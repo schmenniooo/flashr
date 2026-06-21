@@ -9,6 +9,7 @@
   --color-text:         #F0F2FF;
   --color-muted:        #8890A4;
   --color-border:       #2A2F45;
+  --color-danger:       #ff8b8b;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -49,6 +50,7 @@
   --color-text:    #1A1A2E;
   --color-muted:   #6870A0;
   --color-border:  #DDE0F0;
+  --color-danger:  #c0392b;
 
   --shadow-card:   0 2px 12px rgba(0, 0, 0, 0.08);
   --shadow-button: 0 4px 16px rgba(108, 99, 255, 0.3);
