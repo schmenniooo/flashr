@@ -251,6 +251,8 @@ export function Login() {
                 <div className="auth__input">
                   <User size={14} strokeWidth={1.8} />
                   <input
+                    id="name"
+                    name="name"
                     className="auth__input-inner"
                     type="text"
                     autoComplete="name"
@@ -268,6 +270,8 @@ export function Login() {
               <div className="auth__input">
                 <Mail size={14} strokeWidth={1.8} />
                 <input
+                  id="email"
+                  name="email"
                   className="auth__input-inner"
                   type="email"
                   autoComplete="email"
@@ -295,6 +299,8 @@ export function Login() {
               <div className="auth__input">
                 <Lock size={14} strokeWidth={1.8} />
                 <input
+                  id="password"
+                  name="password"
                   className="auth__input-inner"
                   type={showPw ? "text" : "password"}
                   autoComplete={
