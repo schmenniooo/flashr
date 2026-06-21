@@ -15,6 +15,7 @@ import {
 import { Wordmark } from "../lib/logo";
 import { API_BASE } from "../lib/api";
 import { auth, billingApi, selectNow, selectCurrentUser } from "../lib/store";
+import { getStoredUtm } from "../lib/analytics";
 import { STORAGE_KEYS } from "../lib/storageKeys";
 import "./Login.css";
 
@@ -64,7 +65,7 @@ export function Login() {
       if (user?.plan === "pro") {
         navigate("/app");
       } else {
-        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "", withTrial);
+        await billingApi.checkout(form.email || selectNow(selectCurrentUser)?.email || "", withTrial, mode === "signup" ? "post_signup" : "post_signin");
       }
     } else {
       navigate(defaultPath);
@@ -85,7 +86,7 @@ export function Login() {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
-    if (mode === "signup") capture("signup_started", { method: "email" });
+    if (mode === "signup") capture("signup_started", { method: "email", ...getStoredUtm() });
     try {
       const res =
         mode === "signin"
@@ -100,9 +101,9 @@ export function Login() {
         const user = selectNow(selectCurrentUser);
         if (mode === "signup") {
           if (user) identify(user.id, { email: user.email, name: `${user.firstName} ${user.lastName}`.trim(), plan: user.plan });
-          capture("signup_completed", { method: "email" });
+          capture("signup_completed", { method: "email", ...getStoredUtm() });
           if (wantsTrial) {
-            await billingApi.checkout(form.email, true);
+            await billingApi.checkout(form.email, true, "trial_signup");
           } else {
             await redirectAfterAuth("/onboarding");
           }

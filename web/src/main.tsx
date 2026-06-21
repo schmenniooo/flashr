@@ -8,6 +8,7 @@ import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { auth } from './lib/store'
 import { notificationsApi } from './lib/store/notifications'
+import { captureUtmContext } from './lib/analytics'
 import posthog from 'posthog-js'
 import { PostHogProvider } from '@posthog/react'
 
@@ -18,6 +19,7 @@ posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_PROJECT_TOKEN, {
   autocapture: false,
 })
 
+captureUtmContext();
 void auth.bootstrap().then(() => notificationsApi.init())
 
 if (typeof window !== "undefined") {

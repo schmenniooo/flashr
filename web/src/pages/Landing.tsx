@@ -3,16 +3,37 @@ import { Link, useNavigate } from "react-router-dom";
 import { FileUp, Sparkles, GraduationCap, ArrowRight, Check, X, MessageSquare, PackageOpen, FileText, FileCode, ShieldCheck, Trash2, Lock } from "lucide-react";
 import { Wordmark } from "../lib/logo";
 import { STORAGE_KEYS } from "../lib/storageKeys";
-import { capture } from "../lib/analytics";
+import { capture, getStoredUtm } from "../lib/analytics";
 import "./Landing.css";
+
+const MOCK_CARDS: Record<string, { question: string; answer: string; tags: string[] }> = {
+  default: {
+    question: "What is spaced repetition and why does it improve long-term retention?",
+    answer: "A study technique that increases intervals between reviews as confidence grows — exploiting the spacing effect to move knowledge into long-term memory.",
+    tags: ["Cognitive Science", "Memory"],
+  },
+  anki: {
+    question: "How do you import an Anki deck into flashr?",
+    answer: "Export your deck as an .apkg file, then drop it into flashr's upload tab — cards and tags are preserved automatically.",
+    tags: ["Import", "Anki"],
+  },
+  pdf: {
+    question: "Can flashr generate flashcards from a lecture PDF?",
+    answer: "Yes — upload the PDF and the AI extracts key concepts and turns them into question/answer pairs within seconds.",
+    tags: ["PDF", "AI Generation"],
+  },
+};
 
 export function Landing() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
 
-  function goToTrialSignup() {
-    capture("cta_clicked", { cta: "start_trial", source: "landing_hero" });
-    capture("upgrade_clicked", { source: "landing" });
+  const utm = getStoredUtm();
+  const mockCardSlug = utm.utm_content ?? utm.utm_campaign ?? "default";
+  const mockCard = MOCK_CARDS[mockCardSlug] ?? MOCK_CARDS.default;
+
+  function goToTrialSignup(source: string) {
+    capture("cta_clicked", { cta: "start_trial", source });
     try {
       sessionStorage.setItem(STORAGE_KEYS.CHECKOUT_INTENT, "pro");
       sessionStorage.setItem(STORAGE_KEYS.TRIAL_INTENT, "1");
@@ -109,17 +130,14 @@ export function Landing() {
                 AI generated
               </div>
               <div className="landing-mock-label">Question</div>
-              <p className="landing-mock-question">
-                What is spaced repetition and why does it improve long-term retention?
-              </p>
+              <p className="landing-mock-question">{mockCard.question}</p>
               <div className="landing-mock-divider" />
               <div className="landing-mock-label">Answer</div>
-              <p className="landing-mock-answer">
-                A study technique that increases intervals between reviews as confidence grows — exploiting the spacing effect to move knowledge into long-term memory.
-              </p>
+              <p className="landing-mock-answer">{mockCard.answer}</p>
               <div className="landing-mock-footer">
-                <span className="landing-mock-tag">Cognitive Science</span>
-                <span className="landing-mock-tag">Memory</span>
+                {mockCard.tags.map((tag) => (
+                  <span key={tag} className="landing-mock-tag">{tag}</span>
+                ))}
               </div>
             </div>
           </div>
@@ -280,7 +298,7 @@ export function Landing() {
               </div>
               <button
                 className="landing-btn-primary landing-plan-cta"
-                onClick={goToTrialSignup}
+                onClick={() => goToTrialSignup("landing_pricing")}
               >
                 Start 7-day free trial →
               </button>
@@ -322,42 +340,42 @@ export function Landing() {
           <h2 className="landing-section-title" data-animate>Common questions</h2>
           <div className="landing-faq-list" data-animate>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "Is flashr really free?" }); }}>
               <summary className="landing-faq-q">Is flashr really free?</summary>
               <p className="landing-faq-a">Yes. The Free plan is free forever — no trial, no expiry. You get 3 collections and 50 cards each. Upgrade to Pro for €7.99/month when you need AI generation and unlimited cards.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "Can I cancel my Pro subscription at any time?" }); }}>
               <summary className="landing-faq-q">Can I cancel my Pro subscription at any time?</summary>
               <p className="landing-faq-a">Yes, cancel anytime from your profile with one click. You keep Pro access until the end of the billing period — no questions asked, no lock-in.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "What file formats are supported?" }); }}>
               <summary className="landing-faq-q">What file formats are supported?</summary>
               <p className="landing-faq-a">PDF, Markdown (.md), Anki decks (.apkg), Word documents (.docx), GoodNotes exports, and plain text. Support for Notability and image-based notes (via OCR) is on the roadmap.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "Can I import my existing Anki decks?" }); }}>
               <summary className="landing-faq-q">Can I import my existing Anki decks?</summary>
               <p className="landing-faq-a">Yes. Export any deck from Anki as an .apkg file and upload it directly to flashr — all your cards are imported instantly. You can then keep studying as-is or use AI to expand the deck further.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "How good are the AI-generated cards?" }); }}>
               <summary className="landing-faq-q">How good are the AI-generated cards?</summary>
               <p className="landing-faq-a">Good enough to save you real time — but you always review before saving. You can edit, rewrite, or discard any card before it hits your deck. The AI handles the first draft; you stay in control.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "Do you store my uploaded notes and PDFs?" }); }}>
               <summary className="landing-faq-q">Do you store my uploaded notes and PDFs?</summary>
               <p className="landing-faq-a">No. Uploaded files are processed in memory and deleted immediately after your flashcards are generated. Only the cards you choose to save are stored — your original notes never sit on our servers.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "Does flashr share or sell my data?" }); }}>
               <summary className="landing-faq-q">Does flashr share or sell my data?</summary>
               <p className="landing-faq-a">Never. flashr earns money through subscriptions only. Your notes and cards are never shared with third parties, advertisers, or used to train AI models.</p>
             </details>
 
-            <details className="landing-faq-item">
+            <details className="landing-faq-item" onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) capture("faq_opened", { question: "I have a question — how do I contact you?" }); }}>
               <summary className="landing-faq-q">I have a question — how do I contact you?</summary>
               <p className="landing-faq-a">Email us at <a href="mailto:support@flashr.io" className="landing-faq-link">support@flashr.io</a> — we reply within 24 hours.</p>
             </details>
@@ -370,7 +388,7 @@ export function Landing() {
         <div className="landing-cta-glow" aria-hidden="true" />
         <div className="landing-section-inner landing-section-inner--narrow" data-animate>
           <h2 className="landing-cta-title">Stop copying notes.<br />Start retaining them.</h2>
-          <button className="landing-btn-primary landing-btn-large" onClick={goToTrialSignup}>
+          <button className="landing-btn-primary landing-btn-large" onClick={() => goToTrialSignup("landing_final_cta")}>
             Start free trial <ArrowRight size={16} strokeWidth={2} />
           </button>
           <p className="landing-cta-caption">7-day free Pro trial — cancel anytime</p>

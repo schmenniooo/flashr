@@ -1,4 +1,4 @@
-import { capture, identify, reset } from "../analytics";
+import { capture, identify, reset, getStoredUtm } from "../analytics";
 import { api, ApiError, setToken, API_BASE } from "../api";
 import { state, setState, seedCollections, seedFolders } from "./db";
 import { collectionsApi } from "./collections";
@@ -187,6 +187,7 @@ export const auth = {
         email: res.user.email,
         name: res.user.name ?? "",
         plan: res.user.plan,
+        $set_once: getStoredUtm(),
       });
       capture("user_signed_in", { method: "oauth" });
       void collectionsApi.load().catch(console.error);
@@ -220,6 +221,7 @@ export const auth = {
         email: res.user.email,
         name: res.user.name ?? "",
         plan: res.user.plan,
+        $set_once: getStoredUtm(),
       });
       await collectionsApi.load();
     } catch (err) {
