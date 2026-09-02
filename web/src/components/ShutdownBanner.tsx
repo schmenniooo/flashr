@@ -26,7 +26,7 @@ export function ShutdownBanner() {
   }
 
   return (
-    <div className="shutdown-banner" role="alert">
+    <div className="shutdown-banner" role="status">
       <div className="shutdown-banner__inner">
         <AlertTriangle size={16} strokeWidth={2} className="shutdown-banner__icon" />
         <p className="shutdown-banner__text">
