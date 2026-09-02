@@ -6,7 +6,8 @@ export function buildExportPayload(
   collections: Collection[],
   folders: Folder[],
 ) {
-  const { password: _password, id: _id, ...profile } = user;
+  const profile: Partial<StoredUser> = { ...user };
+  delete profile.password;
   return {
     exportedAt: new Date().toISOString(),
     profile,
