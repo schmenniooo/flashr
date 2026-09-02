@@ -8,6 +8,15 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.8.3
+  date: 2026-09-02
+  title: flashr is shutting down on September 5, 2026
+  description: >
+    We're winding down flashr. Your account and all your data will be
+    permanently deleted on September 5, 2026 — please save or back up
+    anything you want to keep before then. You'll see a reminder banner
+    across the app until then.
+
 - version: 1.8.2
   date: 2026-06-19
   title: System theme support

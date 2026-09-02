@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { RequireAuth, RequireOnboarded } from "./components/RequireAuth";
 import { AppLoader } from "./components/AppLoader";
 import { Toaster } from "./components/Toaster";
+import { ShutdownBanner } from "./components/ShutdownBanner";
 import { useDb, selectCollectionsLoading, selectSession } from "./lib/store";
 
 // Core pages — eagerly loaded. They're always accessed post-login and
@@ -79,6 +80,7 @@ function GlobalLoader() {
 function App() {
   return (
     <>
+      <ShutdownBanner />
       <GlobalLoader />
       <RouterProvider router={router} />
       <Toaster />
