@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import "./Legal.css";
 
 export function TermsOfService() {
@@ -16,7 +16,17 @@ export function TermsOfService() {
 
       <main className="legal-content">
         <h1 className="legal-title">Terms of Service</h1>
-        <p className="legal-meta">Effective date: May 8, 2026</p>
+        <p className="legal-meta">Effective date: May 8, 2026 · Last updated: September 2, 2026</p>
+
+        <div className="legal-notice">
+          <AlertTriangle size={18} strokeWidth={2} />
+          <p>
+            <strong>flashr is shutting down on September 5, 2026.</strong> We
+            are discontinuing the Service on that date. See{" "}
+            <strong>Section 10 (Termination)</strong> below for what this
+            means for your account, your data, and any active subscription.
+          </p>
+        </div>
 
         <section className="legal-section">
           <h2>1. Acceptance of Terms</h2>
@@ -215,6 +225,22 @@ export function TermsOfService() {
           <p>
             Upon termination, your data will be deleted in accordance with our{" "}
             <Link to="/privacy">Privacy Policy</Link>.
+          </p>
+
+          <h3>10.1 Service Shutdown</h3>
+          <p>
+            We are discontinuing flashr entirely. The Service will stop operating and
+            your account and all associated data will be permanently deleted on{" "}
+            <strong>September 5, 2026</strong>. Before that date, you can download a
+            copy of your data from Profile → Your data → Export data.
+          </p>
+          <p>
+            Active Pro subscriptions will be cancelled ahead of the shutdown date and
+            you will not be charged for any billing period starting on or after{" "}
+            September 5, 2026. If you were charged for time you were unable to use
+            because of the shutdown, contact{" "}
+            <a href="mailto:support@flashr.io">support@flashr.io</a> for a pro-rated
+            refund.
           </p>
         </section>
 

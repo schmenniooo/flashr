@@ -19,8 +19,10 @@ import {
   Moon,
   Sun,
   Monitor,
+  Download,
 } from "lucide-react";
-import { auth, billingApi, selectCollections, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot, selectTheme, setTheme } from "../lib/store";
+import { auth, billingApi, selectCollections, selectFolders, selectCurrentUser, selectNow, selectTotalCards, selectKnownCards, useDb, notificationsApi, subscribeNotif, getNotifSnapshot, selectTheme, setTheme } from "../lib/store";
+import { downloadUserDataExport } from "../lib/exportData";
 import "./Profile.css";
 
 function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
@@ -44,7 +46,9 @@ function resizeImage(file: File, maxPx = 400, quality = 0.85): Promise<string> {
 export function Profile() {
   const navigate = useNavigate();
   const currentUser = useDb(selectCurrentUser);
-  const collectionsCount = useDb((db) => selectCollections(db).length);
+  const collections = useDb(selectCollections);
+  const folders = useDb(selectFolders);
+  const collectionsCount = collections.length;
   const totalCards = useDb(selectTotalCards);
   const knownCards = useDb(selectKnownCards);
   const theme = useDb(selectTheme);
@@ -250,6 +254,12 @@ export function Profile() {
         setPushError("Could not update notification settings — please try again.");
       }
     }
+  }
+
+  function handleExportData() {
+    if (!currentUser) return;
+    capture("data_export_downloaded");
+    downloadUserDataExport(currentUser, collections, folders);
   }
 
   function handleSignOut() {
@@ -626,6 +636,34 @@ export function Profile() {
           <div>
             <div className="prof__glance-val">{collectionsCount}</div>
             <div className="prof__glance-lbl">collections</div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Your data ── */}
+      <section className="prof__section">
+        <div className="prof__section-head">
+          <h2 className="text-h2">Your data</h2>
+          <p className="text-body">
+            flashr is shutting down on September 5, 2026. Download a copy of
+            your profile, folders, collections, and cards before then.
+          </p>
+        </div>
+
+        <div className="prof__card prof__danger">
+          <div className="prof__danger-row">
+            <div>
+              <div className="prof__danger-title">Export your data</div>
+              <div className="prof__danger-hint">
+                Downloads a JSON file with everything in your account —{" "}
+                {collectionsCount} {collectionsCount === 1 ? "collection" : "collections"},{" "}
+                {totalCards} {totalCards === 1 ? "card" : "cards"}, and your profile info.
+              </div>
+            </div>
+            <button className="btn-primary" onClick={handleExportData}>
+              <Download size={13} strokeWidth={2} />
+              Export data
+            </button>
           </div>
         </div>
       </section>

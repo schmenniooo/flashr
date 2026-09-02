@@ -8,6 +8,16 @@ User-facing changelog. Each entry represents a release visible to users.
 ## Releases
 
 ```yaml
+- version: 1.8.4
+  date: 2026-09-02
+  title: Export your data before the shutdown
+  description: >
+    Ahead of flashr's shutdown on September 5, 2026, you can now download a
+    full copy of your data — profile, folders, collections, and cards — as
+    a JSON file from Profile → Your data → Export data. Our Privacy Policy
+    and Terms of Service have also been updated with the shutdown date and
+    what it means for your account and any active subscription.
+
 - version: 1.8.3
   date: 2026-09-02
   title: flashr is shutting down on September 5, 2026

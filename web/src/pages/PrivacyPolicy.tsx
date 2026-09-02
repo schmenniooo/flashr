@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import "./Legal.css";
 
 export function PrivacyPolicy() {
@@ -16,7 +16,19 @@ export function PrivacyPolicy() {
 
       <main className="legal-content">
         <h1 className="legal-title">Privacy Policy</h1>
-        <p className="legal-meta">Last updated: June 16, 2026</p>
+        <p className="legal-meta">Last updated: September 2, 2026</p>
+
+        <div className="legal-notice">
+          <AlertTriangle size={18} strokeWidth={2} />
+          <p>
+            <strong>flashr is shutting down on September 5, 2026.</strong> On
+            that date, we will permanently delete all accounts and all
+            associated data. You can request your data or exercise any of
+            the rights below at any time before then — see{" "}
+            <strong>Section 6 (Your Rights)</strong> for how to export or
+            delete your data.
+          </p>
+        </div>
 
         <section className="legal-section">
           <h2>1. Controller</h2>
@@ -189,6 +201,12 @@ export function PrivacyPolicy() {
             <li>Analytics data (PostHog): 1 year from last activity, then anonymised</li>
             <li>Server logs: 7 days</li>
           </ul>
+          <p>
+            <strong>Service shutdown:</strong> flashr is discontinuing operations. All
+            account data, user content, and payment references still held by us will be
+            permanently deleted on <strong>September 5, 2026</strong>, ahead of the
+            retention periods above.
+          </p>
         </section>
 
         <hr className="legal-divider" />
@@ -235,6 +253,13 @@ export function PrivacyPolicy() {
             You can also exercise your <strong>right to erasure</strong> (Art. 17 GDPR) directly
             in the app: Profile → Delete Account. This will permanently and irreversibly delete
             your account and all associated data.
+          </p>
+          <p>
+            To exercise your <strong>right to data portability</strong> (Art. 20 GDPR), go to
+            Profile → Your data → Export data. This downloads a machine-readable JSON file
+            containing your profile, folders, collections, and cards. We recommend doing this
+            before September 5, 2026, when all data is permanently deleted as part of flashr's
+            shutdown.
           </p>
           <p>
             You also have the right to lodge a complaint with a data protection supervisory
