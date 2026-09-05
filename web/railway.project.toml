@@ -1,0 +1,30 @@
+# flashr-web-app — Railway topology snapshot for the frontend service.
+#
+# This is a reference document, not something Railway reads automatically.
+# `web/railway.toml` is the real Config as Code file Railway reads for this
+# service's build/deploy settings. This file covers what Config as Code
+# cannot express — source/branch mapping, domains, and variable NAMES (never
+# values — secrets never touch source control).
+#
+# Part of the flashr Railway snapshot captured 2026-09-05 ahead of a planned
+# prod/staging teardown. See ../railway/project.toml for the rest of the
+# project (Postgres, Ollama, backend) and the full rebuild checklist.
+
+[service]
+kind = "repo"
+repo = "schmenniooo/flashr"
+root_directory = "/web"
+config_file = "web/railway.toml"
+
+[service.production]
+branch = "main"
+custom_domain = "flashr.io"
+target_port = 8080
+variables = ["VITE_API_URL", "VITE_PUBLIC_POSTHOG_HOST", "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN"]
+
+[service.staging]
+branch = "staging"
+service_domain = "flashr-web-app-staging.up.railway.app"
+target_port = 8080
+variables = ["VITE_API_URL"]
+notes = "Staging is missing the PostHog variables present in production."

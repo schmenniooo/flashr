@@ -1,0 +1,105 @@
+# flashr Railway project snapshot
+#
+# Captured 2026-09-05 from the live "flashr" project (SmithLabs workspace,
+# project id 0b20b3f5-e19a-4572-8071-118b3ed529be) ahead of a planned prod +
+# staging teardown.
+#
+# `backend/railway.toml` and `web/railway.toml` are the real Config as Code
+# files Railway reads per-service (build/deploy settings only). This file
+# documents everything Config as Code *cannot* express — services, source
+# repo/branch mapping, images, domains, volumes, networking, and variable
+# NAMES — so the project can be rebuilt by hand. It is a reference document,
+# not something Railway reads automatically.
+#
+# The frontend service's topology (flashr-web-app) lives separately at
+# ../web/railway.project.toml, next to its own Config as Code file.
+#
+# Variable VALUES are never stored here — only names, so secrets never touch
+# source control. Re-populate values from your secrets manager / Stripe /
+# Google & GitHub OAuth apps / VAPID keypair when recreating.
+
+[project]
+name = "flashr"
+workspace = "SmithLabs"
+
+[environments.production]
+tracks_branch = "main"
+
+[environments.staging]
+tracks_branch = "staging"
+
+[region]
+# Both environments run every service in a single region with 1 replica.
+default = "europe-west4-drams3a"
+replicas = 1
+
+# ---------------------------------------------------------------------------
+# Postgres — identical config in both environments.
+[services.postgres]
+kind = "docker-image"
+image = "ghcr.io/railwayapp-templates/postgres-ssl:18"
+private_domain = "postgres"
+tcp_proxy_port = 5432
+volume_mount_path = "/var/lib/postgresql/data"
+variables = [
+  "DATABASE_PUBLIC_URL", "DATABASE_URL", "PGDATA", "PGDATABASE", "PGHOST",
+  "PGPASSWORD", "PGPORT", "PGUSER", "POSTGRES_DB", "POSTGRES_PASSWORD",
+  "POSTGRES_USER", "RAILWAY_DEPLOYMENT_DRAINING_SECONDS", "SSL_CERT_DAYS",
+]
+notes = "Staging additionally exposes the postgres-ha conversion template (Patroni failover + etcd) as an option — it is NOT enabled, just available in the dashboard."
+
+# Ollama — identical config in both environments.
+[services.ollama]
+kind = "docker-image"
+image = "ollama/ollama"
+private_domain = "ollama"
+volume_mount_path = "/root/.ollama"
+start_command = "/bin/sh -c \"ollama serve & until ollama list >/dev/null 2>&1; do sleep 1; done; ollama pull llama3.2:3b; wait\""
+variables = ["OLLAMA_HOST", "OLLAMA_ORIGINS"]
+notes = "Self-bootstraps the llama3.2:3b model on first boot (see project_infra_decisions memory). No custom domain — reached only over the private network as OLLAMA_URL from the backend."
+
+# flashr-backend-service — source-deployed, repo schmenniooo/flashr, rootDirectory /backend.
+[services.backend]
+kind = "repo"
+repo = "schmenniooo/flashr"
+root_directory = "/backend"
+config_file = "backend/railway.toml"
+variables = [
+  "ALLOWED_ORIGINS", "BACKEND_URL", "DATABASE_URL", "FRONTEND_URL", "GIN_MODE",
+  "GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET", "GITHUB_TOKEN", "GOOGLE_CLIENT_ID",
+  "GOOGLE_CLIENT_SECRET", "JWT_SECRET", "OLLAMA_URL", "PORT",
+  "STORAGE_ACCESS_KEY_ID", "STORAGE_BUCKET", "STORAGE_ENDPOINT",
+  "STORAGE_SECRET_ACCESS_KEY", "STRIPE_PRO_PRICE_ID", "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET", "VAPID_PRIVATE_KEY", "VAPID_PUBLIC_KEY",
+]
+
+[services.backend.production]
+branch = "main"
+custom_domain = "api.flashr.io"
+target_port = 8080
+
+[services.backend.staging]
+branch = "staging"
+custom_domain = "none — private network only, no generated or custom domain"
+target_port = 8080
+notes = "Staging is missing VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY compared to production — see project_staging_bugs memory for other known staging gaps."
+
+# flashr-web-app — source-deployed, repo schmenniooo/flashr, rootDirectory /web.
+# Its topology snapshot lives alongside the frontend at ../web/railway.project.toml.
+
+# ---------------------------------------------------------------------------
+# Rebuild checklist:
+# 1. railway init — create the "flashr" project in the SmithLabs workspace.
+# 2. railway environment new staging (production is the default environment).
+# 3. Add Postgres and Ollama from their images above in each environment; set
+#    volume mounts as listed.
+# 4. Add flashr-backend-service and flashr-web-app from schmenniooo/flashr,
+#    with rootDirectory /backend and /web; link main -> production and
+#    staging -> staging branches (frontend details: ../web/railway.project.toml).
+# 5. Re-set every variable listed above (backend here, frontend in
+#    web/railway.project.toml) per service/environment from your secrets
+#    manager — none of the values are stored in this repo.
+# 6. Re-attach api.flashr.io and flashr.io as custom domains on production;
+#    re-point DNS (CNAME) once Railway issues the new target.
+# 7. Deploy — backend/railway.toml and web/railway.toml supply the per-service
+#    build/deploy settings automatically.
