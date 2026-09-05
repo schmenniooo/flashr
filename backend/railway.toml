@@ -1,0 +1,8 @@
+# Config as Code for the flashr-backend-service.
+# Pins the builder explicitly so a from-scratch rebuild picks Railpack's Go
+# buildpack instead of the backend/Dockerfile (kept for local/manual builds only).
+# No build/start command overrides — Railpack autodetects `go build ./cmd/server`
+# from go.mod, matching current production and staging behavior exactly.
+
+[build]
+builder = "RAILPACK"
