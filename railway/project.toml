@@ -11,6 +11,9 @@
 # NAMES — so the project can be rebuilt by hand. It is a reference document,
 # not something Railway reads automatically.
 #
+# The frontend service's topology (flashr-web-app) lives separately at
+# ../web/railway.project.toml, next to its own Config as Code file.
+#
 # Variable VALUES are never stored here — only names, so secrets never touch
 # source control. Re-populate values from your secrets manager / Stripe /
 # Google & GitHub OAuth apps / VAPID keypair when recreating.
@@ -82,24 +85,7 @@ target_port = 8080
 notes = "Staging is missing VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY compared to production — see project_staging_bugs memory for other known staging gaps."
 
 # flashr-web-app — source-deployed, repo schmenniooo/flashr, rootDirectory /web.
-[services.web]
-kind = "repo"
-repo = "schmenniooo/flashr"
-root_directory = "/web"
-config_file = "web/railway.toml"
-
-[services.web.production]
-branch = "main"
-custom_domain = "flashr.io"
-target_port = 8080
-variables = ["VITE_API_URL", "VITE_PUBLIC_POSTHOG_HOST", "VITE_PUBLIC_POSTHOG_PROJECT_TOKEN"]
-
-[services.web.staging]
-branch = "staging"
-service_domain = "flashr-web-app-staging.up.railway.app"
-target_port = 8080
-variables = ["VITE_API_URL"]
-notes = "Staging is missing the PostHog variables present in production."
+# Its topology snapshot lives alongside the frontend at ../web/railway.project.toml.
 
 # ---------------------------------------------------------------------------
 # Rebuild checklist:
@@ -109,9 +95,10 @@ notes = "Staging is missing the PostHog variables present in production."
 #    volume mounts as listed.
 # 4. Add flashr-backend-service and flashr-web-app from schmenniooo/flashr,
 #    with rootDirectory /backend and /web; link main -> production and
-#    staging -> staging branches.
-# 5. Re-set every variable listed above per service/environment from your
-#    secrets manager (none of the values are stored in this repo).
+#    staging -> staging branches (frontend details: ../web/railway.project.toml).
+# 5. Re-set every variable listed above (backend here, frontend in
+#    web/railway.project.toml) per service/environment from your secrets
+#    manager — none of the values are stored in this repo.
 # 6. Re-attach api.flashr.io and flashr.io as custom domains on production;
 #    re-point DNS (CNAME) once Railway issues the new target.
 # 7. Deploy — backend/railway.toml and web/railway.toml supply the per-service
